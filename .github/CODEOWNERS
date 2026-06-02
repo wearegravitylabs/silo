@@ -1,0 +1,8 @@
+# Global owners
+* @wearegravitylabs/core
+
+# Backend
+/api/ @wearegravitylabs/core
+
+# Frontend
+/web/ @wearegravitylabs/core
