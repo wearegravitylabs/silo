@@ -71,9 +71,9 @@ make migrate-up
 
 See [docs/self-hosting.md](docs/self-hosting.md) for full self-hosting guide.
 
-## Open-Core Architecture
+## Architecture
 
-The core codebase is fully open-source under AGPL v3. Cloud-only features (Plaid bank connections, Stripe billing, push notifications) are implemented in a separate private repository that extends the core via well-defined interfaces in [`api/ports/`](api/ports/). See [docs/open-core.md](docs/open-core.md) for details.
+The core codebase is fully open-source under AGPL v3. The managed cloud version adds features like Plaid bank connections, push notifications, and subscription billing on top of the same open-source core.
 
 ## Contributing
 

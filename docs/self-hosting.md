@@ -96,11 +96,11 @@ cat backup-20260602.sql | docker compose exec -T postgres psql -U silo silo
 | DigitalOcean | Basic Droplet (2 vCPU, 4 GB) | ~$12 |
 | Fly.io | shared-cpu-2x | ~$10 |
 
-## Limitations vs Cloud Version
+## Self-Hosted vs Cloud
 
 The self-hosted version does not include:
-- Plaid bank connections (manual entry instead)
+- Plaid bank connections (use manual balance entry instead)
 - Push notifications
-- Subscription billing
+- Managed hosting and automated backups
 
-See [open-core.md](open-core.md) for details on the feature split.
+The managed cloud version at [silo.app](https://silo.app) includes these features if you prefer not to run your own infrastructure. See [cloud-vs-self-hosted](open-core.md) for the full comparison.

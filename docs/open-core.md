@@ -1,75 +1,22 @@
-# Open-Core Architecture
+# Cloud vs Self-Hosted
 
-Silo uses an **open-core** model: the full application is AGPL v3 open-source, and cloud-only features (Plaid bank connections, Stripe billing, push notifications) live in a separate private repository (`wearegravitylabs/silo-cloud`) that imports the core.
+Silo is fully open-source (AGPL v3). The managed cloud version builds on the same codebase and adds convenience features for users who don't want to self-host.
 
-## How it works
+## Feature Matrix
 
-### 1. Interface contracts (`api/ports/ports.go`)
-
-The public repo defines Go interfaces for every cloud-only capability:
-
-```go
-// BankConnector abstracts Plaid and similar open-banking integrations.
-type BankConnector interface {
-    CreateLinkToken(ctx context.Context, userID uuid.UUID) (string, error)
-    GetAccounts(ctx context.Context, userID uuid.UUID) ([]BankAccount, error)
-    SyncBalances(ctx context.Context, userID uuid.UUID) error
-    // ...
-}
-```
-
-### 2. Dependency injection (`api/app/dependency.go`)
-
-The `Dependency` struct holds optional fields for each port:
-
-```go
-type Dependency struct {
-    // ... stores and third-party services
-
-    // Cloud ports — nil in the OSS build
-    BankConnector        ports.BankConnector        // Plaid
-    NotificationProvider ports.NotificationProvider // FCM / APNs
-    BillingProvider      ports.BillingProvider      // Stripe
-}
-```
-
-### 3. OSS binary
-
-In the self-hosted build, these fields are `nil`. Service code nil-checks before using them:
-
-```go
-if dp.BankConnector == nil {
-    // Fall back to manual bank balance entry
-    return model.ErrFeatureCloudOnly
-}
-```
-
-### 4. Cloud binary (`silo-cloud`)
-
-The private repo:
-- Imports `github.com/wearegravitylabs/silo/api` as a dependency
-- Implements the `ports.*` interfaces (PlaidConnector, StripeProvider, FCMProvider)
-- Calls `app.InitDp(...)` and then injects its implementations:
-
-```go
-dp := app.InitDp(store, env)
-dp.BankConnector = plaid.New(env.Get("PLAID_CLIENT_ID"), env.Get("PLAID_SECRET"))
-dp.BillingProvider = stripe.New(env.Get("STRIPE_SECRET_KEY"))
-```
-
-## Feature matrix
-
-| Feature | OSS (self-hosted) | Cloud (managed) |
+| Feature | Self-Hosted (OSS) | Cloud (Managed) |
 |---------|:-----------------:|:---------------:|
 | All asset/debt tracking | ✅ | ✅ |
 | Auto-Pilot rules | ✅ | ✅ |
-| AI insights (own key) | ✅ | ✅ |
+| AI insights (bring your own key) | ✅ | ✅ |
 | Vault encryption | ✅ | ✅ |
 | Multi-user portfolios | ✅ | ✅ |
+| Export (PDF, CSV, JSON) | ✅ | ✅ |
+| Fast Forward projections | ✅ | ✅ |
 | Bank connections (Plaid) | ❌ | ✅ |
 | Push notifications | ❌ | ✅ |
 | Subscription billing | ❌ | ✅ |
-| Managed hosting | ❌ | ✅ |
+| Managed hosting & backups | ❌ | ✅ |
 
 ## Why AGPL v3?
 
