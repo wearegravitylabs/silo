@@ -9,8 +9,8 @@ import (
 	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
-	"github.com/wearegravitylabs/silo/api/pkg/contexts"
 	"github.com/wearegravitylabs/silo/api/pkg/messages"
+	"github.com/wearegravitylabs/silo/api/pkg/middleware"
 )
 
 const serviceName = "folder"
@@ -18,26 +18,21 @@ const serviceName = "folder"
 type handler struct{ svc appFolder.Folder }
 
 // New registers folder routes under /portfolios/:portfolioID/folders.
-func New(r *gin.RouterGroup, svc appFolder.Folder) {
+// Role middleware is applied per route — token validation is handled upstream
+// by the protected group's RequireAuth middleware.
+func New(r *gin.RouterGroup, svc appFolder.Folder, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios/:portfolioID/folders")
-	g.POST("", h.create)
-	g.GET("", h.list)
-	g.PATCH("/:id", h.update)
-	g.DELETE("/:id", h.delete)
-	g.PUT("/reorder", h.reorder)
+
+	// Any portfolio member can list folders.
+	g.GET("", mid.RequirePortfolioMember(), h.list)
+
+	// Creating, renaming, deleting, and reordering require at least Editor.
+	g.POST("", mid.RequirePortfolioEditor(), h.create)
+	g.PATCH("/:id", mid.RequirePortfolioEditor(), h.update)
+	g.DELETE("/:id", mid.RequirePortfolioEditor(), h.delete)
+	g.PUT("/reorder", mid.RequirePortfolioEditor(), h.reorder)
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-// callerID extracts the authenticated user's UUID from the request context.
-// The JWT middleware must have already validated the token and injected this value.
-func callerID(c *gin.Context) (uuid.UUID, bool) {
-	id, ok := c.Request.Context().Value(contexts.ContextKeyUserID).(uuid.UUID)
-	return id, ok
-}
-
-// ─── Handlers ────────────────────────────────────────────────────────────────
 
 // create godoc
 //
@@ -50,12 +45,6 @@ func callerID(c *gin.Context) (uuid.UUID, bool) {
 //	@Success	201			{object}	model.Folder
 //	@Router		/portfolios/{portfolioID}/folders [post]
 func (h *handler) create(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
 	portfolioID, err := uuid.Parse(c.Param("portfolioID"))
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
@@ -68,7 +57,7 @@ func (h *handler) create(c *gin.Context) {
 		return
 	}
 
-	folder, err := h.svc.Create(c.Request.Context(), portfolioID, userID, req)
+	folder, err := h.svc.Create(c.Request.Context(), portfolioID, req)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -86,19 +75,13 @@ func (h *handler) create(c *gin.Context) {
 //	@Success	200			{array}		model.Folder
 //	@Router		/portfolios/{portfolioID}/folders [get]
 func (h *handler) list(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
 	portfolioID, err := uuid.Parse(c.Param("portfolioID"))
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
 	}
 
-	folders, err := h.svc.List(c.Request.Context(), portfolioID, userID)
+	folders, err := h.svc.List(c.Request.Context(), portfolioID)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -119,12 +102,6 @@ func (h *handler) list(c *gin.Context) {
 //	@Success	200			{object}	model.Folder
 //	@Router		/portfolios/{portfolioID}/folders/{id} [patch]
 func (h *handler) update(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
 	folderID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
@@ -137,7 +114,7 @@ func (h *handler) update(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.svc.Update(c.Request.Context(), folderID, userID, req)
+	updated, err := h.svc.Update(c.Request.Context(), folderID, req)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -156,19 +133,13 @@ func (h *handler) update(c *gin.Context) {
 //	@Success	200			{object}	apiModel.APIResponse
 //	@Router		/portfolios/{portfolioID}/folders/{id} [delete]
 func (h *handler) delete(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
 	folderID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
 	}
 
-	if err := h.svc.Delete(c.Request.Context(), folderID, userID); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), folderID); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
@@ -187,12 +158,6 @@ func (h *handler) delete(c *gin.Context) {
 //	@Success	200			{object}	apiModel.APIResponse
 //	@Router		/portfolios/{portfolioID}/folders/reorder [put]
 func (h *handler) reorder(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
 	portfolioID, err := uuid.Parse(c.Param("portfolioID"))
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
@@ -205,7 +170,7 @@ func (h *handler) reorder(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Reorder(c.Request.Context(), portfolioID, userID, req); err != nil {
+	if err := h.svc.Reorder(c.Request.Context(), portfolioID, req); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}

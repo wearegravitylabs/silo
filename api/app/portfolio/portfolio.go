@@ -16,23 +16,24 @@ import (
 //go:generate mockgen -source portfolio.go -destination ../mock/portfolio/mock_portfolio.go -package portfolio Portfolio
 
 // Portfolio defines portfolio lifecycle and collaboration operations.
+// Permission enforcement (membership and role) is handled at the HTTP layer
+// via middleware. This service contains only business logic.
 type Portfolio interface {
-	// Create creates a new portfolio and adds the caller as its first owner.
-	Create(ctx context.Context, userID uuid.UUID, req model.CreatePortfolioRequest) (model.Portfolio, error)
-	// GetByID fetches a portfolio. The caller must be a member.
-	GetByID(ctx context.Context, portfolioID, callerID uuid.UUID) (model.Portfolio, error)
-	// ListByUser returns portfolios the caller is a member of, with optional filters and pagination.
+	// Create creates a new portfolio and registers callerID as its first owner.
+	Create(ctx context.Context, callerID uuid.UUID, req model.CreatePortfolioRequest) (model.Portfolio, error)
+	// GetByID fetches a portfolio by ID. Caller access must be verified before calling.
+	GetByID(ctx context.Context, id uuid.UUID) (model.Portfolio, error)
+	// ListByUser returns the caller's portfolios with optional filters and pagination.
 	ListByUser(ctx context.Context, userID uuid.UUID, filter model.ListPortfoliosFilter, page model.Page) ([]model.Portfolio, model.PageInfo, error)
-	// Update applies changes to a portfolio. Caller must be Owner or Editor.
-	Update(ctx context.Context, portfolioID, callerID uuid.UUID, req model.UpdatePortfolioRequest) (model.Portfolio, error)
-	// Delete soft-deletes a portfolio. Caller must be Owner.
-	Delete(ctx context.Context, portfolioID, callerID uuid.UUID) error
-	// AddMember invites a user (by email) to the portfolio. Caller must be Owner.
+	// Update applies changes to a portfolio. Caller access must be verified before calling.
+	Update(ctx context.Context, id uuid.UUID, req model.UpdatePortfolioRequest) (model.Portfolio, error)
+	// Delete soft-deletes a portfolio. Caller access must be verified before calling.
+	Delete(ctx context.Context, id uuid.UUID) error
+	// AddMember adds a user (by email) to the portfolio with the given role.
+	// callerID is stored as InvitedBy.
 	AddMember(ctx context.Context, portfolioID, callerID uuid.UUID, req model.InviteMemberRequest) error
-	// RemoveMember removes a member. Caller must be Owner. Cannot remove the last owner.
-	RemoveMember(ctx context.Context, portfolioID, callerID, targetUserID uuid.UUID) error
-	// HasPermission reports whether callerID holds at least minRole on the portfolio.
-	HasPermission(ctx context.Context, portfolioID, callerID uuid.UUID, minRole model.PortfolioMemberRole) bool
+	// RemoveMember removes a member. Enforces the last-owner guard as business logic.
+	RemoveMember(ctx context.Context, portfolioID, targetUserID uuid.UUID) error
 }
 
 type service struct{ dp app.Dependency }
@@ -41,7 +42,7 @@ type service struct{ dp app.Dependency }
 func New(dp app.Dependency) Portfolio { return &service{dp: dp} }
 
 // Create creates a new portfolio and registers the caller as its first owner.
-func (s *service) Create(ctx context.Context, userID uuid.UUID, req model.CreatePortfolioRequest) (model.Portfolio, error) {
+func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.CreatePortfolioRequest) (model.Portfolio, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "portfolio.Create").
 		Logger()
@@ -51,7 +52,7 @@ func (s *service) Create(ctx context.Context, userID uuid.UUID, req model.Create
 	}
 
 	portfolio := model.Portfolio{
-		UserID:       userID,
+		UserID:       callerID,
 		Name:         req.Name,
 		Description:  req.Description,
 		BaseCurrency: req.BaseCurrency,
@@ -67,10 +68,10 @@ func (s *service) Create(ctx context.Context, userID uuid.UUID, req model.Create
 	// Register the creator as the first owner.
 	member := model.PortfolioMember{
 		PortfolioID: created.ID,
-		UserID:      userID,
+		UserID:      callerID,
 		Role:        model.RoleOwner,
 		Status:      model.MemberStatusAccepted,
-		InvitedBy:   userID,
+		InvitedBy:   callerID,
 	}
 	if err := s.dp.PortfolioStore.AddMember(ctx, member); err != nil {
 		log.Error().Err(err).Msg("failed to add owner member after portfolio creation")
@@ -81,12 +82,9 @@ func (s *service) Create(ctx context.Context, userID uuid.UUID, req model.Create
 	return created, nil
 }
 
-// GetByID fetches a portfolio and verifies the caller is a member.
-func (s *service) GetByID(ctx context.Context, portfolioID, callerID uuid.UUID) (model.Portfolio, error) {
-	if !s.HasPermission(ctx, portfolioID, callerID, model.RoleViewer) {
-		return model.Portfolio{}, siloErrors.ErrInsufficientPermission
-	}
-	return s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID)
+// GetByID fetches a portfolio by ID. Membership must be verified by middleware.
+func (s *service) GetByID(ctx context.Context, id uuid.UUID) (model.Portfolio, error) {
+	return s.dp.PortfolioStore.GetPortfolioByID(ctx, id)
 }
 
 // ListByUser returns portfolios the caller is a member of.
@@ -94,17 +92,13 @@ func (s *service) ListByUser(ctx context.Context, userID uuid.UUID, filter model
 	return s.dp.PortfolioStore.ListPortfoliosFiltered(ctx, userID, filter, page)
 }
 
-// Update applies changes to a portfolio. Caller must be Owner or Editor.
-func (s *service) Update(ctx context.Context, portfolioID, callerID uuid.UUID, req model.UpdatePortfolioRequest) (model.Portfolio, error) {
+// Update applies changes to a portfolio. Permission is verified by middleware.
+func (s *service) Update(ctx context.Context, id uuid.UUID, req model.UpdatePortfolioRequest) (model.Portfolio, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "portfolio.Update").
 		Logger()
 
-	if !s.HasPermission(ctx, portfolioID, callerID, model.RoleEditor) {
-		return model.Portfolio{}, siloErrors.ErrInsufficientPermission
-	}
-
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID)
+	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, id)
 	if err != nil {
 		return model.Portfolio{}, err
 	}
@@ -130,30 +124,21 @@ func (s *service) Update(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		log.Error().Err(err).Msg("failed to update portfolio")
 		return model.Portfolio{}, err
 	}
-
 	return updated, nil
 }
 
-// Delete soft-deletes a portfolio. Caller must be Owner.
-func (s *service) Delete(ctx context.Context, portfolioID, callerID uuid.UUID) error {
-	if !s.HasPermission(ctx, portfolioID, callerID, model.RoleOwner) {
-		return siloErrors.ErrInsufficientPermission
-	}
-	return s.dp.PortfolioStore.SoftDeletePortfolio(ctx, portfolioID)
+// Delete soft-deletes a portfolio. Permission is verified by middleware.
+func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
+	return s.dp.PortfolioStore.SoftDeletePortfolio(ctx, id)
 }
 
-// AddMember invites a user (by email) to the portfolio. Caller must be Owner.
-// The invitee must already have a Silo account.
+// AddMember invites a user (by email) to the portfolio.
+// The invitee must already have a Silo account. callerID is stored as InvitedBy.
 func (s *service) AddMember(ctx context.Context, portfolioID, callerID uuid.UUID, req model.InviteMemberRequest) error {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "portfolio.AddMember").
 		Logger()
 
-	if !s.HasPermission(ctx, portfolioID, callerID, model.RoleOwner) {
-		return siloErrors.ErrInsufficientPermission
-	}
-
-	// Look up the invitee by email — they must already have a Silo account.
 	invitee, err := s.dp.UserStore.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		return siloErrors.ErrInviteeNotFound
@@ -168,7 +153,7 @@ func (s *service) AddMember(ctx context.Context, portfolioID, callerID uuid.UUID
 		InvitedEmail: &req.Email,
 	}
 	if err := s.dp.PortfolioStore.AddMember(ctx, member); err != nil {
-		return err // ErrMemberAlreadyExists mapped by store
+		return err
 	}
 
 	log.Info().
@@ -178,20 +163,15 @@ func (s *service) AddMember(ctx context.Context, portfolioID, callerID uuid.UUID
 	return nil
 }
 
-// RemoveMember removes a member from the portfolio. Caller must be Owner.
-// Cannot remove the last owner.
-func (s *service) RemoveMember(ctx context.Context, portfolioID, callerID, targetUserID uuid.UUID) error {
-	if !s.HasPermission(ctx, portfolioID, callerID, model.RoleOwner) {
-		return siloErrors.ErrInsufficientPermission
-	}
-
-	// Fetch the target member to check their role.
+// RemoveMember removes a member from the portfolio.
+// Business-logic guard: cannot remove the last owner.
+// HTTP-layer guard (owner role required) is enforced by middleware.
+func (s *service) RemoveMember(ctx context.Context, portfolioID, targetUserID uuid.UUID) error {
 	target, err := s.dp.PortfolioStore.GetMember(ctx, portfolioID, targetUserID)
 	if err != nil {
 		return siloErrors.ErrPortfolioNotFound
 	}
 
-	// Guard: don't orphan the portfolio by removing the last owner.
 	if target.Role == model.RoleOwner {
 		ownerCount, err := s.dp.PortfolioStore.CountOwners(ctx, portfolioID)
 		if err != nil {
@@ -203,18 +183,4 @@ func (s *service) RemoveMember(ctx context.Context, portfolioID, callerID, targe
 	}
 
 	return s.dp.PortfolioStore.RemoveMember(ctx, portfolioID, targetUserID)
-}
-
-// HasPermission reports whether callerID holds at least minRole on the portfolio.
-func (s *service) HasPermission(ctx context.Context, portfolioID, callerID uuid.UUID, minRole model.PortfolioMemberRole) bool {
-	member, err := s.dp.PortfolioStore.GetMember(ctx, portfolioID, callerID)
-	if err != nil {
-		return false
-	}
-	order := map[model.PortfolioMemberRole]int{
-		model.RoleViewer: 1,
-		model.RoleEditor: 2,
-		model.RoleOwner:  3,
-	}
-	return order[member.Role] >= order[minRole]
 }

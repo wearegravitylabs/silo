@@ -11,37 +11,43 @@ import (
 	"github.com/wearegravitylabs/silo/api/model"
 	"github.com/wearegravitylabs/silo/api/pkg/contexts"
 	"github.com/wearegravitylabs/silo/api/pkg/messages"
+	"github.com/wearegravitylabs/silo/api/pkg/middleware"
 )
 
 const serviceName = "portfolio"
 
 type handler struct{ svc appPortfolio.Portfolio }
 
-// New registers portfolio routes on the given protected router group.
-func New(r *gin.RouterGroup, svc appPortfolio.Portfolio) {
+// New registers portfolio routes on the protected router group.
+// Per-route middleware handles role enforcement after RequireAuth has validated the token.
+func New(r *gin.RouterGroup, svc appPortfolio.Portfolio, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios")
+
+	// No extra role middleware on create/list — any authenticated user can do these.
 	g.POST("", h.create)
 	g.GET("", h.list)
-	g.GET("/:id", h.get)
-	g.PATCH("/:id", h.update)
-	g.DELETE("/:id", h.delete)
-	g.POST("/:id/members", h.addMember)
-	g.DELETE("/:id/members/:userID", h.removeMember)
-	g.GET("/:id/members", h.listMembers)
+
+	// Single-resource routes — middleware checks membership/role before the handler runs.
+	g.GET("/:id", mid.RequirePortfolioMember(), h.get)
+	g.PATCH("/:id", mid.RequirePortfolioEditor(), h.update)
+	g.DELETE("/:id", mid.RequirePortfolioOwner(), h.delete)
+
+	// Member management — only owners can invite or remove.
+	g.GET("/:id/members", mid.RequirePortfolioMember(), h.listMembers)
+	g.POST("/:id/members", mid.RequirePortfolioOwner(), h.addMember)
+	g.DELETE("/:id/members/:userID", mid.RequirePortfolioOwner(), h.removeMember)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-// callerID extracts the authenticated user's UUID from the Gin context.
 func callerID(c *gin.Context) (uuid.UUID, bool) {
 	id, ok := c.Request.Context().Value(contexts.ContextKeyUserID).(uuid.UUID)
 	return id, ok
 }
 
-// parsePortfolioID parses the :id path param and writes an error response on failure.
-func parsePortfolioID(c *gin.Context) (uuid.UUID, bool) {
-	id, err := uuid.Parse(c.Param("id"))
+func parseID(c *gin.Context, param string) (uuid.UUID, bool) {
+	id, err := uuid.Parse(c.Param(param))
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return uuid.Nil, false
@@ -84,16 +90,12 @@ func (h *handler) create(c *gin.Context) {
 
 // list godoc
 //
-//	@Summary	List portfolios for the authenticated user
+//	@Summary	List the caller's portfolios
 //	@Tags		portfolios
 //	@Produce	json
-//	@Param		name		query	string	false	"Filter by name (partial match)"
-//	@Param		currency	query	string	false	"Filter by base currency"
-//	@Param		role		query	string	false	"Filter by role (owner|editor|viewer)"
-//	@Param		page		query	int		false	"Page number (default 1)"
-//	@Param		size		query	int		false	"Page size (default 20, max 100)"
-//	@Param		sort_by		query	string	false	"Sort field (default created_at)"
-//	@Param		sort_desc	query	bool	false	"Sort descending (default true)"
+//	@Param		name		query	string	false	"Name filter (partial match)"
+//	@Param		currency	query	string	false	"Base currency filter"
+//	@Param		role		query	string	false	"Role filter (owner|editor|viewer)"
 //	@Success	200			{object}	apiModel.APIResponse
 //	@Router		/portfolios [get]
 func (h *handler) list(c *gin.Context) {
@@ -104,16 +106,10 @@ func (h *handler) list(c *gin.Context) {
 	}
 
 	var filter model.ListPortfoliosFilter
-	if err := c.ShouldBindQuery(&filter); err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
-		return
-	}
+	_ = c.ShouldBindQuery(&filter)
 
 	page := model.DefaultPage()
-	if err := c.ShouldBindQuery(&page); err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
-		return
-	}
+	_ = c.ShouldBindQuery(&page)
 
 	portfolios, pageInfo, err := h.svc.ListByUser(c.Request.Context(), userID, filter, page)
 	if err != nil {
@@ -121,33 +117,24 @@ func (h *handler) list(c *gin.Context) {
 		return
 	}
 
-	apiModel.OK(c, "portfolios", apiModel.PaginatedData{
-		Items: portfolios,
-		Page:  pageInfo,
-	})
+	apiModel.OK(c, "portfolios", apiModel.PaginatedData{Items: portfolios, Page: pageInfo})
 }
 
 // get godoc
 //
-//	@Summary	Get a portfolio by ID
+//	@Summary	Get a portfolio by ID (any member)
 //	@Tags		portfolios
 //	@Produce	json
 //	@Param		id	path		string	true	"Portfolio ID"
 //	@Success	200	{object}	model.Portfolio
 //	@Router		/portfolios/{id} [get]
 func (h *handler) get(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
-	portfolioID, ok := parsePortfolioID(c)
+	portfolioID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
 
-	portfolio, err := h.svc.GetByID(c.Request.Context(), portfolioID, userID)
+	portfolio, err := h.svc.GetByID(c.Request.Context(), portfolioID)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -158,7 +145,7 @@ func (h *handler) get(c *gin.Context) {
 
 // update godoc
 //
-//	@Summary	Update a portfolio
+//	@Summary	Update a portfolio (Owner or Editor)
 //	@Tags		portfolios
 //	@Accept		json
 //	@Produce	json
@@ -167,13 +154,7 @@ func (h *handler) get(c *gin.Context) {
 //	@Success	200		{object}	model.Portfolio
 //	@Router		/portfolios/{id} [patch]
 func (h *handler) update(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
-	portfolioID, ok := parsePortfolioID(c)
+	portfolioID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
@@ -184,7 +165,7 @@ func (h *handler) update(c *gin.Context) {
 		return
 	}
 
-	updated, err := h.svc.Update(c.Request.Context(), portfolioID, userID, req)
+	updated, err := h.svc.Update(c.Request.Context(), portfolioID, req)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -195,25 +176,19 @@ func (h *handler) update(c *gin.Context) {
 
 // delete godoc
 //
-//	@Summary	Delete a portfolio (owner only)
+//	@Summary	Delete a portfolio (Owner only)
 //	@Tags		portfolios
 //	@Produce	json
 //	@Param		id	path	string	true	"Portfolio ID"
 //	@Success	200	{object}	apiModel.APIResponse
 //	@Router		/portfolios/{id} [delete]
 func (h *handler) delete(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
-	portfolioID, ok := parsePortfolioID(c)
+	portfolioID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
 
-	if err := h.svc.Delete(c.Request.Context(), portfolioID, userID); err != nil {
+	if err := h.svc.Delete(c.Request.Context(), portfolioID); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
@@ -221,14 +196,37 @@ func (h *handler) delete(c *gin.Context) {
 	apiModel.OK(c, messages.PortfolioDeleted, nil)
 }
 
+// listMembers godoc
+//
+//	@Summary	List portfolio members (any member)
+//	@Tags		portfolios
+//	@Produce	json
+//	@Param		id	path		string	true	"Portfolio ID"
+//	@Success	200	{object}	apiModel.APIResponse
+//	@Router		/portfolios/{id}/members [get]
+func (h *handler) listMembers(c *gin.Context) {
+	portfolioID, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+
+	portfolio, err := h.svc.GetByID(c.Request.Context(), portfolioID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, "members", portfolio.Members)
+}
+
 // addMember godoc
 //
-//	@Summary	Add a member to a portfolio (owner only)
+//	@Summary	Add a member to a portfolio (Owner only)
 //	@Tags		portfolios
 //	@Accept		json
 //	@Produce	json
 //	@Param		id		path		string						true	"Portfolio ID"
-//	@Param		body	body		model.InviteMemberRequest	true	"Member email and role"
+//	@Param		body	body		model.InviteMemberRequest	true	"Email and role"
 //	@Success	200		{object}	apiModel.APIResponse
 //	@Router		/portfolios/{id}/members [post]
 func (h *handler) addMember(c *gin.Context) {
@@ -238,7 +236,7 @@ func (h *handler) addMember(c *gin.Context) {
 		return
 	}
 
-	portfolioID, ok := parsePortfolioID(c)
+	portfolioID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
@@ -259,7 +257,7 @@ func (h *handler) addMember(c *gin.Context) {
 
 // removeMember godoc
 //
-//	@Summary	Remove a member from a portfolio (owner only)
+//	@Summary	Remove a member from a portfolio (Owner only)
 //	@Tags		portfolios
 //	@Produce	json
 //	@Param		id		path	string	true	"Portfolio ID"
@@ -267,13 +265,7 @@ func (h *handler) addMember(c *gin.Context) {
 //	@Success	200		{object}	apiModel.APIResponse
 //	@Router		/portfolios/{id}/members/{userID} [delete]
 func (h *handler) removeMember(c *gin.Context) {
-	callerUserID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
-	portfolioID, ok := parsePortfolioID(c)
+	portfolioID, ok := parseID(c, "id")
 	if !ok {
 		return
 	}
@@ -284,40 +276,10 @@ func (h *handler) removeMember(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.RemoveMember(c.Request.Context(), portfolioID, callerUserID, targetID); err != nil {
+	if err := h.svc.RemoveMember(c.Request.Context(), portfolioID, targetID); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
 
 	apiModel.OK(c, messages.PortfolioMemberRemoved, nil)
-}
-
-// listMembers godoc
-//
-//	@Summary	List all members of a portfolio
-//	@Tags		portfolios
-//	@Produce	json
-//	@Param		id	path		string	true	"Portfolio ID"
-//	@Success	200	{object}	apiModel.APIResponse
-//	@Router		/portfolios/{id}/members [get]
-func (h *handler) listMembers(c *gin.Context) {
-	userID, ok := callerID(c)
-	if !ok {
-		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrUnauthorized)
-		return
-	}
-
-	portfolioID, ok := parsePortfolioID(c)
-	if !ok {
-		return
-	}
-
-	// Any member of the portfolio can view the member list.
-	portfolio, err := h.svc.GetByID(c.Request.Context(), portfolioID, userID)
-	if err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, err)
-		return
-	}
-
-	apiModel.OK(c, "members", portfolio.Members)
 }

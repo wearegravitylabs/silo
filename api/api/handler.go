@@ -91,8 +91,8 @@ func (h *Handler) Build() {
 	// ── Protected routes ──────────────────────────────────────────────────────
 	protected := v1.Group("", h.mid.RequireAuth())
 	user.New(protected, h.userSvc)
-	portfolio.New(protected, h.portfolioSvc)
-	folder.New(protected, h.folderSvc)
+	portfolio.New(protected, h.portfolioSvc, h.mid)
+	folder.New(protected, h.folderSvc, h.mid)
 	asset.New(protected, h.assetSvc)
 	debt.New(protected, h.debtSvc)
 	autopilot.New(protected, h.autopilotSvc)
