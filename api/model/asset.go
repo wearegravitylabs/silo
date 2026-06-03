@@ -103,11 +103,12 @@ type CreateAssetRequest struct {
 	Quantity      float64       `json:"quantity"`
 	PurchasePrice float64       `json:"purchase_price"`
 	CurrentValue  float64       `json:"current_value"`
-	Currency      string        `json:"currency"`
+	// Currency is optional. When empty the portfolio's base_currency is applied automatically.
+	Currency        string        `json:"currency"`
 	// OwnershipPct defaults to 100 when omitted or zero.
 	OwnershipPct    float64       `json:"ownership_pct"`
-	// Investability is required only for manual and domain asset types.
-	// For all other types the preset value from pkg/assetclass is used.
+	// Investability is optional for preset types (applied automatically).
+	// Required for manual and domain types where the user must choose.
 	Investability   Investability `json:"investability"`
 	Location        string        `json:"location"`
 	Metadata        JSONB         `json:"metadata"`
