@@ -10,9 +10,11 @@ import (
 	appAuth "github.com/wearegravitylabs/silo/api/app/auth"
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
+	"github.com/wearegravitylabs/silo/api/pkg/helpers"
+	"github.com/wearegravitylabs/silo/api/pkg/messages"
 )
 
-// serviceName is included in every error response to identify the originating domain.
+// serviceName is embedded in every error response to identify the originating domain.
 const serviceName = "auth"
 
 type handler struct{ svc appAuth.Auth }
@@ -48,13 +50,13 @@ func (h *handler) sendCode(c *gin.Context) {
 		return
 	}
 
-	// Always respond with a generic message regardless of whether the email exists.
-	// This prevents user enumeration: an attacker cannot tell from the response
-	// whether an email address has a Silo account.
+	// Always respond with the same message regardless of whether the email exists.
+	// This prevents user enumeration: callers cannot tell from the response whether
+	// an email address has a Silo account.
 	c.JSON(http.StatusOK, apiModel.APIResponse{
 		Code:    http.StatusOK,
 		Data:    nil,
-		Message: stringPtr("If that email is valid, a sign-in code is on its way."),
+		Message: helpers.StringPtr(messages.AuthCodeSent),
 		Error:   nil,
 	})
 	c.Abort()
@@ -83,7 +85,7 @@ func (h *handler) verifyCode(c *gin.Context) {
 		return
 	}
 
-	apiModel.OK(c, "signed in successfully", resp)
+	apiModel.OK(c, messages.AuthSignedIn, resp)
 }
 
 // refreshToken godoc
@@ -109,8 +111,5 @@ func (h *handler) refreshToken(c *gin.Context) {
 		return
 	}
 
-	apiModel.OK(c, "token refreshed", map[string]string{"access_token": accessToken})
+	apiModel.OK(c, messages.AuthTokenRefreshed, map[string]string{"access_token": accessToken})
 }
-
-// stringPtr returns a pointer to s. Used inline to satisfy *string fields.
-func stringPtr(s string) *string { return &s }

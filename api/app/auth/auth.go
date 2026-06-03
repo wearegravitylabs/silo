@@ -39,8 +39,6 @@ type service struct{ dp app.Dependency }
 // New returns an Auth service backed by the provided dependency container.
 func New(dp app.Dependency) Auth { return &service{dp: dp} }
 
-// ─── SendCode ────────────────────────────────────────────────────────────────
-
 // SendCode upserts the user record for the given email address, generates a
 // cryptographically random 6-digit OTP, stores a bcrypt hash of it with an
 // expiry read from OTP_EXPIRY (default 10 m), then dispatches the code via email.
@@ -75,7 +73,7 @@ func (s *service) SendCode(ctx context.Context, emailAddr string) error {
 	otpExpiry := helpers.ParseDuration(s.dp.Env.GetWithDefault(modelEnv.OTPExpiry, "10m"), 10*time.Minute)
 	expiry := time.Now().UTC().Add(otpExpiry)
 
-	if err := s.dp.UserStore.StoreOTP(ctx, user.ID, hashedCode, expiry); err != nil {
+	if err = s.dp.UserStore.StoreOTP(ctx, user.ID, hashedCode, expiry); err != nil {
 		log.Error().Err(err).Msg("failed to store OTP")
 		return err
 	}
@@ -93,8 +91,6 @@ func (s *service) SendCode(ctx context.Context, emailAddr string) error {
 	log.Info().Str("user_id", user.ID.String()).Msg("OTP sent")
 	return nil
 }
-
-// ─── VerifyCode ──────────────────────────────────────────────────────────────
 
 // VerifyCode checks the provided OTP against the stored hash, clears it on
 // success, marks the user's email as verified, and returns a short-lived access
@@ -174,8 +170,6 @@ func (s *service) VerifyCode(ctx context.Context, emailAddr, code string) (model
 	}, nil
 }
 
-// ─── RefreshToken ─────────────────────────────────────────────────────────────
-
 // RefreshToken validates an opaque refresh token and issues a fresh access JWT.
 // The refresh token itself is not rotated.
 func (s *service) RefreshToken(ctx context.Context, rawToken string) (string, error) {
@@ -211,4 +205,3 @@ func (s *service) RefreshToken(ctx context.Context, rawToken string) (string, er
 
 	return accessToken, nil
 }
-
