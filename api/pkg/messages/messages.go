@@ -53,13 +53,19 @@ const (
 	PortfolioCreated       = "Your portfolio has been created."
 	PortfolioUpdated       = "Portfolio updated."
 	PortfolioDeleted       = "Portfolio deleted."
-	PortfolioMemberAdded   = "The invitation has been sent."
+	PortfolioMemberAdded   = "Member added to the portfolio."
 	PortfolioMemberRemoved = "Access has been removed."
 
 	// ErrNoPermission is shown when the authenticated user lacks the required role.
 	ErrNoPermission = "You don't have permission to do that."
 	// ErrMemberAlreadyExists is shown when trying to invite someone who already has access.
 	ErrMemberAlreadyExists = "This person already has access to the portfolio."
+	// ErrLastOwner is shown when trying to remove the only owner.
+	ErrLastOwner = "You can't remove the last owner of a portfolio."
+	// ErrInvalidCurrency is shown when base_currency is not in the supported list.
+	ErrInvalidCurrency = "That's not a supported currency. Check the currencies list and try again."
+	// ErrUserNotFound is shown when an invited email has no Silo account.
+	ErrInviteeNotFound = "No Silo account found for that email address. Ask them to sign up first."
 )
 
 // ─── Assets ───────────────────────────────────────────────────────────────────

@@ -103,6 +103,18 @@ var (
 	ErrMemberAlreadyExists = &TranslatableError{Code: "MEMBER_ALREADY_EXISTS", Key: "ERR_MEMBER_ALREADY_EXISTS",
 		Message: messages.ErrMemberAlreadyExists, Public: true}
 
+	// ErrLastOwner is shown when trying to remove the last owner of a portfolio.
+	ErrLastOwner = &TranslatableError{Code: "LAST_OWNER", Key: "ERR_LAST_OWNER",
+		Message: messages.ErrLastOwner, Public: true}
+
+	// ErrInvalidCurrency is shown when an unsupported currency code is submitted.
+	ErrInvalidCurrency = &TranslatableError{Code: "INVALID_CURRENCY", Key: "ERR_INVALID_CURRENCY",
+		Message: messages.ErrInvalidCurrency, Public: true}
+
+	// ErrInviteeNotFound is shown when the invited email has no Silo account.
+	ErrInviteeNotFound = &TranslatableError{Code: "INVITEE_NOT_FOUND", Key: "ERR_INVITEE_NOT_FOUND",
+		Message: messages.ErrInviteeNotFound, Public: true}
+
 	// ─── Asset ────────────────────────────────────────────────────────────────
 
 	// ErrAssetNotFound is an internal error.

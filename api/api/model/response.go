@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
+	"github.com/wearegravitylabs/silo/api/model"
 	"github.com/wearegravitylabs/silo/api/pkg/helpers"
 )
 
@@ -36,19 +37,10 @@ type ErrorData struct {
 	Message string `json:"message"`
 }
 
-// PageInfo carries pagination metadata for list responses.
-type PageInfo struct {
-	Page            int   `json:"page"`
-	Size            int   `json:"size"`
-	Total           int64 `json:"total"`
-	HasNextPage     bool  `json:"has_next_page"`
-	HasPreviousPage bool  `json:"has_previous_page"`
-}
-
 // PaginatedData wraps a list payload with its pagination metadata.
 type PaginatedData struct {
-	Items any      `json:"items"`
-	Page  PageInfo `json:"page"`
+	Items any            `json:"items"`
+	Page  model.PageInfo `json:"page"`
 }
 
 // OK writes a 200 success response with an explicit message and data payload.
@@ -149,8 +141,13 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrInvalidDebtType.Code,
 		siloErrors.ErrFileTooLarge.Code,
 		siloErrors.ErrUnsupportedFileType.Code,
-		siloErrors.ErrInvalidTicker.Code:
+		siloErrors.ErrInvalidTicker.Code,
+		siloErrors.ErrInvalidCurrency.Code:
 		return http.StatusBadRequest
+
+	case siloErrors.ErrLastOwner.Code,
+		siloErrors.ErrInviteeNotFound.Code:
+		return http.StatusUnprocessableEntity
 
 	case siloErrors.ErrAccountLocked.Code,
 		siloErrors.ErrVaultLocked.Code:
