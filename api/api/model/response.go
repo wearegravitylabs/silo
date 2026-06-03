@@ -135,7 +135,8 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrPortfolioNotFound.Code,
 		siloErrors.ErrAssetNotFound.Code,
 		siloErrors.ErrDebtNotFound.Code,
-		siloErrors.ErrAutopilotRuleNotFound.Code:
+		siloErrors.ErrAutopilotRuleNotFound.Code,
+		siloErrors.ErrFolderNotFound.Code:
 		return http.StatusNotFound
 
 	case siloErrors.ErrDuplicateRecord.Code,

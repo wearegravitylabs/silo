@@ -16,10 +16,8 @@ const (
 	// AuthCodeSent is returned by POST /auth/send-code.
 	// Deliberately vague — never confirm whether an email address exists.
 	AuthCodeSent = "If that email is valid, a sign-in code is on its way."
-
 	// AuthSignedIn is returned by POST /auth/verify-code on success.
 	AuthSignedIn = "You're signed in. Welcome to Silo."
-
 	// AuthTokenRefreshed is returned by POST /auth/refresh-token on success.
 	AuthTokenRefreshed = "Your session has been extended."
 )
@@ -28,16 +26,12 @@ const (
 const (
 	// ErrUnauthorized is shown when no valid session is present.
 	ErrUnauthorized = "You're not signed in. Please sign in to continue."
-
 	// ErrInvalidToken is shown when a JWT is missing, malformed, or expired.
 	ErrInvalidToken = "Your session has expired. Please sign in again."
-
 	// ErrInvalidOTP is shown when the 6-digit code is wrong or past its expiry window.
 	ErrInvalidOTP = "The sign-in code is incorrect or has expired. Please request a new one."
-
 	// ErrEmailNotVerified is shown when an action requires a verified email address.
 	ErrEmailNotVerified = "Please verify your email address before continuing."
-
 	// ErrAccountLocked is shown after repeated failed sign-in attempts.
 	ErrAccountLocked = "Your account has been temporarily locked. Please try again later."
 )
@@ -47,10 +41,8 @@ const (
 const (
 	// UserProfileUpdated is returned when profile fields are saved.
 	UserProfileUpdated = "Your profile has been updated."
-
 	// UserAccountDeleted is returned when a user deletes their own account.
 	UserAccountDeleted = "Your account has been deleted. We're sorry to see you go."
-
 	// ErrEmailAlreadyExists is shown on duplicate email registration.
 	ErrEmailAlreadyExists = "An account with this email address already exists."
 )
@@ -66,7 +58,6 @@ const (
 
 	// ErrNoPermission is shown when the authenticated user lacks the required role.
 	ErrNoPermission = "You don't have permission to do that."
-
 	// ErrMemberAlreadyExists is shown when trying to invite someone who already has access.
 	ErrMemberAlreadyExists = "This person already has access to the portfolio."
 )
@@ -74,14 +65,13 @@ const (
 // ─── Assets ───────────────────────────────────────────────────────────────────
 
 const (
-	AssetCreated     = "Asset added to your portfolio."
-	AssetUpdated     = "Asset updated."
-	AssetDeleted     = "Asset removed from your portfolio."
+	AssetCreated        = "Asset added to your portfolio."
+	AssetUpdated        = "Asset updated."
+	AssetDeleted        = "Asset removed from your portfolio."
 	AssetPriceRefreshed = "Prices refreshed."
 
 	// ErrInvalidAssetType is shown when an unsupported asset_type is submitted.
 	ErrInvalidAssetType = "That's not a valid asset type. Please choose one of the supported types."
-
 	// ErrTickerNotFound is shown when a stock or crypto ticker cannot be resolved.
 	ErrTickerNotFound = "We couldn't find that ticker symbol. Please double-check and try again."
 )
@@ -127,9 +117,20 @@ const (
 
 	// ErrFileTooLarge is shown when an upload exceeds the size limit.
 	ErrFileTooLarge = "That file is too large. Please upload a file smaller than the allowed limit."
-
 	// ErrUnsupportedFileType is shown when the MIME type is not in the allow-list.
 	ErrUnsupportedFileType = "That file type isn't supported. Accepted formats: PDF, DOCX, XLSX, PNG, JPG."
+)
+
+// ─── Folders ──────────────────────────────────────────────────────────────────
+
+const (
+	FolderCreated    = "Folder created."
+	FolderUpdated    = "Folder updated."
+	FolderDeleted    = "Folder deleted. Assets in this folder have been moved to the root."
+	FoldersReordered = "Folders reordered."
+
+	// ErrFolderNotFound is shown when the folder ID doesn't exist or the caller lacks access.
+	ErrFolderNotFound = "That folder doesn't exist or you don't have access to it."
 )
 
 // ─── General ──────────────────────────────────────────────────────────────────

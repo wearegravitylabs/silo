@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
-	"github.com/rs/zerolog"
 
 	"github.com/wearegravitylabs/silo/api/api"
 	"github.com/wearegravitylabs/silo/api/app"
@@ -19,6 +18,7 @@ import (
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
 	appAutopilot "github.com/wearegravitylabs/silo/api/app/autopilot"
 	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
+	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
 	appInsight "github.com/wearegravitylabs/silo/api/app/insight"
 	appPortfolio "github.com/wearegravitylabs/silo/api/app/portfolio"
 	appSnapshot "github.com/wearegravitylabs/silo/api/app/snapshot"
@@ -60,6 +60,7 @@ func main() {
 	snapshotSvc := appSnapshot.New(dp)
 	vaultSvc := appVault.New(dp)
 	insightSvc := appInsight.New(dp)
+	folderSvc := appFolder.New(dp)
 
 	// ─── HTTP Engine ─────────────────────────────────────────────────────────────
 	engine := gin.New()
@@ -79,6 +80,7 @@ func main() {
 		authSvc, userSvc, portfolioSvc,
 		assetSvc, debtSvc, autopilotSvc,
 		snapshotSvc, vaultSvc, insightSvc,
+		folderSvc,
 	)
 	handler.Build()
 
@@ -114,6 +116,3 @@ func main() {
 
 	log.Info().Msg("server stopped")
 }
-
-// suppress unused import warnings during scaffold phase
-var _ zerolog.Logger

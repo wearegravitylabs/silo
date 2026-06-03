@@ -33,6 +33,7 @@ type Dependency struct {
 	AutopilotStore    store.AutopilotDatabase
 	SnapshotStore     store.SnapshotDatabase
 	RefreshTokenStore store.RefreshTokenDatabase
+	FolderStore       store.FolderDatabase
 
 	// Third-party services
 	StockMarket     market.MarketDataProvider // Yahoo Finance
@@ -75,6 +76,7 @@ func InitDp(s *store.Store, env *environment.Env) Dependency {
 		AutopilotStore:    store.NewAutopilotStore(s),
 		SnapshotStore:     store.NewSnapshotStore(s),
 		RefreshTokenStore: store.NewRefreshTokenStore(s),
+		FolderStore:       store.NewFolderStore(s),
 
 		// Third-party
 		StockMarket:     yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),

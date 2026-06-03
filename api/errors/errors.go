@@ -133,6 +133,12 @@ var (
 	ErrAutopilotRuleNotFound = &TranslatableError{Code: "AUTOPILOT_RULE_NOT_FOUND", Key: "ERR_AUTOPILOT_RULE_NOT_FOUND",
 		Message: "autopilot rule not found"}
 
+	// ─── Folder ───────────────────────────────────────────────────────────────
+
+	// ErrFolderNotFound is shown when a folder ID does not exist or is inaccessible.
+	ErrFolderNotFound = &TranslatableError{Code: "FOLDER_NOT_FOUND", Key: "ERR_FOLDER_NOT_FOUND",
+		Message: messages.ErrFolderNotFound, Public: true}
+
 	// ─── Vault ────────────────────────────────────────────────────────────────
 
 	// ErrVaultDecryptFailed is shown when the client-side decryption password is wrong.

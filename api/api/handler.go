@@ -2,12 +2,16 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 
+	apiModel "github.com/wearegravitylabs/silo/api/api/model"
 	"github.com/wearegravitylabs/silo/api/api/auth"
 	"github.com/wearegravitylabs/silo/api/api/asset"
 	"github.com/wearegravitylabs/silo/api/api/autopilot"
 	"github.com/wearegravitylabs/silo/api/api/debt"
+	"github.com/wearegravitylabs/silo/api/api/folder"
 	"github.com/wearegravitylabs/silo/api/api/insight"
 	"github.com/wearegravitylabs/silo/api/api/portfolio"
 	"github.com/wearegravitylabs/silo/api/api/snapshot"
@@ -17,20 +21,23 @@ import (
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
 	appAutopilot "github.com/wearegravitylabs/silo/api/app/autopilot"
 	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
+	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
 	appInsight "github.com/wearegravitylabs/silo/api/app/insight"
 	appPortfolio "github.com/wearegravitylabs/silo/api/app/portfolio"
 	appSnapshot "github.com/wearegravitylabs/silo/api/app/snapshot"
 	appUser "github.com/wearegravitylabs/silo/api/app/user"
 	appVault "github.com/wearegravitylabs/silo/api/app/vault"
+	"github.com/wearegravitylabs/silo/api/pkg/assetclass"
 	"github.com/wearegravitylabs/silo/api/pkg/environment"
+	"github.com/wearegravitylabs/silo/api/pkg/helpers"
 	"github.com/wearegravitylabs/silo/api/pkg/middleware"
 )
 
 // Handler is the root HTTP handler that owns all service references.
 type Handler struct {
-	env       *environment.Env
-	engine    *gin.Engine
-	mid       *middleware.Middleware
+	env   *environment.Env
+	engine *gin.Engine
+	mid   *middleware.Middleware
 
 	authSvc      appAuth.Auth
 	userSvc      appUser.User
@@ -41,6 +48,7 @@ type Handler struct {
 	snapshotSvc  appSnapshot.Snapshot
 	vaultSvc     appVault.Vault
 	insightSvc   appInsight.Insight
+	folderSvc    appFolder.Folder
 }
 
 // New creates a Handler with all dependencies injected.
@@ -57,12 +65,14 @@ func New(
 	snapshotSvc appSnapshot.Snapshot,
 	vaultSvc appVault.Vault,
 	insightSvc appInsight.Insight,
+	folderSvc appFolder.Folder,
 ) *Handler {
 	return &Handler{
 		env: env, engine: engine, mid: mid,
 		authSvc: authSvc, userSvc: userSvc, portfolioSvc: portfolioSvc,
 		assetSvc: assetSvc, debtSvc: debtSvc, autopilotSvc: autopilotSvc,
 		snapshotSvc: snapshotSvc, vaultSvc: vaultSvc, insightSvc: insightSvc,
+		folderSvc: folderSvc,
 	}
 }
 
@@ -72,17 +82,37 @@ func (h *Handler) Build() {
 
 	v1 := h.engine.Group("/api/v1")
 
-	// Public routes (no auth required)
+	// ── Public routes (no auth required) ─────────────────────────────────────
 	auth.New(v1, h.authSvc)
 
-	// Protected routes
+	// GET /api/v1/asset-classes — static catalogue, no auth needed.
+	v1.GET("/asset-classes", assetClassesHandler())
+
+	// ── Protected routes ──────────────────────────────────────────────────────
 	protected := v1.Group("", h.mid.RequireAuth())
 	user.New(protected, h.userSvc)
 	portfolio.New(protected, h.portfolioSvc)
+	folder.New(protected, h.folderSvc)
 	asset.New(protected, h.assetSvc)
 	debt.New(protected, h.debtSvc)
 	autopilot.New(protected, h.autopilotSvc)
 	snapshot.New(protected, h.snapshotSvc)
 	vault.New(protected, h.vaultSvc)
 	insight.New(protected, h.insightSvc)
+}
+
+// assetClassesHandler returns the static asset class catalogue.
+// No auth required — this is configuration data, not user data.
+func assetClassesHandler() gin.HandlerFunc {
+	// Pre-render the response once at startup — the list never changes at runtime.
+	classes := assetclass.All()
+
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, apiModel.APIResponse{
+			Code:    http.StatusOK,
+			Data:    classes,
+			Message: helpers.StringPtr("asset classes"),
+			Error:   nil,
+		})
+	}
 }
