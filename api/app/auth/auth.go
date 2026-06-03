@@ -8,8 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/wearegravitylabs/silo/api/app"
@@ -17,6 +15,7 @@ import (
 	"github.com/wearegravitylabs/silo/api/model"
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
 	"github.com/wearegravitylabs/silo/api/pkg/crypto"
+	"github.com/wearegravitylabs/silo/api/pkg/helpers"
 	siloJWT "github.com/wearegravitylabs/silo/api/pkg/jwt"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 	messagingModel "github.com/wearegravitylabs/silo/api/thirdparty/messaging/model"
@@ -73,7 +72,7 @@ func (s *service) SendCode(ctx context.Context, emailAddr string) error {
 	}
 
 	// 4. Determine expiry from env, then persist.
-	otpExpiry := parseDuration(s.dp.Env.GetWithDefault(modelEnv.OTPExpiry, "10m"), 10*time.Minute)
+	otpExpiry := helpers.ParseDuration(s.dp.Env.GetWithDefault(modelEnv.OTPExpiry, "10m"), 10*time.Minute)
 	expiry := time.Now().UTC().Add(otpExpiry)
 
 	if err := s.dp.UserStore.StoreOTP(ctx, user.ID, hashedCode, expiry); err != nil {
@@ -134,7 +133,7 @@ func (s *service) VerifyCode(ctx context.Context, emailAddr, code string) (model
 	user.IsEmailVerified = true
 
 	// 6. Issue access JWT.
-	accessExpiry := parseDuration(s.dp.Env.GetWithDefault(modelEnv.JWTAccessTokenExpiry, "15m"), 15*time.Minute)
+	accessExpiry := helpers.ParseDuration(s.dp.Env.GetWithDefault(modelEnv.JWTAccessTokenExpiry, "15m"), 15*time.Minute)
 	secret := s.dp.Env.Get(modelEnv.JWTSigningSecret)
 
 	accessToken, err := siloJWT.GenerateAccessToken(user.ID, secret, accessExpiry)
@@ -155,7 +154,7 @@ func (s *service) VerifyCode(ctx context.Context, emailAddr, code string) (model
 	tokenHash := hex.EncodeToString(sum[:])
 
 	// 9. Persist the refresh token.
-	refreshExpiry := parseDuration(s.dp.Env.GetWithDefault(modelEnv.JWTRefreshTokenExpiry, "720h"), 30*24*time.Hour)
+	refreshExpiry := helpers.ParseDuration(s.dp.Env.GetWithDefault(modelEnv.JWTRefreshTokenExpiry, "720h"), 30*24*time.Hour)
 	rt := model.RefreshToken{
 		UserID:    user.ID,
 		TokenHash: tokenHash,
@@ -201,7 +200,7 @@ func (s *service) RefreshToken(ctx context.Context, rawToken string) (string, er
 	}
 
 	// 4. Issue a new access JWT.
-	accessExpiry := parseDuration(s.dp.Env.GetWithDefault(modelEnv.JWTAccessTokenExpiry, "15m"), 15*time.Minute)
+	accessExpiry := helpers.ParseDuration(s.dp.Env.GetWithDefault(modelEnv.JWTAccessTokenExpiry, "15m"), 15*time.Minute)
 	secret := s.dp.Env.Get(modelEnv.JWTSigningSecret)
 
 	accessToken, err := siloJWT.GenerateAccessToken(stored.UserID, secret, accessExpiry)
@@ -213,21 +212,3 @@ func (s *service) RefreshToken(ctx context.Context, rawToken string) (string, er
 	return accessToken, nil
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-// parseDuration parses a duration string that may use Go format ("15m", "1h") or
-// a day suffix ("7d", "30d"). Returns fallback if the string is empty or invalid.
-func parseDuration(s string, fallback time.Duration) time.Duration {
-	s = strings.TrimSpace(s)
-	if strings.HasSuffix(s, "d") {
-		days, err := strconv.Atoi(strings.TrimSuffix(s, "d"))
-		if err == nil {
-			return time.Duration(days) * 24 * time.Hour
-		}
-	}
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		return fallback
-	}
-	return d
-}
