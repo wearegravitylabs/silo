@@ -115,9 +115,12 @@ func codeToHTTPStatus(code string) int {
 	switch code {
 	case siloErrors.ErrUnauthorized.Code,
 		siloErrors.ErrInvalidToken.Code,
-		siloErrors.ErrInvalidOTP.Code,
-		siloErrors.ErrEmailNotVerified.Code:
+		siloErrors.ErrInvalidOTP.Code:
 		return http.StatusUnauthorized
+
+	case siloErrors.ErrEmailNotVerified.Code,
+		siloErrors.ErrNotOnboarded.Code:
+		return http.StatusForbidden
 
 	case siloErrors.ErrInsufficientPermission.Code:
 		return http.StatusForbidden

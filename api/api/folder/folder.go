@@ -24,10 +24,8 @@ func New(r *gin.RouterGroup, svc appFolder.Folder, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios/:portfolioID/folders")
 
-	// Any portfolio member can list folders.
 	g.GET("", mid.RequirePortfolioMember(), h.list)
 
-	// Creating, renaming, deleting, and reordering require at least Editor.
 	g.POST("", mid.RequirePortfolioEditor(), h.create)
 	g.PATCH("/:id", mid.RequirePortfolioEditor(), h.update)
 	g.DELETE("/:id", mid.RequirePortfolioEditor(), h.delete)

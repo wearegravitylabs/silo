@@ -71,6 +71,10 @@ var (
 	ErrEmailNotVerified = &TranslatableError{Code: "EMAIL_NOT_VERIFIED", Key: "ERR_EMAIL_NOT_VERIFIED",
 		Message: messages.ErrEmailNotVerified, Public: true}
 
+	// ErrNotOnboarded is shown when an action requires a completed onboarding profile.
+	ErrNotOnboarded = &TranslatableError{Code: "NOT_ONBOARDED", Key: "ERR_NOT_ONBOARDED",
+		Message: messages.ErrNotOnboarded, Public: true}
+
 	// ErrInvalidOTP is shown when the 6-digit sign-in code is wrong or expired.
 	ErrInvalidOTP = &TranslatableError{Code: "INVALID_OTP", Key: "ERR_INVALID_OTP",
 		Message: messages.ErrInvalidOTP, Public: true}

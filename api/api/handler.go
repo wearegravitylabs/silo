@@ -82,23 +82,27 @@ func (h *Handler) Build() {
 
 	v1 := h.engine.Group("/api/v1")
 
-	// ── Public routes (no auth required) ─────────────────────────────────────
+	// ── Tier 1: Public — no token required ───────────────────────────────────
 	auth.New(v1, h.authSvc)
-
-	// GET /api/v1/asset-classes — static catalogue, no auth needed.
 	v1.GET("/asset-classes", assetClassesHandler())
 
-	// ── Protected routes ──────────────────────────────────────────────────────
-	protected := v1.Group("", h.mid.RequireAuth())
-	user.New(protected, h.userSvc)
-	portfolio.New(protected, h.portfolioSvc, h.mid)
-	folder.New(protected, h.folderSvc, h.mid)
-	asset.New(protected, h.assetSvc)
-	debt.New(protected, h.debtSvc)
-	autopilot.New(protected, h.autopilotSvc)
-	snapshot.New(protected, h.snapshotSvc)
-	vault.New(protected, h.vaultSvc)
-	insight.New(protected, h.insightSvc)
+	// ── Tier 2: Authenticated + email verified ────────────────────────────────
+	// User must have a valid JWT and a verified email address.
+	// Onboarding itself lives here — you can't require onboarding to reach it.
+	verified := v1.Group("", h.mid.RequireAuth(), h.mid.RequireEmailVerified())
+	user.New(verified, h.userSvc)
+
+	// ── Tier 3: Authenticated + fully onboarded ───────────────────────────────
+	// Everything else requires a completed profile.
+	onboarded := v1.Group("", h.mid.RequireAuth(), h.mid.RequireOnboarded())
+	portfolio.New(onboarded, h.portfolioSvc, h.mid)
+	folder.New(onboarded, h.folderSvc, h.mid)
+	asset.New(onboarded, h.assetSvc)
+	debt.New(onboarded, h.debtSvc)
+	autopilot.New(onboarded, h.autopilotSvc)
+	snapshot.New(onboarded, h.snapshotSvc)
+	vault.New(onboarded, h.vaultSvc)
+	insight.New(onboarded, h.insightSvc)
 }
 
 // assetClassesHandler returns the static asset class catalogue.

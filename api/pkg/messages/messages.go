@@ -32,6 +32,8 @@ const (
 	ErrInvalidOTP = "The sign-in code is incorrect or has expired. Please request a new one."
 	// ErrEmailNotVerified is shown when an action requires a verified email address.
 	ErrEmailNotVerified = "Please verify your email address before continuing."
+	// ErrNotOnboarded is shown when an action requires a completed onboarding profile.
+	ErrNotOnboarded = "Please complete your profile setup before continuing."
 	// ErrAccountLocked is shown after repeated failed sign-in attempts.
 	ErrAccountLocked = "Your account has been temporarily locked. Please try again later."
 )

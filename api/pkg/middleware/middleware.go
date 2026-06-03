@@ -33,15 +33,18 @@ type Middleware struct {
 	env            *environment.Env
 	logger         zerolog.Logger
 	portfolioStore store.PortfolioDatabase
+	userStore      store.UserDatabase
 }
 
 // New returns a Middleware instance.
 // portfolioStore is used by portfolio-role middleware to verify caller membership.
-func New(env *environment.Env, portfolioStore store.PortfolioDatabase) *Middleware {
+// userStore is used by account-state middleware to check verification and onboarding.
+func New(env *environment.Env, portfolioStore store.PortfolioDatabase, userStore store.UserDatabase) *Middleware {
 	return &Middleware{
 		env:            env,
 		logger:         siloLogger.New(),
 		portfolioStore: portfolioStore,
+		userStore:      userStore,
 	}
 }
 
@@ -105,6 +108,69 @@ func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 // RequireAuth is the route-group alias for AuthMiddleware.
 func (m *Middleware) RequireAuth() gin.HandlerFunc {
 	return m.AuthMiddleware()
+}
+
+// ─── Account-state middleware ─────────────────────────────────────────────────
+//
+// These middleware run after RequireAuth. They fetch the user record and check
+// account state flags. They must not be applied to the auth or onboarding routes
+// themselves — see handler.go for the route group breakdown.
+
+// RequireEmailVerified aborts with 403 when the authenticated user has not yet
+// verified their email address. Apply this to routes that need a confirmed identity
+// but that a not-yet-onboarded user may still need to call (e.g. the onboard endpoint).
+func (m *Middleware) RequireEmailVerified() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		callerID, ok := c.Request.Context().Value(contexts.ContextKeyUserID).(uuid.UUID)
+		if !ok {
+			abortUnauthorized(c, siloErrors.ErrUnauthorized)
+			return
+		}
+
+		user, err := m.userStore.GetUserByID(c.Request.Context(), callerID)
+		if err != nil {
+			abortUnauthorized(c, siloErrors.ErrUnauthorized)
+			return
+		}
+
+		if !user.IsEmailVerified {
+			abortForbidden(c, siloErrors.ErrEmailNotVerified)
+			return
+		}
+
+		c.Next()
+	}
+}
+
+// RequireOnboarded aborts with 403 when the authenticated user has not completed
+// onboarding (which also implies email is verified). Apply this to all core product
+// routes — portfolios, assets, folders, etc.
+func (m *Middleware) RequireOnboarded() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		callerID, ok := c.Request.Context().Value(contexts.ContextKeyUserID).(uuid.UUID)
+		if !ok {
+			abortUnauthorized(c, siloErrors.ErrUnauthorized)
+			return
+		}
+
+		user, err := m.userStore.GetUserByID(c.Request.Context(), callerID)
+		if err != nil {
+			abortUnauthorized(c, siloErrors.ErrUnauthorized)
+			return
+		}
+
+		if !user.IsEmailVerified {
+			abortForbidden(c, siloErrors.ErrEmailNotVerified)
+			return
+		}
+
+		if !user.IsOnboarded {
+			abortForbidden(c, siloErrors.ErrNotOnboarded)
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // ─── Portfolio role middleware ─────────────────────────────────────────────────

@@ -66,7 +66,7 @@ func main() {
 	engine := gin.New()
 	engine.ContextWithFallback = true
 
-	mid := middleware.New(env, store.NewPortfolioStore(storage))
+	mid := middleware.New(env, store.NewPortfolioStore(storage), store.NewUserStore(storage))
 
 	engine.Use(
 		mid.CORSMiddleware(),

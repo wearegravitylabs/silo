@@ -24,22 +24,17 @@ func New(r *gin.RouterGroup, svc appPortfolio.Portfolio, mid *middleware.Middlew
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios")
 
-	// No extra role middleware on create/list — any authenticated user can do these.
 	g.POST("", h.create)
 	g.GET("", h.list)
 
-	// Single-resource routes — middleware checks membership/role before the handler runs.
 	g.GET("/:id", mid.RequirePortfolioMember(), h.get)
 	g.PATCH("/:id", mid.RequirePortfolioEditor(), h.update)
 	g.DELETE("/:id", mid.RequirePortfolioOwner(), h.delete)
 
-	// Member management — only owners can invite or remove.
 	g.GET("/:id/members", mid.RequirePortfolioMember(), h.listMembers)
 	g.POST("/:id/members", mid.RequirePortfolioOwner(), h.addMember)
 	g.DELETE("/:id/members/:userID", mid.RequirePortfolioOwner(), h.removeMember)
 }
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func callerID(c *gin.Context) (uuid.UUID, bool) {
 	id, ok := c.Request.Context().Value(contexts.ContextKeyUserID).(uuid.UUID)
