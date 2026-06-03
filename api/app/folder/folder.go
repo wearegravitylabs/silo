@@ -14,21 +14,16 @@ import (
 //go:generate mockgen -source folder.go -destination ../mock/folder/mock_folder.go -package folder Folder
 
 // Folder defines folder lifecycle operations.
-// Permission checks (portfolio membership and role) are enforced at the HTTP
-// layer via middleware — this service contains only business logic.
+// callerID flows through every method for audit logging and store-level scoping.
+// Role checks (membership, editor/owner) are enforced by HTTP middleware before
+// these methods are called.
 type Folder interface {
-	// Create adds a new folder to the portfolio, positioned after existing ones.
-	Create(ctx context.Context, portfolioID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error)
-	// Get fetches a single folder by ID.
-	Get(ctx context.Context, folderID uuid.UUID) (model.Folder, error)
-	// List returns all folders for a portfolio ordered by position ascending.
-	List(ctx context.Context, portfolioID uuid.UUID) ([]model.Folder, error)
-	// Update renames or changes the icon/image of a folder.
-	Update(ctx context.Context, folderID uuid.UUID, req model.UpdateFolderRequest) (model.Folder, error)
-	// Delete removes the folder. Assets inside become folder-less (folder_id = NULL via FK).
-	Delete(ctx context.Context, folderID uuid.UUID) error
-	// Reorder applies a new position ordering to all folders in the portfolio atomically.
-	Reorder(ctx context.Context, portfolioID uuid.UUID, req model.ReorderFoldersRequest) error
+	Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error)
+	Get(ctx context.Context, folderID, callerID uuid.UUID) (model.Folder, error)
+	List(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Folder, error)
+	Update(ctx context.Context, folderID, callerID uuid.UUID, req model.UpdateFolderRequest) (model.Folder, error)
+	Delete(ctx context.Context, folderID, callerID uuid.UUID) error
+	Reorder(ctx context.Context, portfolioID, callerID uuid.UUID, req model.ReorderFoldersRequest) error
 }
 
 type service struct{ dp app.Dependency }
@@ -37,9 +32,10 @@ type service struct{ dp app.Dependency }
 func New(dp app.Dependency) Folder { return &service{dp: dp} }
 
 // Create adds a new folder positioned at max(existing) + 1.
-func (s *service) Create(ctx context.Context, portfolioID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error) {
+func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "folder.Create").
+		Str("caller_id", callerID.String()).
 		Logger()
 
 	maxPos, err := s.dp.FolderStore.MaxPosition(ctx, portfolioID)
@@ -66,20 +62,21 @@ func (s *service) Create(ctx context.Context, portfolioID uuid.UUID, req model.C
 	return created, nil
 }
 
-// Get fetches a single folder by ID.
-func (s *service) Get(ctx context.Context, folderID uuid.UUID) (model.Folder, error) {
+// Get fetches a single folder by ID. callerID is carried for audit context.
+func (s *service) Get(ctx context.Context, folderID, callerID uuid.UUID) (model.Folder, error) {
 	return s.dp.FolderStore.GetFolderByID(ctx, folderID)
 }
 
 // List returns folders for the portfolio ordered by position.
-func (s *service) List(ctx context.Context, portfolioID uuid.UUID) ([]model.Folder, error) {
+func (s *service) List(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Folder, error) {
 	return s.dp.FolderStore.ListFoldersByPortfolio(ctx, portfolioID)
 }
 
 // Update applies name, icon, or image changes to an existing folder.
-func (s *service) Update(ctx context.Context, folderID uuid.UUID, req model.UpdateFolderRequest) (model.Folder, error) {
+func (s *service) Update(ctx context.Context, folderID, callerID uuid.UUID, req model.UpdateFolderRequest) (model.Folder, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "folder.Update").
+		Str("caller_id", callerID.String()).
 		Logger()
 
 	folder, err := s.dp.FolderStore.GetFolderByID(ctx, folderID)
@@ -106,11 +103,11 @@ func (s *service) Update(ctx context.Context, folderID uuid.UUID, req model.Upda
 }
 
 // Delete removes a folder. Assets inside become folder-less via the DB FK constraint.
-func (s *service) Delete(ctx context.Context, folderID uuid.UUID) error {
+func (s *service) Delete(ctx context.Context, folderID, callerID uuid.UUID) error {
 	return s.dp.FolderStore.DeleteFolder(ctx, folderID)
 }
 
 // Reorder applies the new ordering atomically.
-func (s *service) Reorder(ctx context.Context, portfolioID uuid.UUID, req model.ReorderFoldersRequest) error {
+func (s *service) Reorder(ctx context.Context, portfolioID, callerID uuid.UUID, req model.ReorderFoldersRequest) error {
 	return s.dp.FolderStore.ReorderFolders(ctx, portfolioID, req.Folders)
 }

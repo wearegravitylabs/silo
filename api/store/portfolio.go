@@ -16,7 +16,9 @@ import (
 // PortfolioDatabase defines all persistence operations for portfolios.
 type PortfolioDatabase interface {
 	CreatePortfolio(ctx context.Context, portfolio model.Portfolio) (model.Portfolio, error)
-	GetPortfolioByID(ctx context.Context, id uuid.UUID) (model.Portfolio, error)
+	// GetPortfolioByID fetches a portfolio, scoped to callerID via a membership JOIN.
+	// Returns ErrPortfolioNotFound when the portfolio does not exist or the caller is not a member.
+	GetPortfolioByID(ctx context.Context, id, callerID uuid.UUID) (model.Portfolio, error)
 	ListPortfoliosByUser(ctx context.Context, userID uuid.UUID) ([]model.Portfolio, error)
 	// ListPortfoliosFiltered returns a paginated, filtered list of portfolios the user is a member of.
 	ListPortfoliosFiltered(ctx context.Context, userID uuid.UUID, filter model.ListPortfoliosFilter, page model.Page) ([]model.Portfolio, model.PageInfo, error)
@@ -42,11 +44,15 @@ func (p *portfolioStore) CreatePortfolio(ctx context.Context, portfolio model.Po
 	return portfolio, nil
 }
 
-func (p *portfolioStore) GetPortfolioByID(ctx context.Context, id uuid.UUID) (model.Portfolio, error) {
+// GetPortfolioByID fetches a portfolio and its members, but only when callerID is an
+// active member of that portfolio. This enforces ownership at the query level so that
+// even if middleware is bypassed, a caller can never read another user's portfolio.
+func (p *portfolioStore) GetPortfolioByID(ctx context.Context, id, callerID uuid.UUID) (model.Portfolio, error) {
 	var portfolio model.Portfolio
 	err := p.storage.DB.WithContext(ctx).
+		Joins("JOIN portfolio_members pm ON pm.portfolio_id = portfolios.id AND pm.user_id = ?", callerID).
 		Preload("Members").
-		Where("id = ? AND deleted_at IS NULL", id).
+		Where("portfolios.id = ? AND portfolios.deleted_at IS NULL", id).
 		First(&portfolio).Error
 	if err == gorm.ErrRecordNotFound {
 		return model.Portfolio{}, siloErrors.ErrPortfolioNotFound

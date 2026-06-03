@@ -19,9 +19,10 @@ import (
 
 // Asset defines asset management operations.
 type Asset interface {
-	// Create adds a new asset to the portfolio. The portfolio's base_currency
-	// is used when the caller does not supply one.
-	Create(ctx context.Context, portfolioID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error)
+	// Create adds a new asset to the portfolio. callerID is used to scope the
+	// portfolio lookup (currency default) and for audit context. The portfolio's
+	// base_currency is applied when the caller does not supply a currency.
+	Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error)
 	// GetByID fetches a single asset by its primary key.
 	GetByID(ctx context.Context, id uuid.UUID) (model.Asset, error)
 	// ListByPortfolio returns all non-deleted assets for a portfolio,
@@ -50,7 +51,7 @@ func New(dp app.Dependency) Asset { return &service{dp: dp} }
 //   - Preset types (stocks, crypto, real estate, etc.) always use the registry value.
 //   - Editable types (manual, domain) use req.Investability if supplied, or the
 //     registry default when the caller omits it.
-func (s *service) Create(ctx context.Context, portfolioID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error) {
+func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "asset.Create").
 		Logger()
@@ -64,7 +65,7 @@ func (s *service) Create(ctx context.Context, portfolioID uuid.UUID, req model.C
 	assetCurrency := strings.ToUpper(strings.TrimSpace(req.Currency))
 	if assetCurrency == "" {
 		// Default to the portfolio's base currency.
-		portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID)
+		portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, callerID)
 		if err != nil {
 			log.Error().Err(err).Msg("failed to fetch portfolio for currency default")
 			return model.Asset{}, err
