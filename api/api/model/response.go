@@ -63,7 +63,7 @@ func HandleErrorResponse(c *gin.Context, err error) {
 
 func codeToHTTPStatus(code string) int {
 	switch code {
-	case siloErrors.ErrUnauthorized.Code, siloErrors.ErrInvalidToken.Code:
+	case siloErrors.ErrUnauthorized.Code, siloErrors.ErrInvalidToken.Code, siloErrors.ErrInvalidOTP.Code:
 		return http.StatusUnauthorized
 	case siloErrors.ErrInsufficientPermission.Code:
 		return http.StatusForbidden

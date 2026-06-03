@@ -8,9 +8,12 @@ const (
 	AppEnv             = "APP_ENV"
 
 	// JWT
-	JWTSigningSecret     = "JWT_SIGNING_SECRET"
-	JWTAccessTokenExpiry = "JWT_ACCESS_TOKEN_EXPIRY"  // duration string e.g. "7d"
+	JWTSigningSecret      = "JWT_SIGNING_SECRET"
+	JWTAccessTokenExpiry  = "JWT_ACCESS_TOKEN_EXPIRY"  // duration string e.g. "15m"
 	JWTRefreshTokenExpiry = "JWT_REFRESH_TOKEN_EXPIRY" // e.g. "30d"
+
+	// OTP
+	OTPExpiry = "OTP_EXPIRY" // duration string e.g. "10m"
 
 	// Encryption
 	EncryptionKey = "ENCRYPTION_KEY" // 32-byte hex-encoded key for AES-256
@@ -44,10 +47,12 @@ const (
 	MinIOBucket    = "MINIO_BUCKET"
 	MinIOUseSSL    = "MINIO_USE_SSL"
 
-	// Email
-	SendgridAPIKey = "SENDGRID_API_KEY"
-	SupportEmail   = "SUPPORT_EMAIL"
-	AppBaseURL     = "APP_BASE_URL"
+	// Email (Resend)
+	ResendAPIKey    = "RESEND_API_KEY"
+	ResendFromEmail = "RESEND_FROM_EMAIL"
+	ResendFromName  = "RESEND_FROM_NAME"
+	SupportEmail    = "SUPPORT_EMAIL"
+	AppBaseURL      = "APP_BASE_URL"
 
 	// Feature flags
 	IsSandboxMode = "IS_SANDBOX_MODE"

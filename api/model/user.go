@@ -6,33 +6,39 @@ import (
 	"github.com/google/uuid"
 )
 
-// User represents a registered Silo user.
+// User represents a Silo user authenticated via magic-link OTP.
 type User struct {
-	ID                  uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	Email               string     `gorm:"uniqueIndex;not null" json:"email"`
-	FirstName           string     `json:"first_name"`
-	LastName            string     `json:"last_name"`
-	Password            string     `json:"-"`
-	IsActive            bool       `gorm:"default:false" json:"is_active"`
-	IsEmailVerified     bool       `gorm:"default:false" json:"is_email_verified"`
-	EmailOTPCode        string     `json:"-"`
-	EmailOTPExpiry      *time.Time `json:"-"`
-	ResetPWOTPCode      string     `json:"-"`
-	ResetPWOTPExpiry    *time.Time `json:"-"`
-	FailedLoginAttempts int        `gorm:"default:0" json:"-"`
-	LockedUntil         *time.Time `json:"-"`
-	CreatedAt           time.Time  `json:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at"`
-	DeletedAt           *time.Time `gorm:"index" json:"-"`
+	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	Email           string     `gorm:"uniqueIndex;not null"                            json:"email"`
+	FirstName       string     `json:"first_name"`
+	LastName        string     `json:"last_name"`
+	IsEmailVerified bool       `gorm:"default:false"                                   json:"is_email_verified"`
+	OTPCode         string     `json:"-"`
+	OTPExpiry       *time.Time `json:"-"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+	DeletedAt       *time.Time `gorm:"index"                                           json:"-"`
 }
 
-// UserSignup holds the data needed to register a new user.
-type UserSignup struct {
-	Email     string `json:"email" binding:"required,email"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
-	Password  string `json:"password" binding:"required,min=8"`
+// SendCodeRequest is the payload for POST /auth/send-code.
+type SendCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
 }
 
-// Password is a string type used to signal sensitive handling.
-type Password = string
+// VerifyCodeRequest is the payload for POST /auth/verify-code.
+type VerifyCodeRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code"  binding:"required,len=6"`
+}
+
+// RefreshTokenRequest is the payload for POST /auth/refresh-token.
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// AuthResponse is returned after a successful verify-code call.
+type AuthResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	User         User   `json:"user"`
+}

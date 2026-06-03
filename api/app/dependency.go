@@ -4,6 +4,7 @@ package app
 import (
 	"github.com/rs/zerolog"
 
+	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
 	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 	"github.com/wearegravitylabs/silo/api/ports"
@@ -14,9 +15,9 @@ import (
 	"github.com/wearegravitylabs/silo/api/thirdparty/market/coingecko"
 	"github.com/wearegravitylabs/silo/api/thirdparty/market/yahoo"
 	"github.com/wearegravitylabs/silo/api/thirdparty/messaging/email"
+	resendProvider "github.com/wearegravitylabs/silo/api/thirdparty/messaging/resend"
 	"github.com/wearegravitylabs/silo/api/thirdparty/storage"
 	storageMinIO "github.com/wearegravitylabs/silo/api/thirdparty/storage/minio"
-	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
 )
 
 // Dependency holds all shared dependencies available to service implementations.
@@ -25,12 +26,13 @@ type Dependency struct {
 	Env    *environment.Env
 
 	// Store layer
-	UserStore      store.UserDatabase
-	PortfolioStore store.PortfolioDatabase
-	AssetStore     store.AssetDatabase
-	DebtStore      store.DebtDatabase
-	AutopilotStore store.AutopilotDatabase
-	SnapshotStore  store.SnapshotDatabase
+	UserStore         store.UserDatabase
+	PortfolioStore    store.PortfolioDatabase
+	AssetStore        store.AssetDatabase
+	DebtStore         store.DebtDatabase
+	AutopilotStore    store.AutopilotDatabase
+	SnapshotStore     store.SnapshotDatabase
+	RefreshTokenStore store.RefreshTokenDatabase
 
 	// Third-party services
 	StockMarket     market.MarketDataProvider // Yahoo Finance
@@ -49,26 +51,38 @@ type Dependency struct {
 func InitDp(s *store.Store, env *environment.Env) Dependency {
 	log := siloLogger.New()
 
+	// Wire email provider: use Resend when API key is present, fall back to no-op for local dev.
+	var emailSvc email.EmailingService
+	if resendKey := env.Get(modelEnv.ResendAPIKey); resendKey != "" {
+		emailSvc = resendProvider.New(
+			resendKey,
+			env.GetWithDefault(modelEnv.ResendFromEmail, "noreply@silo.app"),
+			env.GetWithDefault(modelEnv.ResendFromName, "Silo"),
+		)
+	} else {
+		emailSvc = email.New() // NoOpEmailer — logs to stdout
+	}
+
 	return Dependency{
 		Logger: log,
 		Env:    env,
 
 		// Store layer
-		UserStore:      store.NewUserStore(s),
-		PortfolioStore: store.NewPortfolioStore(s),
-		AssetStore:     store.NewAssetStore(s),
-		DebtStore:      store.NewDebtStore(s),
-		AutopilotStore: store.NewAutopilotStore(s),
-		SnapshotStore:  store.NewSnapshotStore(s),
+		UserStore:         store.NewUserStore(s),
+		PortfolioStore:    store.NewPortfolioStore(s),
+		AssetStore:        store.NewAssetStore(s),
+		DebtStore:         store.NewDebtStore(s),
+		AutopilotStore:    store.NewAutopilotStore(s),
+		SnapshotStore:     store.NewSnapshotStore(s),
+		RefreshTokenStore: store.NewRefreshTokenStore(s),
 
 		// Third-party
 		StockMarket:     yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),
 		CryptoMarket:    coingecko.New(env.Get(modelEnv.CoinGeckoAPIKey), env.Get(modelEnv.CoinGeckoBaseURL)),
 		AIProvider:      claude.New(env.Get(modelEnv.AnthropicAPIKey), env.Get(modelEnv.ClaudeModel)),
 		ObjectStorage:   storageMinIO.New(env.Get(modelEnv.MinIOEndpoint), env.Get(modelEnv.MinIOAccessKey), env.Get(modelEnv.MinIOSecretKey), env.GetBool(modelEnv.MinIOUseSSL)),
-		EmailingService: email.New(),
+		EmailingService: emailSvc,
 
-		// Cloud ports — nil by default; injected by silo-cloud at startup
 		BankConnector:        nil,
 		NotificationProvider: nil,
 		BillingProvider:      nil,

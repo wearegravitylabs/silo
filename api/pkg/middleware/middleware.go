@@ -2,16 +2,22 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 
-	"github.com/wearegravitylabs/silo/api/pkg/environment"
-	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
+	apiModel "github.com/wearegravitylabs/silo/api/api/model"
+	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
+	"github.com/wearegravitylabs/silo/api/pkg/contexts"
+	"github.com/wearegravitylabs/silo/api/pkg/environment"
+	siloJWT "github.com/wearegravitylabs/silo/api/pkg/jwt"
+	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 )
 
 // Middleware holds shared state for all middleware functions.
@@ -58,15 +64,45 @@ func (m *Middleware) LoggerMiddleware() gin.HandlerFunc {
 	}
 }
 
-// AuthMiddleware validates the JWT Bearer token and injects the userID into context.
+// AuthMiddleware validates the JWT Bearer token and injects the userID into the request context.
+// Protected routes should use RequireAuth() which is an alias for this.
 func (m *Middleware) AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// TODO: extract and validate JWT from Authorization header, set userID in context
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, apiModel.APIResponse{
+				Success: false,
+				Error: &apiModel.ErrorData{
+					Code:    siloErrors.ErrUnauthorized.Code,
+					Message: siloErrors.ErrUnauthorized.Message,
+				},
+			})
+			return
+		}
+
+		tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
+		secret := m.env.Get(modelEnv.JWTSigningSecret)
+
+		userID, err := siloJWT.ValidateToken(tokenStr, secret)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, apiModel.APIResponse{
+				Success: false,
+				Error: &apiModel.ErrorData{
+					Code:    siloErrors.ErrInvalidToken.Code,
+					Message: siloErrors.ErrInvalidToken.Message,
+				},
+			})
+			return
+		}
+
+		// Inject the validated userID into the request context.
+		ctx := context.WithValue(c.Request.Context(), contexts.ContextKeyUserID, userID)
+		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
 }
 
-// RequireAuth is an alias for AuthMiddleware for use in route groups.
+// RequireAuth is the standard middleware for protecting routes — validates the JWT.
 func (m *Middleware) RequireAuth() gin.HandlerFunc {
 	return m.AuthMiddleware()
 }
