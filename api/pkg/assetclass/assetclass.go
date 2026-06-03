@@ -125,19 +125,26 @@ var typeToClassCode = map[model.AssetType]string{
 	model.AssetTypeBank:         "manual", // bank connections shown under manual-ish
 }
 
-// typeToInvestability defines the preset investability for each asset type.
-// When the second return value is false, the user must supply their own value.
-var typeToInvestability = map[model.AssetType]model.Investability{
-	model.AssetTypeBank:         model.InvestabilityCash,
-	model.AssetTypeStockTicker:  model.InvestabilityInvestable,
-	model.AssetTypeStockManual:  model.InvestabilityInvestable,
-	model.AssetTypeCryptoTicker: model.InvestabilityInvestable,
-	model.AssetTypeCryptoManual: model.InvestabilityInvestable, // default; stablecoins should be overridden to Cash
-	model.AssetTypeRealEstate:   model.InvestabilityNonInvest,
-	model.AssetTypePhysical:     model.InvestabilityNonInvest,
-	model.AssetTypeVC:           model.InvestabilityNonInvest,
-	model.AssetTypeBusiness:     model.InvestabilityNonInvest,
-	// manual and domain are NOT in this map — user must supply
+// typeToInvestability defines the investability for every asset type.
+// All types have a sensible default; types marked as locked (true) cannot be
+// changed by the user. Types marked as editable (false) use the stored value
+// but fall back to the default here when the user supplies nothing.
+var typeToInvestability = map[model.AssetType]struct {
+	Value  model.Investability
+	Locked bool // true = preset, not user-editable
+}{
+	model.AssetTypeBank:         {Value: model.InvestabilityCash, Locked: true},
+	model.AssetTypeStockTicker:  {Value: model.InvestabilityInvestable, Locked: true},
+	model.AssetTypeStockManual:  {Value: model.InvestabilityInvestable, Locked: true},
+	model.AssetTypeCryptoTicker: {Value: model.InvestabilityInvestable, Locked: true},
+	model.AssetTypeCryptoManual: {Value: model.InvestabilityInvestable, Locked: true}, // stablecoins can be overridden at service layer
+	model.AssetTypeRealEstate:   {Value: model.InvestabilityNonInvest, Locked: true},
+	model.AssetTypePhysical:     {Value: model.InvestabilityNonInvest, Locked: true},
+	model.AssetTypeVC:           {Value: model.InvestabilityNonInvest, Locked: true},
+	model.AssetTypeBusiness:     {Value: model.InvestabilityNonInvest, Locked: true},
+	// User-editable — default provided but overridable
+	model.AssetTypeManual: {Value: model.InvestabilityInvestable, Locked: false},
+	model.AssetTypeDomain: {Value: model.InvestabilityInvestable, Locked: false},
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -160,17 +167,24 @@ func ClassOf(t model.AssetType) AssetClass {
 	return registryByCode[code]
 }
 
-// DefaultInvestability returns the preset investability for a given asset type.
-// When the second return value is false the asset type is user-editable
-// (manual and domain) and the caller must supply a value.
+// DefaultInvestability returns the default investability for a given asset type
+// and whether it is locked (not editable by the user).
+// All types now have a default — the second return value (locked) indicates
+// whether the caller may override it.
 func DefaultInvestability(t model.AssetType) (model.Investability, bool) {
-	inv, ok := typeToInvestability[t]
-	return inv, ok
+	entry, ok := typeToInvestability[t]
+	if !ok {
+		return model.InvestabilityInvestable, false // safe fallback: editable
+	}
+	return entry.Value, entry.Locked
 }
 
-// InvestabilityEditable reports whether a user can change the investability
-// for the given asset type.
+// InvestabilityEditable reports whether the user can override the investability
+// for the given asset type. Returns true for manual and domain types.
 func InvestabilityEditable(t model.AssetType) bool {
-	_, preset := typeToInvestability[t]
-	return !preset
+	entry, ok := typeToInvestability[t]
+	if !ok {
+		return true // unknown types are always editable
+	}
+	return !entry.Locked
 }
