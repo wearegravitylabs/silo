@@ -93,6 +93,10 @@ var (
 	ErrUserEmailExists = &TranslatableError{Code: "USER_EMAIL_EXISTS", Key: "ERR_USER_EMAIL_EXISTS",
 		Message: messages.ErrEmailAlreadyExists, Public: true}
 
+	// ErrAlreadyOnboarded is shown when the user tries to onboard a second time.
+	ErrAlreadyOnboarded = &TranslatableError{Code: "ALREADY_ONBOARDED", Key: "ERR_ALREADY_ONBOARDED",
+		Message: messages.ErrAlreadyOnboarded, Public: true}
+
 	// ─── Portfolio ────────────────────────────────────────────────────────────
 
 	// ErrPortfolioNotFound is an internal error.

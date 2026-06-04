@@ -136,7 +136,8 @@ func codeToHTTPStatus(code string) int {
 
 	case siloErrors.ErrDuplicateRecord.Code,
 		siloErrors.ErrUserEmailExists.Code,
-		siloErrors.ErrMemberAlreadyExists.Code:
+		siloErrors.ErrMemberAlreadyExists.Code,
+		siloErrors.ErrAlreadyOnboarded.Code:
 		return http.StatusConflict
 
 	case siloErrors.ErrInvalidRequest.Code,

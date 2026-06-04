@@ -145,12 +145,12 @@ func (h *handler) reorder(c *gin.Context) {
 	}
 
 	var req model.ReorderFoldersRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err = c.ShouldBindJSON(&req); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
 	}
 
-	if err := h.svc.Reorder(c.Request.Context(), portfolioID, callerID, req); err != nil {
+	if err = h.svc.Reorder(c.Request.Context(), portfolioID, callerID, req); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}

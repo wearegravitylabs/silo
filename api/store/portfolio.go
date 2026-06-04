@@ -16,15 +16,11 @@ import (
 // PortfolioDatabase defines all persistence operations for portfolios.
 type PortfolioDatabase interface {
 	CreatePortfolio(ctx context.Context, portfolio model.Portfolio) (model.Portfolio, error)
-	// GetPortfolioByID fetches a portfolio, scoped to callerID via a membership JOIN.
-	// Returns ErrPortfolioNotFound when the portfolio does not exist or the caller is not a member.
 	GetPortfolioByID(ctx context.Context, id, callerID uuid.UUID) (model.Portfolio, error)
 	ListPortfoliosByUser(ctx context.Context, userID uuid.UUID) ([]model.Portfolio, error)
-	// ListPortfoliosFiltered returns a paginated, filtered list of portfolios the user is a member of.
 	ListPortfoliosFiltered(ctx context.Context, userID uuid.UUID, filter model.ListPortfoliosFilter, page model.Page) ([]model.Portfolio, model.PageInfo, error)
 	UpdatePortfolio(ctx context.Context, portfolio model.Portfolio) (model.Portfolio, error)
 	SoftDeletePortfolio(ctx context.Context, id uuid.UUID) error
-	// CountOwners returns how many members with the owner role a portfolio has.
 	CountOwners(ctx context.Context, portfolioID uuid.UUID) (int64, error)
 	AddMember(ctx context.Context, member model.PortfolioMember) error
 	RemoveMember(ctx context.Context, portfolioID, userID uuid.UUID) error

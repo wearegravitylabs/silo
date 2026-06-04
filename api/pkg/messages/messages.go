@@ -41,12 +41,16 @@ const (
 // ─── User ─────────────────────────────────────────────────────────────────────
 
 const (
+	// UserOnboarded is returned when the user completes onboarding.
+	UserOnboarded = "Welcome to Silo! Your profile is ready."
 	// UserProfileUpdated is returned when profile fields are saved.
 	UserProfileUpdated = "Your profile has been updated."
 	// UserAccountDeleted is returned when a user deletes their own account.
 	UserAccountDeleted = "Your account has been deleted. We're sorry to see you go."
 	// ErrEmailAlreadyExists is shown on duplicate email registration.
 	ErrEmailAlreadyExists = "An account with this email address already exists."
+	// ErrAlreadyOnboarded is shown when onboarding is attempted more than once.
+	ErrAlreadyOnboarded = "Your profile is already set up."
 )
 
 // ─── Portfolio ────────────────────────────────────────────────────────────────

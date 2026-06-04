@@ -74,6 +74,11 @@ func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.Crea
 		return model.Portfolio{}, err
 	}
 
+	// Increment the owner's portfolio count. Non-fatal — log on error, don't fail the create.
+	if err := s.dp.UserStore.IncrementPortfolioCount(ctx, callerID); err != nil {
+		log.Error().Err(err).Msg("failed to increment portfolio_count")
+	}
+
 	log.Info().Str("portfolio_id", created.ID.String()).Msg("portfolio created")
 	return created, nil
 }
@@ -125,11 +130,23 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 
 // Delete soft-deletes a portfolio, scoped to the caller.
 func (s *service) Delete(ctx context.Context, id, callerID uuid.UUID) error {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "portfolio.Delete").
+		Logger()
+
 	// Verify caller is a member before deleting (store-level check).
 	if _, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, id, callerID); err != nil {
 		return err
 	}
-	return s.dp.PortfolioStore.SoftDeletePortfolio(ctx, id)
+	if err := s.dp.PortfolioStore.SoftDeletePortfolio(ctx, id); err != nil {
+		return err
+	}
+
+	// Decrement the owner's portfolio count. Non-fatal.
+	if err := s.dp.UserStore.DecrementPortfolioCount(ctx, callerID); err != nil {
+		log.Error().Err(err).Msg("failed to decrement portfolio_count")
+	}
+	return nil
 }
 
 // AddMember invites a user (by email) to the portfolio. callerID is stored as InvitedBy.

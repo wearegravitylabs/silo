@@ -29,6 +29,13 @@ type UserDatabase interface {
 	StoreOTP(ctx context.Context, userID uuid.UUID, hashedCode string, expiry time.Time) error
 	// ClearOTP removes the OTP fields and marks the email as verified.
 	ClearOTP(ctx context.Context, userID uuid.UUID) error
+
+	// CompleteOnboarding sets the user's profile fields and flips is_onboarded = true atomically.
+	CompleteOnboarding(ctx context.Context, userID uuid.UUID, req model.OnboardRequest) error
+	// IncrementPortfolioCount atomically adds 1 to the user's portfolio_count.
+	IncrementPortfolioCount(ctx context.Context, userID uuid.UUID) error
+	// DecrementPortfolioCount atomically subtracts 1 from portfolio_count, floored at 0.
+	DecrementPortfolioCount(ctx context.Context, userID uuid.UUID) error
 }
 
 type userStore struct{ storage *Store }
@@ -125,4 +132,34 @@ func (u *userStore) ClearOTP(ctx context.Context, userID uuid.UUID) error {
 			"otp_expiry":        gorm.Expr("NULL"),
 			"is_email_verified": true,
 		}).Error
+}
+
+// CompleteOnboarding sets the user's profile fields and marks is_onboarded = true atomically.
+func (u *userStore) CompleteOnboarding(ctx context.Context, userID uuid.UUID, req model.OnboardRequest) error {
+	return u.storage.DB.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]any{
+			"first_name":         req.FirstName,
+			"last_name":          req.LastName,
+			"phone_number":       req.PhoneNumber,
+			"phone_country_code": req.PhoneCountryCode,
+			"is_onboarded":       true,
+		}).Error
+}
+
+// IncrementPortfolioCount atomically increments portfolio_count by 1.
+func (u *userStore) IncrementPortfolioCount(ctx context.Context, userID uuid.UUID) error {
+	return u.storage.DB.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		UpdateColumn("portfolio_count", gorm.Expr("portfolio_count + 1")).Error
+}
+
+// DecrementPortfolioCount atomically decrements portfolio_count by 1, floored at 0.
+func (u *userStore) DecrementPortfolioCount(ctx context.Context, userID uuid.UUID) error {
+	return u.storage.DB.WithContext(ctx).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		UpdateColumn("portfolio_count", gorm.Expr("GREATEST(portfolio_count - 1, 0)")).Error
 }
