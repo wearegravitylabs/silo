@@ -29,6 +29,7 @@ type Dependency struct {
 	UserStore         store.UserDatabase
 	PortfolioStore    store.PortfolioDatabase
 	AssetStore        store.AssetDatabase
+	AssetLotStore     store.AssetLotDatabase
 	DebtStore         store.DebtDatabase
 	AutopilotStore    store.AutopilotDatabase
 	SnapshotStore     store.SnapshotDatabase
@@ -72,6 +73,7 @@ func InitDp(s *store.Store, env *environment.Env) Dependency {
 		UserStore:         store.NewUserStore(s),
 		PortfolioStore:    store.NewPortfolioStore(s),
 		AssetStore:        store.NewAssetStore(s),
+		AssetLotStore:     store.NewAssetLotStore(s),
 		DebtStore:         store.NewDebtStore(s),
 		AutopilotStore:    store.NewAutopilotStore(s),
 		SnapshotStore:     store.NewSnapshotStore(s),

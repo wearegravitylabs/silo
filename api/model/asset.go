@@ -72,20 +72,24 @@ type Asset struct {
 	// Investability is preset for most asset types; editable for manual and domain.
 	Investability Investability `json:"investability"`
 
+	// AssetClass is the user-facing group code written on insert from pkg/assetclass.
+	// Stored for query performance; single source of truth is the Go registry.
+	AssetClass string `json:"asset_class"`
+	// LogoURL is the company logo for ticker-based assets (auto-fetched from Yahoo Finance).
+	LogoURL string `json:"logo_url"`
+
 	Location        string     `json:"location"`
 	Metadata        JSONB      `gorm:"type:jsonb"                                       json:"metadata,omitempty"`
 	LastPriceSync   *time.Time `json:"last_price_sync"`
-	AcquisitionDate *time.Time `json:"acquisition_date"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	DeletedAt       *time.Time `gorm:"index"                                            json:"-"`
 
-	// ── Computed fields (not stored, populated at API layer) ──────────────────
+	// Lots is populated on explicit Preload only.
+	Lots []AssetLot `gorm:"foreignKey:AssetID" json:"lots,omitempty"`
 
-	// AssetClassName is the user-facing group name, e.g. "Stocks", "Crypto".
-	AssetClassName string `gorm:"-" json:"asset_class_name"`
-	// AssetClassCode is the machine-readable group code, e.g. "stock", "crypto".
-	AssetClassCode string `gorm:"-" json:"asset_class_code"`
+	// ── Computed fields (not stored, gorm:"-") ────────────────────────────────
+
 	// Icon is the inline SVG for this asset's class, populated at query time.
 	Icon string `gorm:"-" json:"icon"`
 	// InvestabilityEditable reports whether the user can change the investability.
@@ -96,23 +100,31 @@ type Asset struct {
 
 // CreateAssetRequest is the payload for POST /portfolios/:id/assets.
 type CreateAssetRequest struct {
-	FolderID      *uuid.UUID    `json:"folder_id"`
-	Name          string        `json:"name"          binding:"required"`
-	AssetType     AssetType     `json:"asset_type"    binding:"required"`
-	Ticker        string        `json:"ticker"`
-	Quantity      float64       `json:"quantity"`
-	PurchasePrice float64       `json:"purchase_price"`
-	CurrentValue  float64       `json:"current_value"`
-	// Currency is optional. When empty the portfolio's base_currency is applied automatically.
-	Currency        string        `json:"currency"`
+	FolderID  *uuid.UUID `json:"folder_id"`
+	AssetType AssetType  `json:"asset_type" binding:"required"`
+
+	// For stock_ticker / crypto_ticker: provide ticker only.
+	// Name, logo, and current price are fetched automatically.
+	Ticker string `json:"ticker"`
+
+	// For manual types: provide name (and optionally image_url).
+	Name     string  `json:"name"`
+	ImageURL *string `json:"image_url"`
+
+	// Currency is optional — portfolio base_currency is used when empty.
+	Currency string `json:"currency"`
 	// OwnershipPct defaults to 100 when omitted or zero.
-	OwnershipPct    float64       `json:"ownership_pct"`
-	// Investability is optional for preset types (applied automatically).
-	// Required for manual and domain types where the user must choose.
-	Investability   Investability `json:"investability"`
-	Location        string        `json:"location"`
-	Metadata        JSONB         `json:"metadata"`
-	AcquisitionDate *time.Time    `json:"acquisition_date"`
+	OwnershipPct float64 `json:"ownership_pct"`
+	// Investability is applied automatically for preset types; required for manual/domain.
+	Investability Investability `json:"investability"`
+
+	Location string `json:"location"`
+	Metadata JSONB  `json:"metadata"`
+
+	// Lots records one or more purchase tranches.
+	// For ticker types, acquisition_price is optional — fetched from Yahoo Finance.
+	// For manual types, acquisition_price is required.
+	Lots []CreateLotRequest `json:"lots" binding:"required,min=1"`
 }
 
 // UpdateAssetRequest is the payload for PATCH /portfolios/:id/assets/:id.

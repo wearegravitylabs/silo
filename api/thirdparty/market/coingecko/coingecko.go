@@ -4,6 +4,7 @@ package coingecko
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/wearegravitylabs/silo/api/thirdparty/market"
 )
@@ -24,6 +25,14 @@ func New(apiKey, baseURL string) market.MarketDataProvider {
 
 func (c *Client) GetStockQuote(ctx context.Context, ticker string) (market.Quote, error) {
 	return market.Quote{}, fmt.Errorf("coingecko: use Yahoo Finance for stock quotes")
+}
+
+func (c *Client) SearchTicker(ctx context.Context, query string) ([]market.TickerResult, error) {
+	return nil, fmt.Errorf("coingecko: use Yahoo Finance for ticker search")
+}
+
+func (c *Client) GetHistoricalPrice(ctx context.Context, ticker string, date time.Time) (float64, time.Time, error) {
+	return 0, time.Time{}, fmt.Errorf("coingecko: use Yahoo Finance for stock historical prices")
 }
 
 func (c *Client) GetCryptoPrice(ctx context.Context, coinID, currency string) (market.Quote, error) {

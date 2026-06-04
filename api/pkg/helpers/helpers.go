@@ -33,3 +33,14 @@ func ParseDuration(s string, fallback time.Duration) time.Duration {
 func StringPtr(s string) *string {
 	return &s
 }
+
+// Coalesce returns the first non-empty string from the given values.
+// Equivalent to SQL COALESCE for string values.
+func Coalesce(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}

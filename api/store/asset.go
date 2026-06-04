@@ -20,6 +20,9 @@ type AssetDatabase interface {
 	UpdateAsset(ctx context.Context, asset model.Asset) (model.Asset, error)
 	SoftDeleteAsset(ctx context.Context, id uuid.UUID) error
 	ListAssetsWithTickers(ctx context.Context) ([]model.Asset, error)
+	// GetByTicker returns the existing asset for a ticker in a portfolio, or
+	// ErrAssetNotFound when no such asset exists.
+	GetByTicker(ctx context.Context, portfolioID uuid.UUID, ticker string) (model.Asset, error)
 }
 
 type assetStore struct{ storage *Store }
@@ -77,4 +80,21 @@ func (a *assetStore) ListAssetsWithTickers(ctx context.Context) ([]model.Asset, 
 		Where("ticker != '' AND deleted_at IS NULL").
 		Find(&assets).Error
 	return assets, err
+}
+
+// GetByTicker returns the (non-deleted) asset for a ticker within a portfolio.
+// Returns ErrAssetNotFound when the ticker does not exist in that portfolio.
+func (a *assetStore) GetByTicker(ctx context.Context, portfolioID uuid.UUID, ticker string) (model.Asset, error) {
+	var asset model.Asset
+	err := a.storage.DB.WithContext(ctx).
+		Where("portfolio_id = ? AND ticker = ? AND deleted_at IS NULL", portfolioID, ticker).
+		Preload("Lots").
+		First(&asset).Error
+	if err == gorm.ErrRecordNotFound {
+		return model.Asset{}, siloErrors.ErrAssetNotFound
+	}
+	if err != nil {
+		return model.Asset{}, siloErrors.ErrGenericErr
+	}
+	return asset, nil
 }

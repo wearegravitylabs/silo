@@ -8,12 +8,23 @@ import (
 
 // Quote holds current pricing data for a single asset.
 type Quote struct {
-	Ticker    string
-	Price     float64
-	Currency  string
-	Change24h float64 // absolute change in the last 24 hours
-	PctChange float64 // percentage change
-	UpdatedAt time.Time
+	Ticker      string
+	CompanyName string
+	Price       float64
+	Currency    string
+	Change24h   float64 // absolute change in the last 24 hours
+	PctChange   float64 // percentage change
+	Exchange    string
+	LogoURL     string
+	UpdatedAt   time.Time
+}
+
+// TickerResult is a single result from a ticker search query.
+type TickerResult struct {
+	Ticker      string
+	CompanyName string
+	Exchange    string
+	AssetType   string // EQUITY, ETF, etc.
 }
 
 // OHLCV represents a single candlestick data point.
@@ -43,8 +54,14 @@ const (
 
 // MarketDataProvider is the interface for fetching live and historical market prices.
 type MarketDataProvider interface {
-	// GetStockQuote returns the current price for a stock ticker (e.g. "AAPL").
+	// GetStockQuote returns current price and metadata for a stock ticker.
 	GetStockQuote(ctx context.Context, ticker string) (Quote, error)
+	// SearchTicker searches for tickers matching the query string (name or symbol).
+	SearchTicker(ctx context.Context, query string) ([]TickerResult, error)
+	// GetHistoricalPrice returns the closing price for a ticker on the given date.
+	// If the date falls on a weekend or holiday, the nearest prior trading day is used.
+	// The second return value is the actual date whose price was used.
+	GetHistoricalPrice(ctx context.Context, ticker string, date time.Time) (price float64, dateUsed time.Time, err error)
 	// GetCryptoPrice returns the current price for a crypto asset by CoinGecko ID.
 	GetCryptoPrice(ctx context.Context, coinID, currency string) (Quote, error)
 	// GetExchangeRate returns the conversion rate from one currency to another.
