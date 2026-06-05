@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/wearegravitylabs/silo/api/pkg/currency"
 )
 
 // DebtType categorises a liability.
@@ -42,7 +44,7 @@ type Debt struct {
 	PaymentAmount   float64          `gorm:"type:numeric(28,10)" json:"payment_amount"`
 	Frequency       PaymentFrequency `json:"frequency"`
 	HasSchedule     bool             `gorm:"default:false" json:"has_schedule"`
-	Currency        string           `gorm:"not null;default:'USD'" json:"currency"`
+	Currency        currency.Code    `gorm:"not null;default:'USD'" json:"currency"`
 	OwnershipPct    float64          `gorm:"type:numeric(6,4);default:100" json:"ownership_pct"`
 	StartDate       *time.Time       `json:"start_date"`
 	PayoffDate      *time.Time       `json:"payoff_date"`
@@ -62,7 +64,7 @@ type CreateDebtRequest struct {
 	PaymentAmount float64          `json:"payment_amount"`
 	Frequency     PaymentFrequency `json:"frequency"`
 	HasSchedule   bool             `json:"has_schedule"`
-	Currency      string           `json:"currency"`
+	Currency      currency.Code    `json:"currency"`
 	OwnershipPct  float64          `json:"ownership_pct"`
 	StartDate     *time.Time       `json:"start_date"`
 }

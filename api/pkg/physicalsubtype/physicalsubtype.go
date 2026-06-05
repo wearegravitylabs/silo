@@ -6,9 +6,13 @@ package physicalsubtype
 
 import "strings"
 
+// Code is the machine-readable physical subtype identifier (e.g. "vehicle", "watch").
+// It is a type alias for string so GORM and JSON serialisation work transparently.
+type Code = string
+
 // PhysicalSubtype carries display metadata for a physical asset sub-category.
 type PhysicalSubtype struct {
-	Code string `json:"code"`
+	Code Code   `json:"code"`
 	Name string `json:"name"`
 	Icon string `json:"icon"` // inline SVG — design-system asset
 }

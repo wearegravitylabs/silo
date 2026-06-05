@@ -35,6 +35,7 @@ func New(dp app.Dependency) Folder { return &service{dp: dp} }
 func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "folder.Create").
+		Str("portfolio_id", portfolioID.String()).
 		Str("caller_id", callerID.String()).
 		Logger()
 
@@ -62,25 +63,47 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 	return created, nil
 }
 
-// Get fetches a single folder by ID. callerID is carried for audit context.
+// Get fetches a single folder by ID.
 func (s *service) Get(ctx context.Context, folderID, callerID uuid.UUID) (model.Folder, error) {
-	return s.dp.FolderStore.GetFolderByID(ctx, folderID)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "folder.Get").
+		Str("folder_id", folderID.String()).
+		Logger()
+
+	folder, err := s.dp.FolderStore.GetFolderByID(ctx, folderID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get folder")
+		return model.Folder{}, err
+	}
+	return folder, nil
 }
 
 // List returns folders for the portfolio ordered by position.
 func (s *service) List(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Folder, error) {
-	return s.dp.FolderStore.ListFoldersByPortfolio(ctx, portfolioID)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "folder.List").
+		Str("portfolio_id", portfolioID.String()).
+		Logger()
+
+	folders, err := s.dp.FolderStore.ListFoldersByPortfolio(ctx, portfolioID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to list folders")
+		return nil, err
+	}
+	return folders, nil
 }
 
 // Update applies name, icon, or image changes to an existing folder.
 func (s *service) Update(ctx context.Context, folderID, callerID uuid.UUID, req model.UpdateFolderRequest) (model.Folder, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "folder.Update").
+		Str("folder_id", folderID.String()).
 		Str("caller_id", callerID.String()).
 		Logger()
 
 	folder, err := s.dp.FolderStore.GetFolderByID(ctx, folderID)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch folder for update")
 		return model.Folder{}, err
 	}
 
@@ -104,10 +127,31 @@ func (s *service) Update(ctx context.Context, folderID, callerID uuid.UUID, req 
 
 // Delete removes a folder. Assets inside become folder-less via the DB FK constraint.
 func (s *service) Delete(ctx context.Context, folderID, callerID uuid.UUID) error {
-	return s.dp.FolderStore.DeleteFolder(ctx, folderID)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "folder.Delete").
+		Str("folder_id", folderID.String()).
+		Str("caller_id", callerID.String()).
+		Logger()
+
+	if err := s.dp.FolderStore.DeleteFolder(ctx, folderID); err != nil {
+		log.Error().Err(err).Msg("failed to delete folder")
+		return err
+	}
+
+	log.Info().Msg("folder deleted")
+	return nil
 }
 
 // Reorder applies the new ordering atomically.
 func (s *service) Reorder(ctx context.Context, portfolioID, callerID uuid.UUID, req model.ReorderFoldersRequest) error {
-	return s.dp.FolderStore.ReorderFolders(ctx, portfolioID, req.Folders)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "folder.Reorder").
+		Str("portfolio_id", portfolioID.String()).
+		Logger()
+
+	if err := s.dp.FolderStore.ReorderFolders(ctx, portfolioID, req.Folders); err != nil {
+		log.Error().Err(err).Msg("failed to reorder folders")
+		return err
+	}
+	return nil
 }

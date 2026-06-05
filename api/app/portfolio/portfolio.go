@@ -85,12 +85,31 @@ func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.Crea
 
 // GetByID fetches a portfolio scoped to the caller.
 func (s *service) GetByID(ctx context.Context, id, callerID uuid.UUID) (model.Portfolio, error) {
-	return s.dp.PortfolioStore.GetPortfolioByID(ctx, id, callerID)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "portfolio.GetByID").
+		Str("portfolio_id", id.String()).
+		Logger()
+
+	p, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, id, callerID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch portfolio")
+		return model.Portfolio{}, err
+	}
+	return p, nil
 }
 
 // ListByUser returns portfolios the caller is a member of.
 func (s *service) ListByUser(ctx context.Context, callerID uuid.UUID, filter model.ListPortfoliosFilter, page model.Page) ([]model.Portfolio, model.PageInfo, error) {
-	return s.dp.PortfolioStore.ListPortfoliosFiltered(ctx, callerID, filter, page)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "portfolio.ListByUser").
+		Logger()
+
+	portfolios, pageInfo, err := s.dp.PortfolioStore.ListPortfoliosFiltered(ctx, callerID, filter, page)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to list portfolios")
+		return nil, model.PageInfo{}, err
+	}
+	return portfolios, pageInfo, nil
 }
 
 // Update applies changes to a portfolio, scoped to the caller.
@@ -101,6 +120,7 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 
 	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, id, callerID)
 	if err != nil {
+		log.Error().Err(err).Str("portfolio_id", id.String()).Msg("failed to fetch portfolio for update")
 		return model.Portfolio{}, err
 	}
 

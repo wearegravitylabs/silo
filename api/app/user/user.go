@@ -34,17 +34,29 @@ func New(dp app.Dependency) User { return &service{dp: dp} }
 
 // GetByID returns the user profile.
 func (s *service) GetByID(ctx context.Context, id uuid.UUID) (model.User, error) {
-	return s.dp.UserStore.GetUserByID(ctx, id)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "user.GetByID").
+		Str("user_id", id.String()).
+		Logger()
+
+	user, err := s.dp.UserStore.GetUserByID(ctx, id)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch user")
+		return model.User{}, err
+	}
+	return user, nil
 }
 
 // UpdateProfile applies a partial update to the user's profile.
 func (s *service) UpdateProfile(ctx context.Context, id uuid.UUID, req model.UpdateProfileRequest) (model.User, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "user.UpdateProfile").
+		Str("user_id", id.String()).
 		Logger()
 
 	user, err := s.dp.UserStore.GetUserByID(ctx, id)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch user for profile update")
 		return model.User{}, err
 	}
 
@@ -66,15 +78,28 @@ func (s *service) UpdateProfile(ctx context.Context, id uuid.UUID, req model.Upd
 
 	updated, err := s.dp.UserStore.UpdateUser(ctx, user)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to update profile")
+		log.Error().Err(err).Msg("failed to save profile update")
 		return model.User{}, err
 	}
+
+	log.Info().Msg("profile updated")
 	return updated, nil
 }
 
 // DeleteAccount soft-deletes the user.
 func (s *service) DeleteAccount(ctx context.Context, id uuid.UUID) error {
-	return s.dp.UserStore.SoftDeleteUser(ctx, id)
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "user.DeleteAccount").
+		Str("user_id", id.String()).
+		Logger()
+
+	if err := s.dp.UserStore.SoftDeleteUser(ctx, id); err != nil {
+		log.Error().Err(err).Msg("failed to delete account")
+		return err
+	}
+
+	log.Info().Msg("account deleted")
+	return nil
 }
 
 // Onboard completes onboarding for the user.
@@ -82,10 +107,12 @@ func (s *service) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 func (s *service) Onboard(ctx context.Context, id uuid.UUID, req model.OnboardRequest) (model.User, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "user.Onboard").
+		Str("user_id", id.String()).
 		Logger()
 
 	user, err := s.dp.UserStore.GetUserByID(ctx, id)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch user for onboarding")
 		return model.User{}, err
 	}
 
@@ -101,9 +128,10 @@ func (s *service) Onboard(ctx context.Context, id uuid.UUID, req model.OnboardRe
 	// Re-fetch to return the updated state.
 	updated, err := s.dp.UserStore.GetUserByID(ctx, id)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to re-fetch user after onboarding")
 		return model.User{}, err
 	}
 
-	log.Info().Str("user_id", id.String()).Msg("user onboarded")
+	log.Info().Msg("user onboarded")
 	return updated, nil
 }

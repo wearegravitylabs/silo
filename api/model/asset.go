@@ -6,7 +6,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/wearegravitylabs/silo/api/pkg/currency"
 )
+
+// AssetClassCode is the machine-readable asset class identifier stored in the DB.
+// Valid values are defined in pkg/assetclass (stock, crypto, real_estate, etc.).
+// Using a type alias so GORM and JSON serialisation work transparently while
+// making it clear in code that this is not an arbitrary string.
+type AssetClassCode = string
+
+// PhysicalSubtypeCode is the physical asset subtype identifier.
+// Valid values are defined in pkg/physicalsubtype (vehicle, watch, jewelry, etc.).
+type PhysicalSubtypeCode = string
 
 // AssetType is the granular classification of an asset (what it actually is).
 type AssetType string
@@ -66,7 +78,7 @@ type Asset struct {
 	CurrentPrice  float64 `gorm:"type:numeric(28,10)"                              json:"current_price"`
 
 	// Common fields
-	Currency string `gorm:"not null;default:'USD'"                           json:"currency"`
+	Currency currency.Code `gorm:"not null;default:'USD'"                           json:"currency"`
 	// OwnershipPct is always editable — default 100, range 0–100.
 	OwnershipPct float64 `gorm:"type:numeric(6,4);default:100"                    json:"ownership_pct"`
 	// Investability is preset for most asset types; editable for manual and domain.
@@ -74,10 +86,10 @@ type Asset struct {
 
 	// AssetClass is the user-facing group code written on insert from pkg/assetclass.
 	// Stored for query performance; single source of truth is the Go registry.
-	AssetClass string `json:"asset_class"`
+	AssetClass AssetClassCode `json:"asset_class"`
 	// Subtype is used for physical assets (e.g. "vehicle", "watch", "jewelry").
 	// Empty for all other asset types.
-	Subtype string `json:"subtype"`
+	Subtype PhysicalSubtypeCode `json:"subtype"`
 	// LogoURL is the company logo for assets
 	LogoURL string `json:"logo_url"`
 
@@ -113,10 +125,10 @@ type CreateAssetRequest struct {
 	Name     string  `json:"name"`
 	ImageURL *string `json:"image_url"`
 	// Subtype is required for physical assets. See GET /physical-subtypes for valid values.
-	Subtype string `json:"subtype"`
+	Subtype PhysicalSubtypeCode `json:"subtype"`
 
 	// Currency is optional — portfolio base_currency is used when empty.
-	Currency string `json:"currency"`
+	Currency currency.Code `json:"currency"`
 	// OwnershipPct defaults to 100 when omitted or zero.
 	OwnershipPct float64 `json:"ownership_pct"`
 	// Investability is applied automatically for preset types; required for manual/domain.

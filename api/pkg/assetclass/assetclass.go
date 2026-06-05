@@ -12,9 +12,13 @@ import (
 	"github.com/wearegravitylabs/silo/api/model"
 )
 
+// Code is the machine-readable asset class identifier (e.g. "stock", "crypto").
+// It is a type alias for string so GORM and JSON serialisation work transparently.
+type Code = string
+
 // AssetClass carries display metadata for a group of related asset types.
 type AssetClass struct {
-	Code        string `json:"code"`        // e.g. "stock"
+	Code        Code   `json:"code"`        // e.g. "stock"
 	Name        string `json:"name"`        // e.g. "Stocks"
 	Description string `json:"description"` // shown in the add-asset picker
 	Icon        string `json:"icon"`        // inline SVG — Silo design-system asset

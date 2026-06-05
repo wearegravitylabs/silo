@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/wearegravitylabs/silo/api/pkg/currency"
 )
 
 // Snapshot captures the net worth of a portfolio at a point in time.
@@ -13,7 +15,7 @@ type Snapshot struct {
 	TotalAssets float64   `gorm:"type:numeric(28,10);not null" json:"total_assets"`
 	TotalDebts  float64   `gorm:"type:numeric(28,10);not null" json:"total_debts"`
 	NetWorth    float64   `gorm:"type:numeric(28,10);not null" json:"net_worth"`
-	Currency    string    `gorm:"not null;default:'USD'" json:"currency"`
+	Currency    currency.Code `gorm:"not null;default:'USD'" json:"currency"`
 	Allocation  JSONB     `gorm:"type:jsonb" json:"allocation,omitempty"` // breakdown by asset type
 	SnappedAt   time.Time `gorm:"not null;index" json:"snapped_at"`
 }

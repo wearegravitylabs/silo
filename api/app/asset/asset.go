@@ -216,6 +216,11 @@ func (s *service) upsertStockAsset(
 	ownershipPct float64,
 	classCode string,
 ) (uuid.UUID, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.upsertStockAsset").
+		Str("ticker", req.Ticker).
+		Logger()
+
 	// For ticker-based stocks, check if the ticker already exists in this portfolio.
 	if req.AssetType == model.AssetTypeStockTicker && req.Ticker != "" {
 		existing, err := s.dp.AssetStore.GetByTicker(ctx, portfolioID, strings.ToUpper(req.Ticker))
@@ -224,6 +229,7 @@ func (s *service) upsertStockAsset(
 			return existing.ID, nil
 		}
 		if !errors.Is(err, siloErrors.ErrAssetNotFound) {
+			log.Error().Err(err).Msg("failed to check existing ticker")
 			return uuid.Nil, err
 		}
 
@@ -451,6 +457,11 @@ func (s *service) upsertCryptoAsset(
 	ownershipPct float64,
 	classCode string,
 ) (uuid.UUID, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.upsertCryptoAsset").
+		Str("coin_id", req.Ticker).
+		Logger()
+
 	if req.AssetType == model.AssetTypeCryptoTicker && req.Ticker != "" {
 		coinID := strings.ToLower(strings.TrimSpace(req.Ticker))
 
@@ -460,6 +471,7 @@ func (s *service) upsertCryptoAsset(
 			return existing.ID, nil
 		}
 		if !errors.Is(err, siloErrors.ErrAssetNotFound) {
+			log.Error().Err(err).Msg("failed to check existing coin")
 			return uuid.Nil, err
 		}
 

@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/wearegravitylabs/silo/api/pkg/currency"
 )
 
 // PortfolioMemberRole defines the permission level of a portfolio member.
@@ -30,7 +32,7 @@ type Portfolio struct {
 	UserID       uuid.UUID  `gorm:"type:uuid;not null;index"                         json:"user_id"`
 	Name         string     `gorm:"not null"                                         json:"name"`
 	Description  string     `json:"description"`
-	BaseCurrency string     `gorm:"not null;default:'USD'"                           json:"base_currency"`
+	BaseCurrency currency.Code     `gorm:"not null;default:'USD'"                           json:"base_currency"`
 	ImageURL     *string    `json:"image_url"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
@@ -62,7 +64,7 @@ type PortfolioMember struct {
 type CreatePortfolioRequest struct {
 	Name         string  `json:"name"          binding:"required,min=1,max=255"`
 	Description  string  `json:"description"`
-	BaseCurrency string  `json:"base_currency" binding:"required"`
+	BaseCurrency currency.Code  `json:"base_currency" binding:"required"`
 	ImageURL     *string `json:"image_url"`
 }
 
@@ -91,7 +93,7 @@ type ListPortfoliosFilter struct {
 	// Name performs a case-insensitive partial match on portfolio name.
 	Name string `form:"name"`
 	// Currency filters by base_currency (exact, case-insensitive).
-	Currency string `form:"currency"`
+	Currency currency.Code `form:"currency"`
 	// Role filters portfolios where the caller has this specific role.
 	Role PortfolioMemberRole `form:"role"`
 }
