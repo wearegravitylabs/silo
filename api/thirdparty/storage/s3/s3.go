@@ -71,11 +71,63 @@ func New(ctx context.Context, cfg Config) (*Client, error) {
 
 	client := s3.NewFromConfig(awsCfg, clientOpts...)
 
-	return &Client{
+	c := &Client{
 		s3:     client,
 		bucket: cfg.Bucket,
 		pubURL: strings.TrimRight(cfg.PublicURL, "/"),
-	}, nil
+	}
+
+	// Ensure the bucket exists and is publicly readable.
+	// This is idempotent — safe to call on every startup.
+	if err := c.ensureBucket(ctx, cfg.Bucket); err != nil {
+		return nil, fmt.Errorf("s3: failed to ensure bucket %q: %w", cfg.Bucket, err)
+	}
+
+	return c, nil
+}
+
+// ensureBucket creates the bucket if it does not already exist,
+// then applies a public-read policy so uploaded files are accessible via URL.
+func (c *Client) ensureBucket(ctx context.Context, bucket string) error {
+	// Check if bucket exists — HeadBucket returns 200 if it does.
+	_, err := c.s3.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(bucket),
+	})
+	if err == nil {
+		// Bucket already exists — nothing to do.
+		return nil
+	}
+
+	// Create the bucket.
+	_, err = c.s3.CreateBucket(ctx, &s3.CreateBucketInput{
+		Bucket: aws.String(bucket),
+	})
+	if err != nil {
+		return fmt.Errorf("create bucket: %w", err)
+	}
+
+	// Apply a public-read bucket policy so uploaded files are accessible without auth.
+	policy := fmt.Sprintf(`{
+		"Version": "2012-10-17",
+		"Statement": [{
+			"Sid": "PublicRead",
+			"Effect": "Allow",
+			"Principal": "*",
+			"Action": ["s3:GetObject"],
+			"Resource": ["arn:aws:s3:::%s/*"]
+		}]
+	}`, bucket)
+
+	_, err = c.s3.PutBucketPolicy(ctx, &s3.PutBucketPolicyInput{
+		Bucket: aws.String(bucket),
+		Policy: aws.String(policy),
+	})
+	if err != nil {
+		// Non-fatal — bucket was created, policy might not be supported (e.g. AWS requires different config).
+		fmt.Printf("s3: warning: could not set public-read policy on %q: %v\n", bucket, err)
+	}
+
+	return nil
 }
 
 // Upload stores data at the given key and returns the public URL.

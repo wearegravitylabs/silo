@@ -69,6 +69,61 @@ COINGECKO_API_KEY=<your-coingecko-key>
 EXCHANGERATE_API_KEY=<your-key>
 ```
 
+## File Storage
+
+Silo uses MinIO for self-hosted file storage (document uploads, asset images, vault files).
+MinIO is already included in `docker compose` — **no extra installation needed.**
+
+### Default setup (MinIO — works out of the box)
+
+```bash
+STORAGE_PROVIDER=minio
+STORAGE_ENDPOINT=http://localhost:9000
+STORAGE_ACCESS_KEY=minioadmin
+STORAGE_SECRET_KEY=minioadmin
+STORAGE_BUCKET=silo
+STORAGE_REGION=us-east-1
+STORAGE_PUBLIC_URL=http://localhost:9000/silo
+```
+
+**The `silo` bucket is created automatically on first startup.** You do not need to
+create it manually or visit the MinIO console.
+
+### MinIO Console (optional)
+
+The MinIO web console is available at `http://localhost:9001`.
+Login: `minioadmin` / `minioadmin`
+
+You can use it to browse uploaded files, manage buckets, and create additional access keys.
+
+### Production: use Cloudflare R2 or AWS S3
+
+For production deployments, we recommend Cloudflare R2 (zero egress fees) or AWS S3:
+
+**Cloudflare R2:**
+```bash
+STORAGE_PROVIDER=r2
+STORAGE_ENDPOINT=https://<account_id>.r2.cloudflarestorage.com
+STORAGE_ACCESS_KEY=<r2_access_key>
+STORAGE_SECRET_KEY=<r2_secret_key>
+STORAGE_BUCKET=silo
+STORAGE_REGION=auto
+STORAGE_PUBLIC_URL=https://pub-<token>.r2.dev
+```
+Create the bucket in the Cloudflare dashboard before starting Silo, or let Silo create it
+automatically (requires the R2 API token to have bucket create permissions).
+
+**AWS S3:**
+```bash
+STORAGE_PROVIDER=s3
+STORAGE_ACCESS_KEY=<aws_access_key>
+STORAGE_SECRET_KEY=<aws_secret_key>
+STORAGE_BUCKET=silo
+STORAGE_REGION=us-east-1
+STORAGE_PUBLIC_URL=https://silo.s3.amazonaws.com
+```
+Create the S3 bucket first via the AWS console or `aws s3 mb s3://silo`.
+
 ## Updates
 
 ```bash
