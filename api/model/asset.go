@@ -143,6 +143,21 @@ type CreateAssetRequest struct {
 	Lots []CreateLotRequest `json:"lots" binding:"required,min=1"`
 }
 
+// ListAssetsFilter carries optional filter criteria for GET /assets.
+type ListAssetsFilter struct {
+	// Classes filters by one or more asset class codes.
+	// Multiple values are OR'd: ?class=stock&class=crypto returns stocks AND crypto.
+	Classes []AssetClassCode `form:"class"`
+	// Search performs a case-insensitive partial match on asset name or ticker symbol.
+	Search string `form:"search"`
+	// Investable when set filters by investability:
+	//   true  → investability IN ('cash', 'investable')
+	//   false → investability = 'non_investable'
+	Investable *bool `form:"investable"`
+	// FolderID filters assets that belong to a specific folder.
+	FolderID *uuid.UUID `form:"folder_id"`
+}
+
 // UpdateAssetRequest is the payload for PATCH /portfolios/:id/assets/:id.
 // All fields are optional; omitted fields are not changed.
 type UpdateAssetRequest struct {

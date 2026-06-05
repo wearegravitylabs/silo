@@ -35,8 +35,8 @@ type Asset interface {
 	Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error)
 	// GetByID fetches a single asset (with lots preloaded). callerID is used for audit logging.
 	GetByID(ctx context.Context, id, callerID uuid.UUID) (model.Asset, error)
-	// ListByPortfolio returns all non-deleted assets for a portfolio scoped to the caller.
-	ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Asset, error)
+	// ListByPortfolio returns assets for a portfolio with optional filters.
+	ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error)
 	// Update applies partial changes to an asset. callerID is used for audit logging.
 	Update(ctx context.Context, id, callerID uuid.UUID, req model.UpdateAssetRequest) (model.Asset, error)
 	// Delete soft-deletes an asset. callerID is used for audit logging.
@@ -373,10 +373,16 @@ func (s *service) GetByID(ctx context.Context, id, callerID uuid.UUID) (model.As
 	return a, nil
 }
 
-// ListByPortfolio returns all assets for a portfolio with class metadata enriched.
-func (s *service) ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Asset, error) {
-	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID)
+// ListByPortfolio returns assets for a portfolio with class metadata enriched.
+func (s *service) ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.ListByPortfolio").
+		Str("portfolio_id", portfolioID.String()).
+		Logger()
+
+	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID, filter)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to list assets")
 		return nil, err
 	}
 	for i := range assets {

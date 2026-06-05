@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -16,7 +17,8 @@ import (
 type AssetDatabase interface {
 	CreateAsset(ctx context.Context, asset model.Asset) (model.Asset, error)
 	GetAssetByID(ctx context.Context, id uuid.UUID) (model.Asset, error)
-	ListAssetsByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Asset, error)
+	// ListAssetsByPortfolio returns non-deleted assets for a portfolio with optional filtering.
+	ListAssetsByPortfolio(ctx context.Context, portfolioID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error)
 	UpdateAsset(ctx context.Context, asset model.Asset) (model.Asset, error)
 	SoftDeleteAsset(ctx context.Context, id uuid.UUID) error
 	ListAssetsWithTickers(ctx context.Context) ([]model.Asset, error)
@@ -49,12 +51,47 @@ func (a *assetStore) GetAssetByID(ctx context.Context, id uuid.UUID) (model.Asse
 	return asset, nil
 }
 
-func (a *assetStore) ListAssetsByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Asset, error) {
+// ListAssetsByPortfolio returns assets for a portfolio with optional filters applied.
+//
+//	GET /assets?class=stock&class=crypto   — multi-class OR filter
+//	GET /assets?search=apple               — name / ticker partial match
+//	GET /assets?investable=true            — cash + investable only
+//	GET /assets?investable=false           — non_investable only
+//	GET /assets?folder_id=<uuid>           — scoped to a folder
+func (a *assetStore) ListAssetsByPortfolio(ctx context.Context, portfolioID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error) {
+	q := a.storage.DB.WithContext(ctx).
+		Where("portfolio_id = ? AND deleted_at IS NULL", portfolioID)
+
+	// Asset class filter — multiple classes are OR'd.
+	if len(filter.Classes) > 0 {
+		q = q.Where("asset_class IN ?", filter.Classes)
+	}
+
+	// Search — case-insensitive partial match on name or ticker.
+	if filter.Search != "" {
+		like := "%" + strings.ToLower(filter.Search) + "%"
+		q = q.Where("LOWER(name) LIKE ? OR LOWER(ticker) LIKE ?", like, like)
+	}
+
+	// Investability boolean shorthand.
+	if filter.Investable != nil {
+		if *filter.Investable {
+			q = q.Where("investability IN ?", []string{
+				string(model.InvestabilityCash),
+				string(model.InvestabilityInvestable),
+			})
+		} else {
+			q = q.Where("investability = ?", model.InvestabilityNonInvest)
+		}
+	}
+
+	// Folder filter.
+	if filter.FolderID != nil {
+		q = q.Where("folder_id = ?", *filter.FolderID)
+	}
+
 	var assets []model.Asset
-	if err := a.storage.DB.WithContext(ctx).
-		Where("portfolio_id = ? AND deleted_at IS NULL", portfolioID).
-		Order("created_at ASC").
-		Find(&assets).Error; err != nil {
+	if err := q.Order("created_at ASC").Find(&assets).Error; err != nil {
 		return nil, siloErrors.ErrGenericErr
 	}
 	return assets, nil

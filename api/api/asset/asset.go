@@ -139,7 +139,15 @@ func (h *handler) list(c *gin.Context) {
 	if !ok {
 		return
 	}
-	assets, err := h.svc.ListByPortfolio(c.Request.Context(), portfolioID, callerID)
+	// Bind optional filters from query params.
+	// Repeated params are supported: ?class=stock&class=crypto
+	var filter model.ListAssetsFilter
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	assets, err := h.svc.ListByPortfolio(c.Request.Context(), portfolioID, callerID, filter)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
