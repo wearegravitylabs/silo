@@ -108,6 +108,11 @@ type Asset struct {
 	Icon string `gorm:"-" json:"icon"`
 	// InvestabilityEditable reports whether the user can change the investability.
 	InvestabilityEditable bool `gorm:"-" json:"investability_editable"`
+	// TotalValue is the full asset value regardless of ownership (current_price × quantity).
+	TotalValue float64 `gorm:"-" json:"total_value"`
+	// OwnedValue is the user's actual stake after applying ownership_pct
+	// (total_value × ownership_pct / 100).
+	OwnedValue float64 `gorm:"-" json:"owned_value"`
 }
 
 // ─── Request types ────────────────────────────────────────────────────────────

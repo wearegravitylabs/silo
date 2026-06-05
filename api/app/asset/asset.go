@@ -615,11 +615,16 @@ func (s *service) recordValueHistory(ctx context.Context, a model.Asset, src mod
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// enrich populates computed asset-class fields from the assetclass registry.
+// enrich populates all computed fields on an asset after a DB fetch.
 func enrich(a *model.Asset) {
+	// Asset-class display metadata from the in-memory registry.
 	class := assetclass.ClassOf(a.AssetType)
 	a.Icon = class.Icon
 	a.InvestabilityEditable = assetclass.InvestabilityEditable(a.AssetType)
+
+	// Ownership-adjusted values — saves the FE from having to multiply every time.
+	a.TotalValue = a.CurrentPrice * a.Quantity
+	a.OwnedValue = a.TotalValue * (a.OwnershipPct / 100.0)
 }
 
 // validAssetType reports whether t is a recognised model.AssetType value.
