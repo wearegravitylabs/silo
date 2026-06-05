@@ -75,6 +75,9 @@ type Asset struct {
 	// AssetClass is the user-facing group code written on insert from pkg/assetclass.
 	// Stored for query performance; single source of truth is the Go registry.
 	AssetClass string `json:"asset_class"`
+	// Subtype is used for physical assets (e.g. "vehicle", "watch", "jewelry").
+	// Empty for all other asset types.
+	Subtype string `json:"subtype"`
 	// LogoURL is the company logo for ticker-based assets (auto-fetched from Yahoo Finance).
 	LogoURL string `json:"logo_url"`
 
@@ -110,6 +113,8 @@ type CreateAssetRequest struct {
 	// For manual types: provide name (and optionally image_url).
 	Name     string  `json:"name"`
 	ImageURL *string `json:"image_url"`
+	// Subtype is required for physical assets. See GET /physical-subtypes for valid values.
+	Subtype string `json:"subtype"`
 
 	// Currency is optional — portfolio base_currency is used when empty.
 	Currency string `json:"currency"`

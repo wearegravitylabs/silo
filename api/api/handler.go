@@ -29,6 +29,7 @@ import (
 	appVault "github.com/wearegravitylabs/silo/api/app/vault"
 	"github.com/wearegravitylabs/silo/api/pkg/assetclass"
 	"github.com/wearegravitylabs/silo/api/pkg/currency"
+	"github.com/wearegravitylabs/silo/api/pkg/physicalsubtype"
 	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	"github.com/wearegravitylabs/silo/api/pkg/helpers"
 	"github.com/wearegravitylabs/silo/api/pkg/middleware"
@@ -86,6 +87,7 @@ func (h *Handler) Build() {
 	// ── Tier 1: Public — no token required ───────────────────────────────────
 	auth.New(v1, h.authSvc)
 	v1.GET("/asset-classes", assetClassesHandler())
+	v1.GET("/physical-subtypes", physicalSubtypesHandler())
 	v1.GET("/currencies", currenciesHandler())
 
 	// ── Tier 2: Authenticated + email verified ────────────────────────────────
@@ -118,6 +120,20 @@ func assetClassesHandler() gin.HandlerFunc {
 			Code:    http.StatusOK,
 			Data:    classes,
 			Message: helpers.StringPtr("asset classes"),
+			Error:   nil,
+		})
+	}
+}
+
+// physicalSubtypesHandler returns the physical asset subtype catalogue.
+// No auth required — static configuration data.
+func physicalSubtypesHandler() gin.HandlerFunc {
+	subtypes := physicalsubtype.All()
+	return func(c *gin.Context) {
+		c.JSON(http.StatusOK, apiModel.APIResponse{
+			Code:    http.StatusOK,
+			Data:    subtypes,
+			Message: helpers.StringPtr("physical subtypes"),
 			Error:   nil,
 		})
 	}

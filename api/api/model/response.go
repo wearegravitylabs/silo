@@ -142,6 +142,7 @@ func codeToHTTPStatus(code string) int {
 
 	case siloErrors.ErrInvalidRequest.Code,
 		siloErrors.ErrInvalidAssetType.Code,
+		siloErrors.ErrInvalidPhysicalSubtype.Code,
 		siloErrors.ErrInvalidDebtType.Code,
 		siloErrors.ErrFileTooLarge.Code,
 		siloErrors.ErrUnsupportedFileType.Code,

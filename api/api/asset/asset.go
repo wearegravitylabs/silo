@@ -2,6 +2,8 @@
 package asset
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
@@ -37,6 +39,14 @@ func New(r *gin.RouterGroup, svc appAsset.Asset) {
 	g.GET("/:id/lots", h.listLots)
 	g.POST("/:id/lots", h.addLot)
 	g.DELETE("/:id/lots/:lotID", h.deleteLot)
+
+	// Cash flows (income and expenses)
+	g.GET("/:id/cash-flows", h.listCashFlows)
+	g.POST("/:id/cash-flows", h.addCashFlow)
+	g.DELETE("/:id/cash-flows/:flowID", h.deleteCashFlow)
+
+	// Value history (for charting)
+	g.GET("/:id/value-history", h.listValueHistory)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -311,3 +321,98 @@ func (h *handler) deleteLot(c *gin.Context) {
 
 // refreshPrice is kept as a placeholder for the background price sync endpoint.
 func (h *handler) refreshPrice(c *gin.Context) { /* TODO */ }
+
+// ─── Cash flow handlers ───────────────────────────────────────────────────────
+
+// listCashFlows returns all cash flows for an asset, newest first.
+func (h *handler) listCashFlows(c *gin.Context) {
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	flows, err := h.svc.ListCashFlows(c.Request.Context(), assetID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, "cash flows", flows)
+}
+
+// addCashFlow records a new income or expense event for an asset.
+func (h *handler) addCashFlow(c *gin.Context) {
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	var req model.CreateCashFlowRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	flow, err := h.svc.AddCashFlow(c.Request.Context(), assetID, req)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.Created(c, messages.CashFlowAdded, flow)
+}
+
+// deleteCashFlow removes a cash flow entry.
+func (h *handler) deleteCashFlow(c *gin.Context) {
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	flowID, err := uuid.Parse(c.Param("flowID"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	if err := h.svc.DeleteCashFlow(c.Request.Context(), assetID, flowID); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, messages.CashFlowDeleted, nil)
+}
+
+// ─── Value history handler ────────────────────────────────────────────────────
+
+// listValueHistory returns value snapshots for an asset within an optional date range.
+// Query params: from (RFC3339), to (RFC3339). Defaults to last 1 year.
+func (h *handler) listValueHistory(c *gin.Context) {
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	now := time.Now().UTC()
+	from := now.AddDate(-1, 0, 0)
+	to := now
+
+	if fromStr := c.Query("from"); fromStr != "" {
+		if t, err := time.Parse(time.RFC3339, fromStr); err == nil {
+			from = t
+		}
+	}
+	if toStr := c.Query("to"); toStr != "" {
+		if t, err := time.Parse(time.RFC3339, toStr); err == nil {
+			to = t
+		}
+	}
+
+	history, err := h.svc.ListValueHistory(c.Request.Context(), assetID, from, to)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, "value history", history)
+}

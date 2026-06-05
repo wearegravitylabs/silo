@@ -26,15 +26,17 @@ type Dependency struct {
 	Env    *environment.Env
 
 	// Store layer
-	UserStore         store.UserDatabase
-	PortfolioStore    store.PortfolioDatabase
-	AssetStore        store.AssetDatabase
-	AssetLotStore     store.AssetLotDatabase
-	DebtStore         store.DebtDatabase
-	AutopilotStore    store.AutopilotDatabase
-	SnapshotStore     store.SnapshotDatabase
-	RefreshTokenStore store.RefreshTokenDatabase
-	FolderStore       store.FolderDatabase
+	UserStore            store.UserDatabase
+	PortfolioStore       store.PortfolioDatabase
+	AssetStore           store.AssetDatabase
+	AssetLotStore        store.AssetLotDatabase
+	AssetCashFlowStore   store.AssetCashFlowDatabase
+	AssetValueHistStore  store.AssetValueHistoryDatabase
+	DebtStore            store.DebtDatabase
+	AutopilotStore       store.AutopilotDatabase
+	SnapshotStore        store.SnapshotDatabase
+	RefreshTokenStore    store.RefreshTokenDatabase
+	FolderStore          store.FolderDatabase
 
 	// Third-party services
 	StockMarket     market.MarketDataProvider // Yahoo Finance
@@ -70,15 +72,17 @@ func InitDp(s *store.Store, env *environment.Env) Dependency {
 		Env:    env,
 
 		// Store layer
-		UserStore:         store.NewUserStore(s),
-		PortfolioStore:    store.NewPortfolioStore(s),
-		AssetStore:        store.NewAssetStore(s),
-		AssetLotStore:     store.NewAssetLotStore(s),
-		DebtStore:         store.NewDebtStore(s),
-		AutopilotStore:    store.NewAutopilotStore(s),
-		SnapshotStore:     store.NewSnapshotStore(s),
-		RefreshTokenStore: store.NewRefreshTokenStore(s),
-		FolderStore:       store.NewFolderStore(s),
+		UserStore:           store.NewUserStore(s),
+		PortfolioStore:      store.NewPortfolioStore(s),
+		AssetStore:          store.NewAssetStore(s),
+		AssetLotStore:       store.NewAssetLotStore(s),
+		AssetCashFlowStore:  store.NewAssetCashFlowStore(s),
+		AssetValueHistStore: store.NewAssetValueHistoryStore(s),
+		DebtStore:           store.NewDebtStore(s),
+		AutopilotStore:      store.NewAutopilotStore(s),
+		SnapshotStore:       store.NewSnapshotStore(s),
+		RefreshTokenStore:   store.NewRefreshTokenStore(s),
+		FolderStore:         store.NewFolderStore(s),
 
 		// Third-party
 		StockMarket:     yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),

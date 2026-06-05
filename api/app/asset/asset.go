@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/wearegravitylabs/silo/api/pkg/currency"
 	"github.com/wearegravitylabs/silo/api/pkg/helpers"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
+	"github.com/wearegravitylabs/silo/api/pkg/physicalsubtype"
 	"github.com/wearegravitylabs/silo/api/thirdparty/market"
 )
 
@@ -46,6 +48,20 @@ type Asset interface {
 	DeleteLot(ctx context.Context, assetID, lotID uuid.UUID) error
 	// RefreshPrices fetches live prices for all ticker-based assets in the portfolio.
 	RefreshPrices(ctx context.Context, portfolioID uuid.UUID) error
+
+	// ── Cash flows ────────────────────────────────────────────────────────────
+
+	// AddCashFlow records an income or expense event for an asset.
+	AddCashFlow(ctx context.Context, assetID uuid.UUID, req model.CreateCashFlowRequest) (model.AssetCashFlow, error)
+	// ListCashFlows returns all cash flows for an asset, newest first.
+	ListCashFlows(ctx context.Context, assetID uuid.UUID) ([]model.AssetCashFlow, error)
+	// DeleteCashFlow removes a cash flow entry.
+	DeleteCashFlow(ctx context.Context, assetID, flowID uuid.UUID) error
+
+	// ── Value history ─────────────────────────────────────────────────────────
+
+	// ListValueHistory returns per-asset value snapshots within the time range.
+	ListValueHistory(ctx context.Context, assetID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
 }
 
 type service struct{ dp app.Dependency }
@@ -121,27 +137,30 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		}
 		assetID = id
 
-	default:
-		// Other asset types: always create a new row.
-		a := model.Asset{
-			PortfolioID:   portfolioID,
-			Name:          req.Name,
-			AssetType:     req.AssetType,
-			AssetClass:    classCode,
-			Currency:      assetCurrency,
-			OwnershipPct:  ownershipPct,
-			Investability: investability,
-			Location:      req.Location,
-			Metadata:      req.Metadata,
-		}
-		if req.ImageURL != nil {
-			a.LogoURL = *req.ImageURL
-		}
-		created, err := s.dp.AssetStore.CreateAsset(ctx, a)
+	case req.AssetType == model.AssetTypeCryptoTicker || req.AssetType == model.AssetTypeCryptoManual:
+		id, err := s.upsertCryptoAsset(ctx, portfolioID, req, assetCurrency, investability, ownershipPct, classCode)
 		if err != nil {
 			return model.Asset{}, err
 		}
-		assetID = created.ID
+		assetID = id
+
+	case req.AssetType == model.AssetTypePhysical:
+		if req.Subtype == "" || !physicalsubtype.IsValid(req.Subtype) {
+			return model.Asset{}, siloErrors.ErrInvalidPhysicalSubtype
+		}
+		id, err := s.createManualAsset(ctx, portfolioID, req, assetCurrency, investability, ownershipPct, classCode)
+		if err != nil {
+			return model.Asset{}, err
+		}
+		assetID = id
+
+	default:
+		// Domain, VC, Business, Manual, Bank, Real Estate — generic manual path.
+		id, err := s.createManualAsset(ctx, portfolioID, req, assetCurrency, investability, ownershipPct, classCode)
+		if err != nil {
+			return model.Asset{}, err
+		}
+		assetID = id
 	}
 
 	// Insert lots.
@@ -357,6 +376,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, req model.UpdateAsse
 	if req.Name != nil {
 		a.Name = *req.Name
 	}
+	priceChanged := req.CurrentPrice != nil && *req.CurrentPrice != a.CurrentPrice
 	if req.CurrentPrice != nil {
 		a.CurrentPrice = *req.CurrentPrice
 	}
@@ -379,6 +399,11 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, req model.UpdateAsse
 		return model.Asset{}, err
 	}
 
+	// Auto-record a value history entry whenever the user manually changes the price.
+	if priceChanged {
+		s.recordValueHistory(ctx, updated, model.SourceManual)
+	}
+
 	enrich(&updated)
 	return updated, nil
 }
@@ -392,6 +417,160 @@ func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
 func (s *service) RefreshPrices(ctx context.Context, portfolioID uuid.UUID) error {
 	// TODO: batch-call market providers, update current_price for each ticker asset
 	panic("not implemented")
+}
+
+// ─── Crypto upsert ────────────────────────────────────────────────────────────
+
+// upsertCryptoAsset creates or deduplicates a crypto position by coin ID.
+func (s *service) upsertCryptoAsset(
+	ctx context.Context,
+	portfolioID uuid.UUID,
+	req model.CreateAssetRequest,
+	assetCurrency string,
+	investability model.Investability,
+	ownershipPct float64,
+	classCode string,
+) (uuid.UUID, error) {
+	if req.AssetType == model.AssetTypeCryptoTicker && req.Ticker != "" {
+		coinID := strings.ToLower(strings.TrimSpace(req.Ticker))
+
+		// Dedup: return existing asset if this coin is already in the portfolio.
+		existing, err := s.dp.AssetStore.GetByTicker(ctx, portfolioID, coinID)
+		if err == nil {
+			return existing.ID, nil
+		}
+		if !errors.Is(err, siloErrors.ErrAssetNotFound) {
+			return uuid.Nil, err
+		}
+
+		// New coin — fetch current price from CoinGecko.
+		quote, err := s.dp.CryptoMarket.GetCryptoPrice(ctx, coinID, strings.ToLower(assetCurrency))
+		if err != nil {
+			return uuid.Nil, siloErrors.ErrInvalidTicker
+		}
+
+		a := model.Asset{
+			PortfolioID:   portfolioID,
+			Name:          helpers.Coalesce(req.Name, quote.CompanyName, coinID),
+			AssetType:     req.AssetType,
+			AssetClass:    classCode,
+			Ticker:        coinID,
+			CurrentPrice:  quote.Price,
+			Currency:      assetCurrency,
+			OwnershipPct:  ownershipPct,
+			Investability: investability,
+			Metadata:      req.Metadata,
+		}
+		created, err := s.dp.AssetStore.CreateAsset(ctx, a)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		return created.ID, nil
+	}
+
+	// Manual crypto — always create new.
+	return s.createManualAsset(ctx, portfolioID, req, assetCurrency, investability, ownershipPct, classCode)
+}
+
+// createManualAsset creates a new asset row for any non-ticker type.
+func (s *service) createManualAsset(
+	ctx context.Context,
+	portfolioID uuid.UUID,
+	req model.CreateAssetRequest,
+	assetCurrency string,
+	investability model.Investability,
+	ownershipPct float64,
+	classCode string,
+) (uuid.UUID, error) {
+	a := model.Asset{
+		PortfolioID:   portfolioID,
+		Name:          req.Name,
+		AssetType:     req.AssetType,
+		AssetClass:    classCode,
+		Subtype:       req.Subtype,
+		Currency:      assetCurrency,
+		OwnershipPct:  ownershipPct,
+		Investability: investability,
+		Location:      req.Location,
+		Metadata:      req.Metadata,
+	}
+	if req.ImageURL != nil {
+		a.LogoURL = *req.ImageURL
+	}
+	created, err := s.dp.AssetStore.CreateAsset(ctx, a)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return created.ID, nil
+}
+
+// ─── Cash flows ───────────────────────────────────────────────────────────────
+
+// AddCashFlow records an income or expense event for an asset.
+func (s *service) AddCashFlow(ctx context.Context, assetID uuid.UUID, req model.CreateCashFlowRequest) (model.AssetCashFlow, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.AddCashFlow").
+		Logger()
+
+	asset, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+	if err != nil {
+		return model.AssetCashFlow{}, err
+	}
+
+	cur := req.Currency
+	if cur == "" {
+		cur = asset.Currency
+	}
+
+	flow := model.AssetCashFlow{
+		AssetID:  assetID,
+		FlowType: req.FlowType,
+		Category: req.Category,
+		Amount:   req.Amount,
+		Currency: cur,
+		FlowDate: req.FlowDate,
+		Notes:    req.Notes,
+	}
+
+	created, err := s.dp.AssetCashFlowStore.CreateCashFlow(ctx, flow)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create cash flow")
+		return model.AssetCashFlow{}, err
+	}
+	return created, nil
+}
+
+// ListCashFlows returns all cash flows for an asset.
+func (s *service) ListCashFlows(ctx context.Context, assetID uuid.UUID) ([]model.AssetCashFlow, error) {
+	return s.dp.AssetCashFlowStore.ListByAsset(ctx, assetID)
+}
+
+// DeleteCashFlow removes a cash flow entry.
+func (s *service) DeleteCashFlow(ctx context.Context, assetID, flowID uuid.UUID) error {
+	return s.dp.AssetCashFlowStore.DeleteCashFlow(ctx, flowID)
+}
+
+// ─── Value history ────────────────────────────────────────────────────────────
+
+// ListValueHistory returns per-asset value snapshots within the time range.
+func (s *service) ListValueHistory(ctx context.Context, assetID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error) {
+	return s.dp.AssetValueHistStore.ListByAsset(ctx, assetID, from, to)
+}
+
+// recordValueHistory writes a value history snapshot for an asset.
+// Called automatically when current_price is updated manually.
+func (s *service) recordValueHistory(ctx context.Context, a model.Asset, src model.ValueHistorySource) {
+	entry := model.AssetValueHistory{
+		AssetID:    a.ID,
+		Value:      a.CurrentPrice * a.Quantity,
+		Currency:   a.Currency,
+		Source:     src,
+		RecordedAt: time.Now().UTC(),
+	}
+	if _, err := s.dp.AssetValueHistStore.Create(ctx, entry); err != nil {
+		log := siloLogger.FromCtx(ctx)
+		log.Error().Err(err).Str("asset_id", a.ID.String()).Msg("failed to record value history")
+	}
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -133,6 +133,10 @@ var (
 	ErrInvalidAssetType = &TranslatableError{Code: "INVALID_ASSET_TYPE", Key: "ERR_INVALID_ASSET_TYPE",
 		Message: messages.ErrInvalidAssetType, Public: true}
 
+	// ErrInvalidPhysicalSubtype is shown when an unrecognised physical subtype is submitted.
+	ErrInvalidPhysicalSubtype = &TranslatableError{Code: "INVALID_PHYSICAL_SUBTYPE", Key: "ERR_INVALID_PHYSICAL_SUBTYPE",
+		Message: messages.ErrInvalidPhysicalSubtype, Public: true}
+
 	// ErrInvalidTicker is shown when a stock or crypto ticker cannot be resolved.
 	ErrInvalidTicker = &TranslatableError{Code: "INVALID_TICKER", Key: "ERR_INVALID_TICKER",
 		Message: messages.ErrTickerNotFound, Public: true}

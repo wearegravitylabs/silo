@@ -84,6 +84,8 @@ const (
 
 	// ErrInvalidAssetType is shown when an unsupported asset_type is submitted.
 	ErrInvalidAssetType = "That's not a valid asset type. Please choose one of the supported types."
+	// ErrInvalidPhysicalSubtype is shown when an unrecognised physical subtype is submitted.
+	ErrInvalidPhysicalSubtype = "That's not a valid physical asset subtype."
 	// ErrTickerNotFound is shown when a stock or crypto ticker cannot be resolved.
 	ErrTickerNotFound = "We couldn't find that ticker symbol. Please double-check and try again."
 )
@@ -143,6 +145,13 @@ const (
 
 	// ErrFolderNotFound is shown when the folder ID doesn't exist or the caller lacks access.
 	ErrFolderNotFound = "That folder doesn't exist or you don't have access to it."
+)
+
+// ─── Cash flows ───────────────────────────────────────────────────────────────
+
+const (
+	CashFlowAdded   = "Cash flow recorded."
+	CashFlowDeleted = "Cash flow removed."
 )
 
 // ─── General ──────────────────────────────────────────────────────────────────
