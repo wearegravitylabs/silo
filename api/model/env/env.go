@@ -49,7 +49,10 @@ const (
 	StorageRegion         = "STORAGE_REGION"
 	StoragePublicURL      = "STORAGE_PUBLIC_URL"     // base URL for public downloads
 	StorageForcePathStyle = "STORAGE_FORCE_PATH_STYLE"
-	StorageMaxUploadBytes = "STORAGE_MAX_UPLOAD_BYTES" // default 52428800 (50 MB)
+	StorageMaxUploadBytes  = "STORAGE_MAX_UPLOAD_BYTES"  // default 52428800 (50 MB)
+	// StoragePrivateBucket holds documents that require presigned URLs for access.
+	// No public-read policy is applied — objects are only accessible via signed requests.
+	StoragePrivateBucket = "STORAGE_PRIVATE_BUCKET" // default: {STORAGE_BUCKET}-docs
 
 	// Legacy MinIO env vars kept for backward compatibility in docker-compose.
 	// Map them to the new STORAGE_* vars in your migration.

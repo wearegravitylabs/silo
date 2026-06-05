@@ -29,12 +29,16 @@ const (
 func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error) {
 	provider := Provider(strings.ToLower(strings.TrimSpace(env.Get("STORAGE_PROVIDER"))))
 
+	bucket := env.GetWithDefault("STORAGE_BUCKET", "silo")
+	privateBucket := env.GetWithDefault("STORAGE_PRIVATE_BUCKET", bucket+"-docs")
+
 	switch provider {
 	case ProviderS3:
 		return s3storage.New(ctx, s3storage.Config{
 			AccessKey:      env.Get("STORAGE_ACCESS_KEY"),
 			SecretKey:      env.Get("STORAGE_SECRET_KEY"),
-			Bucket:         env.GetWithDefault("STORAGE_BUCKET", "silo"),
+			Bucket:         bucket,
+			PrivateBucket:  privateBucket,
 			Region:         env.GetWithDefault("STORAGE_REGION", "us-east-1"),
 			ForcePathStyle: false,
 			PublicURL:      env.Get("STORAGE_PUBLIC_URL"),
@@ -45,7 +49,8 @@ func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error
 			Endpoint:       env.Get("STORAGE_ENDPOINT"),
 			AccessKey:      env.Get("STORAGE_ACCESS_KEY"),
 			SecretKey:      env.Get("STORAGE_SECRET_KEY"),
-			Bucket:         env.GetWithDefault("STORAGE_BUCKET", "silo"),
+			Bucket:         bucket,
+			PrivateBucket:  privateBucket,
 			Region:         env.GetWithDefault("STORAGE_REGION", "auto"),
 			ForcePathStyle: false,
 			PublicURL:      env.Get("STORAGE_PUBLIC_URL"),
@@ -56,7 +61,8 @@ func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error
 			Endpoint:       env.GetWithDefault("STORAGE_ENDPOINT", "http://localhost:9000"),
 			AccessKey:      env.GetWithDefault("STORAGE_ACCESS_KEY", "minioadmin"),
 			SecretKey:      env.GetWithDefault("STORAGE_SECRET_KEY", "minioadmin"),
-			Bucket:         env.GetWithDefault("STORAGE_BUCKET", "silo"),
+			Bucket:         bucket,
+			PrivateBucket:  privateBucket,
 			Region:         env.GetWithDefault("STORAGE_REGION", "us-east-1"),
 			ForcePathStyle: true,
 			PublicURL:      env.Get("STORAGE_PUBLIC_URL"),

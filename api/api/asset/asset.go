@@ -2,6 +2,7 @@
 package asset
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,9 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, mid *middleware.Middleware) {
 	member.GET("/:id/lots", h.listLots)
 	member.GET("/:id/cash-flows", h.listCashFlows)
 	member.GET("/:id/value-history", h.listValueHistory)
+	// Documents — read
+	member.GET("/:id/documents", h.listDocuments)
+	member.GET("/:id/documents/:docID/download-url", h.documentDownloadURL)
 
 	editor := g.Group("", mid.RequirePortfolioEditor())
 	editor.POST("", h.create)
@@ -45,6 +49,9 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, mid *middleware.Middleware) {
 	editor.DELETE("/:id/lots/:lotID", h.deleteLot)
 	editor.POST("/:id/cash-flows", h.addCashFlow)
 	editor.DELETE("/:id/cash-flows/:flowID", h.deleteCashFlow)
+	// Documents — write
+	editor.POST("/:id/documents", h.uploadDocument)
+	editor.DELETE("/:id/documents/:docID", h.deleteDocument)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -391,3 +398,103 @@ func (h *handler) listValueHistory(c *gin.Context) {
 
 // refreshPrice is kept as a placeholder for the background price sync endpoint.
 func (h *handler) refreshPrice(c *gin.Context) { /* TODO */ }
+
+// ─── Document handlers ────────────────────────────────────────────────────────
+
+// uploadDocument accepts a multipart file, stores it in the private bucket,
+// and returns the document metadata (no URL — use download-url to get access).
+func (h *handler) uploadDocument(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 50<<20) // 50 MB
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+	defer file.Close()
+
+	doc, err := h.svc.UploadDocument(
+		c.Request.Context(), assetID, callerID,
+		header.Filename, header.Header.Get("Content-Type"),
+		file, header.Size,
+	)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.Created(c, "document uploaded", doc)
+}
+
+// listDocuments returns metadata for all documents attached to an asset.
+// No download URLs are returned — request them individually via download-url.
+func (h *handler) listDocuments(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	docs, err := h.svc.ListDocuments(c.Request.Context(), assetID, callerID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, "documents", docs)
+}
+
+// documentDownloadURL generates a presigned URL valid for 1 hour.
+// The URL is single-use in spirit — it expires and cannot be stored permanently.
+func (h *handler) documentDownloadURL(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+
+	docID, err := uuid.Parse(c.Param("docID"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	resp, err := h.svc.DownloadURL(c.Request.Context(), docID, callerID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, "download url", resp)
+}
+
+// deleteDocument removes the file from storage and soft-deletes the record.
+func (h *handler) deleteDocument(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+
+	docID, err := uuid.Parse(c.Param("docID"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	if err := h.svc.DeleteDocument(c.Request.Context(), docID, callerID); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+
+	apiModel.OK(c, "document deleted", nil)
+}

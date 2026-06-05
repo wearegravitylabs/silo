@@ -4,6 +4,8 @@ package asset
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"math"
 	"strings"
 	"sync"
@@ -67,6 +69,17 @@ type Asset interface {
 
 	// ListValueHistory returns per-asset value snapshots within the time range.
 	ListValueHistory(ctx context.Context, assetID, callerID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
+
+	// ── Documents ─────────────────────────────────────────────────────────────
+
+	// UploadDocument stores a file in the private bucket and persists metadata.
+	UploadDocument(ctx context.Context, assetID, callerID uuid.UUID, fileName, fileType string, data io.Reader, size int64) (model.AssetDocument, error)
+	// ListDocuments returns document metadata (no URLs — call DownloadURL per document).
+	ListDocuments(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetDocument, error)
+	// DownloadURL generates a presigned download URL valid for 1 hour.
+	DownloadURL(ctx context.Context, docID, callerID uuid.UUID) (model.DocumentDownloadResponse, error)
+	// DeleteDocument removes the file from storage and soft-deletes the DB record.
+	DeleteDocument(ctx context.Context, docID, callerID uuid.UUID) error
 }
 
 type service struct{ dp app.Dependency }
@@ -834,6 +847,117 @@ func (s *service) recordValueHistory(ctx context.Context, a model.Asset, src mod
 		log := siloLogger.FromCtx(ctx)
 		log.Error().Err(err).Str("asset_id", a.ID.String()).Msg("failed to record value history")
 	}
+}
+
+// ─── Documents ────────────────────────────────────────────────────────────────
+
+const presignExpiry = 1 * time.Hour
+
+// UploadDocument stores a file in the private bucket and creates a metadata record.
+func (s *service) UploadDocument(ctx context.Context, assetID, callerID uuid.UUID, fileName, fileType string, data io.Reader, size int64) (model.AssetDocument, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.UploadDocument").
+		Str("asset_id", assetID.String()).
+		Logger()
+
+	// Verify asset exists and caller has access.
+	a, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch asset for document upload")
+		return model.AssetDocument{}, err
+	}
+
+	// Build a unique storage key inside the private bucket.
+	key := fmt.Sprintf("documents/%s/%s/%s-%s",
+		a.PortfolioID.String(), assetID.String(),
+		uuid.New().String(), sanitizeFileName(fileName))
+
+	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size); err != nil {
+		log.Error().Err(err).Msg("failed to upload document to private bucket")
+		return model.AssetDocument{}, siloErrors.ErrStorageUploadFailed
+	}
+
+	doc := model.AssetDocument{
+		AssetID:     &assetID,
+		PortfolioID: a.PortfolioID,
+		FileName:    fileName,
+		FileType:    fileType,
+		StoragePath: key,
+		FileSize:    size,
+		UploadedAt:  time.Now().UTC(),
+	}
+	created, err := s.dp.AssetDocumentStore.CreateDocument(ctx, doc)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to persist document metadata")
+		// Best-effort cleanup of the uploaded file.
+		_ = s.dp.ObjectStorage.Delete(ctx, s.dp.StoragePrivateBucket, key)
+		return model.AssetDocument{}, err
+	}
+
+	log.Info().Str("doc_id", created.ID.String()).Msg("document uploaded")
+	return created, nil
+}
+
+// ListDocuments returns metadata for all documents attached to an asset.
+func (s *service) ListDocuments(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetDocument, error) {
+	return s.dp.AssetDocumentStore.ListByAsset(ctx, assetID)
+}
+
+// DownloadURL generates a presigned URL for the document, valid for 1 hour.
+func (s *service) DownloadURL(ctx context.Context, docID, callerID uuid.UUID) (model.DocumentDownloadResponse, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.DownloadURL").
+		Str("doc_id", docID.String()).
+		Logger()
+
+	doc, err := s.dp.AssetDocumentStore.GetDocumentByID(ctx, docID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch document for presigned URL")
+		return model.DocumentDownloadResponse{}, err
+	}
+
+	url, err := s.dp.ObjectStorage.PresignedURL(ctx, s.dp.StoragePrivateBucket, doc.StoragePath, presignExpiry)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to generate presigned URL")
+		return model.DocumentDownloadResponse{}, siloErrors.ErrStorageDownloadFailed
+	}
+
+	return model.DocumentDownloadResponse{
+		URL:       url,
+		ExpiresIn: int(presignExpiry.Seconds()),
+	}, nil
+}
+
+// DeleteDocument removes the file from storage and soft-deletes the DB record.
+func (s *service) DeleteDocument(ctx context.Context, docID, callerID uuid.UUID) error {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.DeleteDocument").
+		Str("doc_id", docID.String()).
+		Logger()
+
+	doc, err := s.dp.AssetDocumentStore.GetDocumentByID(ctx, docID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch document for deletion")
+		return err
+	}
+
+	// Remove from storage first; if it fails we don't soft-delete.
+	if err := s.dp.ObjectStorage.Delete(ctx, s.dp.StoragePrivateBucket, doc.StoragePath); err != nil {
+		log.Error().Err(err).Msg("failed to delete document from storage")
+		return siloErrors.ErrStorageUploadFailed
+	}
+
+	if err := s.dp.AssetDocumentStore.SoftDeleteDocument(ctx, docID); err != nil {
+		log.Error().Err(err).Msg("failed to soft-delete document record")
+		return err
+	}
+
+	return nil
+}
+
+// sanitizeFileName strips path separators from a filename for safe storage keys.
+func sanitizeFileName(name string) string {
+	return strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(name)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

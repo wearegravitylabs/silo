@@ -33,11 +33,16 @@ type Dependency struct {
 	AssetLotStore        store.AssetLotDatabase
 	AssetCashFlowStore   store.AssetCashFlowDatabase
 	AssetValueHistStore  store.AssetValueHistoryDatabase
+	AssetDocumentStore   store.AssetDocumentDatabase
 	DebtStore            store.DebtDatabase
 	AutopilotStore       store.AutopilotDatabase
 	SnapshotStore        store.SnapshotDatabase
 	RefreshTokenStore    store.RefreshTokenDatabase
 	FolderStore          store.FolderDatabase
+
+	// Storage bucket names (read from env, used by services that handle file I/O)
+	StoragePublicBucket  string
+	StoragePrivateBucket string
 
 	// Third-party services
 	StockMarket     market.MarketDataProvider // Yahoo Finance
@@ -73,17 +78,21 @@ func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependenc
 		Env:    env,
 
 		// Store layer
-		UserStore:           store.NewUserStore(s),
-		PortfolioStore:      store.NewPortfolioStore(s),
-		AssetStore:          store.NewAssetStore(s),
-		AssetLotStore:       store.NewAssetLotStore(s),
-		AssetCashFlowStore:  store.NewAssetCashFlowStore(s),
-		AssetValueHistStore: store.NewAssetValueHistoryStore(s),
-		DebtStore:           store.NewDebtStore(s),
-		AutopilotStore:      store.NewAutopilotStore(s),
-		SnapshotStore:       store.NewSnapshotStore(s),
-		RefreshTokenStore:   store.NewRefreshTokenStore(s),
-		FolderStore:         store.NewFolderStore(s),
+		UserStore:            store.NewUserStore(s),
+		PortfolioStore:       store.NewPortfolioStore(s),
+		AssetStore:           store.NewAssetStore(s),
+		AssetLotStore:        store.NewAssetLotStore(s),
+		AssetCashFlowStore:   store.NewAssetCashFlowStore(s),
+		AssetValueHistStore:  store.NewAssetValueHistoryStore(s),
+		AssetDocumentStore:   store.NewAssetDocumentStore(s),
+		DebtStore:            store.NewDebtStore(s),
+		AutopilotStore:       store.NewAutopilotStore(s),
+		SnapshotStore:        store.NewSnapshotStore(s),
+		RefreshTokenStore:    store.NewRefreshTokenStore(s),
+		FolderStore:          store.NewFolderStore(s),
+
+		StoragePublicBucket:  env.GetWithDefault(modelEnv.StorageBucket, "silo"),
+		StoragePrivateBucket: env.GetWithDefault(modelEnv.StoragePrivateBucket, env.GetWithDefault(modelEnv.StorageBucket, "silo")+"-docs"),
 
 		// Third-party
 		StockMarket:     yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),
