@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -163,13 +164,21 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		assetID = id
 	}
 
-	// Insert lots.
+	// Insert lots concurrently — each ticker lot fetches a historical price via HTTP,
+	// so parallel execution cuts wall-clock time from N×(fetch) to 1×(slowest fetch).
+	// syncQuantity must run after ALL lots are written, hence the WaitGroup barrier.
+	var wg sync.WaitGroup
 	for _, lotReq := range req.Lots {
-		if _, err := s.addLotInternal(ctx, assetID, req.AssetType, req.Ticker, lotReq); err != nil {
-			log.Error().Err(err).Msg("failed to add lot during asset creation")
-			// Continue — partial lot creation is better than rolling back the whole asset.
-		}
+		wg.Add(1)
+		go func(lr model.CreateLotRequest) {
+			defer wg.Done()
+			if _, err := s.addLotInternal(ctx, assetID, req.AssetType, req.Ticker, lr); err != nil {
+				log.Error().Err(err).Msg("failed to add lot during asset creation")
+				// Non-fatal — other lots still succeed.
+			}
+		}(lotReq)
 	}
+	wg.Wait()
 
 	// Sync total quantity from lots.
 	if err := s.syncQuantity(ctx, assetID); err != nil {
