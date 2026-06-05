@@ -2,6 +2,8 @@
 package app
 
 import (
+	"context"
+
 	"github.com/rs/zerolog"
 
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
@@ -17,7 +19,6 @@ import (
 	"github.com/wearegravitylabs/silo/api/thirdparty/messaging/email"
 	resendProvider "github.com/wearegravitylabs/silo/api/thirdparty/messaging/resend"
 	"github.com/wearegravitylabs/silo/api/thirdparty/storage"
-	storageMinIO "github.com/wearegravitylabs/silo/api/thirdparty/storage/minio"
 )
 
 // Dependency holds all shared dependencies available to service implementations.
@@ -52,7 +53,7 @@ type Dependency struct {
 }
 
 // InitDp builds and returns a fully wired Dependency using the given store and env.
-func InitDp(s *store.Store, env *environment.Env) Dependency {
+func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependency {
 	log := siloLogger.New()
 
 	// Wire email provider: use Resend when API key is present, fall back to no-op for local dev.
@@ -88,11 +89,22 @@ func InitDp(s *store.Store, env *environment.Env) Dependency {
 		StockMarket:     yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),
 		CryptoMarket:    coingecko.New(env.Get(modelEnv.CoinGeckoAPIKey), env.Get(modelEnv.CoinGeckoBaseURL)),
 		AIProvider:      claude.New(env.Get(modelEnv.AnthropicAPIKey), env.Get(modelEnv.ClaudeModel)),
-		ObjectStorage:   storageMinIO.New(env.Get(modelEnv.MinIOEndpoint), env.Get(modelEnv.MinIOAccessKey), env.Get(modelEnv.MinIOSecretKey), env.GetBool(modelEnv.MinIOUseSSL)),
+		ObjectStorage:   mustStorage(ctx, env),
 		EmailingService: emailSvc,
 
 		BankConnector:        nil,
 		NotificationProvider: nil,
 		BillingProvider:      nil,
 	}
+}
+
+// mustStorage initialises the object storage provider from env vars.
+// Panics on misconfiguration (wrong provider name) so the problem is caught
+// at startup rather than silently at runtime.
+func mustStorage(ctx context.Context, env *environment.Env) storage.ObjectStorage {
+	s, err := storage.NewFromEnv(ctx, env)
+	if err != nil {
+		panic("storage: " + err.Error())
+	}
+	return s
 }

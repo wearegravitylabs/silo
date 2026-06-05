@@ -15,6 +15,7 @@ import (
 	"github.com/wearegravitylabs/silo/api/api/insight"
 	"github.com/wearegravitylabs/silo/api/api/portfolio"
 	"github.com/wearegravitylabs/silo/api/api/snapshot"
+	apiUpload "github.com/wearegravitylabs/silo/api/api/upload"
 	"github.com/wearegravitylabs/silo/api/api/user"
 	"github.com/wearegravitylabs/silo/api/api/vault"
 	appAuth "github.com/wearegravitylabs/silo/api/app/auth"
@@ -29,17 +30,18 @@ import (
 	appVault "github.com/wearegravitylabs/silo/api/app/vault"
 	"github.com/wearegravitylabs/silo/api/pkg/assetclass"
 	"github.com/wearegravitylabs/silo/api/pkg/currency"
-	"github.com/wearegravitylabs/silo/api/pkg/physicalsubtype"
 	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	"github.com/wearegravitylabs/silo/api/pkg/helpers"
 	"github.com/wearegravitylabs/silo/api/pkg/middleware"
+	"github.com/wearegravitylabs/silo/api/pkg/physicalsubtype"
+	objectStorage "github.com/wearegravitylabs/silo/api/thirdparty/storage"
 )
 
 // Handler is the root HTTP handler that owns all service references.
 type Handler struct {
-	env   *environment.Env
+	env    *environment.Env
 	engine *gin.Engine
-	mid   *middleware.Middleware
+	mid    *middleware.Middleware
 
 	authSvc      appAuth.Auth
 	userSvc      appUser.User
@@ -51,6 +53,7 @@ type Handler struct {
 	vaultSvc     appVault.Vault
 	insightSvc   appInsight.Insight
 	folderSvc    appFolder.Folder
+	objectStore  objectStorage.ObjectStorage
 }
 
 // New creates a Handler with all dependencies injected.
@@ -68,13 +71,14 @@ func New(
 	vaultSvc appVault.Vault,
 	insightSvc appInsight.Insight,
 	folderSvc appFolder.Folder,
+	store objectStorage.ObjectStorage,
 ) *Handler {
 	return &Handler{
 		env: env, engine: engine, mid: mid,
 		authSvc: authSvc, userSvc: userSvc, portfolioSvc: portfolioSvc,
 		assetSvc: assetSvc, debtSvc: debtSvc, autopilotSvc: autopilotSvc,
 		snapshotSvc: snapshotSvc, vaultSvc: vaultSvc, insightSvc: insightSvc,
-		folderSvc: folderSvc,
+		folderSvc: folderSvc, objectStore: store,
 	}
 }
 
@@ -98,7 +102,9 @@ func (h *Handler) Build() {
 
 	// ── Tier 3: Authenticated + fully onboarded ───────────────────────────────
 	// Everything else requires a completed profile.
+	// Upload lives here — only onboarded users can upload files.
 	onboarded := v1.Group("", h.mid.RequireAuth(), h.mid.RequireOnboarded())
+	apiUpload.New(onboarded, h.objectStore, h.env)
 	portfolio.New(onboarded, h.portfolioSvc, h.mid)
 	folder.New(onboarded, h.folderSvc, h.mid)
 	asset.New(onboarded, h.assetSvc, h.mid)

@@ -48,7 +48,7 @@ func main() {
 	storage := store.New(env)
 
 	// ─── Dependency Injection ─────────────────────────────────────────────────────
-	dp := app.InitDp(storage, env)
+	dp := app.InitDp(context.Background(), storage, env)
 
 	// ─── Services ─────────────────────────────────────────────────────────────────
 	authSvc := appAuth.New(dp)
@@ -80,7 +80,7 @@ func main() {
 		authSvc, userSvc, portfolioSvc,
 		assetSvc, debtSvc, autopilotSvc,
 		snapshotSvc, vaultSvc, insightSvc,
-		folderSvc,
+		folderSvc, dp.ObjectStorage,
 	)
 	handler.Build()
 

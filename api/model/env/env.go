@@ -40,7 +40,19 @@ const (
 	AnthropicAPIKey = "ANTHROPIC_API_KEY"
 	ClaudeModel     = "CLAUDE_MODEL" // e.g. "claude-sonnet-4-6"
 
-	// Object storage (S3 / MinIO)
+	// Object storage — provider-agnostic (S3 / Cloudflare R2 / MinIO)
+	StorageProvider       = "STORAGE_PROVIDER"       // s3 | r2 | minio
+	StorageEndpoint       = "STORAGE_ENDPOINT"       // empty for AWS S3
+	StorageAccessKey      = "STORAGE_ACCESS_KEY"
+	StorageSecretKey      = "STORAGE_SECRET_KEY"
+	StorageBucket         = "STORAGE_BUCKET"
+	StorageRegion         = "STORAGE_REGION"
+	StoragePublicURL      = "STORAGE_PUBLIC_URL"     // base URL for public downloads
+	StorageForcePathStyle = "STORAGE_FORCE_PATH_STYLE"
+	StorageMaxUploadBytes = "STORAGE_MAX_UPLOAD_BYTES" // default 52428800 (50 MB)
+
+	// Legacy MinIO env vars kept for backward compatibility in docker-compose.
+	// Map them to the new STORAGE_* vars in your migration.
 	MinIOEndpoint  = "MINIO_ENDPOINT"
 	MinIOAccessKey = "MINIO_ACCESS_KEY"
 	MinIOSecretKey = "MINIO_SECRET_KEY"
