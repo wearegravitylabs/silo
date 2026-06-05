@@ -109,10 +109,19 @@ type Asset struct {
 	// InvestabilityEditable reports whether the user can change the investability.
 	InvestabilityEditable bool `gorm:"-" json:"investability_editable"`
 	// TotalValue is the full asset value regardless of ownership (current_price × quantity).
+	// Always in the asset's native currency.
 	TotalValue float64 `gorm:"-" json:"total_value"`
-	// OwnedValue is the user's actual stake after applying ownership_pct
-	// (total_value × ownership_pct / 100).
+	// OwnedValue is the user's actual stake (total_value × ownership_pct / 100).
+	// Always in the asset's native currency.
 	OwnedValue float64 `gorm:"-" json:"owned_value"`
+	// OwnedValueConverted is OwnedValue converted to the portfolio's base_currency.
+	// Equals OwnedValue when asset.currency == portfolio.base_currency.
+	OwnedValueConverted float64 `gorm:"-" json:"owned_value_converted"`
+	// ConvertedCurrency is always the portfolio's base_currency.
+	ConvertedCurrency currency.Code `gorm:"-" json:"converted_currency"`
+	// ExchangeRate is: 1 unit of asset.currency = ExchangeRate units of ConvertedCurrency.
+	// 1.0 when no conversion is needed or the FX lookup failed.
+	ExchangeRate float64 `gorm:"-" json:"exchange_rate"`
 }
 
 // ─── Request types ────────────────────────────────────────────────────────────

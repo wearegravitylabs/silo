@@ -361,34 +361,116 @@ func (s *service) syncQuantity(ctx context.Context, assetID uuid.UUID) error {
 
 // ─── Standard CRUD ────────────────────────────────────────────────────────────
 
-// GetByID fetches a single asset with lots preloaded.
+// GetByID fetches a single asset with lots preloaded and FX conversion applied.
 func (s *service) GetByID(ctx context.Context, id, callerID uuid.UUID) (model.Asset, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.GetByID").
+		Str("asset_id", id.String()).
+		Logger()
+
 	a, err := s.dp.AssetStore.GetAssetByID(ctx, id)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch asset")
 		return model.Asset{}, err
 	}
+
 	lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, id)
 	a.Lots = lots
 	enrich(&a)
+
+	// Fetch portfolio base_currency for FX conversion.
+	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, a.PortfolioID, callerID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch portfolio for FX conversion")
+		// Non-fatal — return asset without conversion.
+		return a, nil
+	}
+
+	rateMap := s.fetchRateMap(ctx, []currency.Code{a.Currency}, portfolio.BaseCurrency)
+	enrichWithFX(&a, portfolio.BaseCurrency, rateMap)
 	return a, nil
 }
 
-// ListByPortfolio returns assets for a portfolio with class metadata enriched.
+// ListByPortfolio returns assets for a portfolio with FX conversion applied.
 func (s *service) ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "asset.ListByPortfolio").
 		Str("portfolio_id", portfolioID.String()).
 		Logger()
 
+	// Fetch portfolio for base_currency.
+	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, callerID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch portfolio for FX conversion")
+		return nil, err
+	}
+
 	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID, filter)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to list assets")
 		return nil, err
 	}
+
+	// Collect unique native currencies and batch-fetch FX rates.
+	nativeCurrencies := make([]currency.Code, 0, len(assets))
+	seen := map[currency.Code]bool{}
+	for _, a := range assets {
+		if !seen[a.Currency] {
+			nativeCurrencies = append(nativeCurrencies, a.Currency)
+			seen[a.Currency] = true
+		}
+	}
+	rateMap := s.fetchRateMap(ctx, nativeCurrencies, portfolio.BaseCurrency)
+
 	for i := range assets {
 		enrich(&assets[i])
+		enrichWithFX(&assets[i], portfolio.BaseCurrency, rateMap)
 	}
 	return assets, nil
+}
+
+// fetchRateMap concurrently fetches FX rates for all provided native currencies
+// to the target currency. Returns a map keyed as "FROM:TO".
+func (s *service) fetchRateMap(ctx context.Context, from []currency.Code, to currency.Code) map[string]float64 {
+	log := siloLogger.FromCtx(ctx)
+	rateMap := make(map[string]float64, len(from))
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, f := range from {
+		if strings.EqualFold(f, to) {
+			rateMap[f+":"+to] = 1.0
+			continue
+		}
+		wg.Add(1)
+		go func(fromCur currency.Code) {
+			defer wg.Done()
+			rate, err := s.dp.StockMarket.GetExchangeRate(ctx, fromCur, to)
+			if err != nil {
+				log.Warn().Err(err).
+					Str("from", fromCur).Str("to", to).
+					Msg("FX rate lookup failed — falling back to 1.0")
+				rate = 1.0
+			}
+			mu.Lock()
+			rateMap[fromCur+":"+to] = rate
+			mu.Unlock()
+		}(f)
+	}
+	wg.Wait()
+	return rateMap
+}
+
+// enrichWithFX populates the FX conversion fields on an asset.
+func enrichWithFX(a *model.Asset, baseCurrency currency.Code, rateMap map[string]float64) {
+	rate := rateMap[a.Currency+":"+baseCurrency]
+	if rate == 0 {
+		rate = 1.0 // fallback: show in native currency
+	}
+	a.OwnedValueConverted = a.OwnedValue * rate
+	a.ConvertedCurrency = baseCurrency
+	a.ExchangeRate = rate
 }
 
 // Update applies partial changes to an existing asset.
