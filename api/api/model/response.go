@@ -147,7 +147,8 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrFileTooLarge.Code,
 		siloErrors.ErrUnsupportedFileType.Code,
 		siloErrors.ErrInvalidTicker.Code,
-		siloErrors.ErrInvalidCurrency.Code:
+		siloErrors.ErrInvalidCurrency.Code,
+		siloErrors.ErrFolderRequired.Code:
 		return http.StatusBadRequest
 
 	case siloErrors.ErrLastOwner.Code,

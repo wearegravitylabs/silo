@@ -100,6 +100,14 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		return model.Asset{}, siloErrors.ErrInvalidAssetType
 	}
 
+	folder, err := s.dp.FolderStore.GetFolderByID(ctx, req.FolderID)
+	if err != nil {
+		return model.Asset{}, siloErrors.ErrFolderNotFound
+	}
+	if folder.PortfolioID != portfolioID {
+		return model.Asset{}, siloErrors.ErrFolderNotFound
+	}
+
 	// Resolve currency — fall back to portfolio base currency when empty.
 	assetCurrency := strings.ToUpper(strings.TrimSpace(req.Currency))
 	if assetCurrency == "" {
@@ -227,6 +235,7 @@ func (s *service) upsertStockAsset(
 
 		a := model.Asset{
 			PortfolioID:   portfolioID,
+			FolderID:      req.FolderID,
 			Name:          helpers.Coalesce(req.Name, quote.CompanyName),
 			AssetType:     req.AssetType,
 			AssetClass:    classCode,
@@ -249,6 +258,7 @@ func (s *service) upsertStockAsset(
 	// Manual stock — always create a new row.
 	a := model.Asset{
 		PortfolioID:   portfolioID,
+		FolderID:      req.FolderID,
 		Name:          req.Name,
 		AssetType:     req.AssetType,
 		AssetClass:    classCode,
@@ -381,7 +391,7 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 	}
 
 	if req.FolderID != nil {
-		a.FolderID = req.FolderID
+		a.FolderID = *req.FolderID
 	}
 	if req.Name != nil {
 		a.Name = *req.Name
@@ -461,6 +471,7 @@ func (s *service) upsertCryptoAsset(
 
 		a := model.Asset{
 			PortfolioID:   portfolioID,
+			FolderID:      req.FolderID,
 			Name:          helpers.Coalesce(req.Name, quote.CompanyName, coinID),
 			AssetType:     req.AssetType,
 			AssetClass:    classCode,
@@ -494,6 +505,7 @@ func (s *service) createManualAsset(
 ) (uuid.UUID, error) {
 	a := model.Asset{
 		PortfolioID:   portfolioID,
+		FolderID:      req.FolderID,
 		Name:          req.Name,
 		AssetType:     req.AssetType,
 		AssetClass:    classCode,

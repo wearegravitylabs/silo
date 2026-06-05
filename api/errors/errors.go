@@ -163,6 +163,10 @@ var (
 	ErrFolderNotFound = &TranslatableError{Code: "FOLDER_NOT_FOUND", Key: "ERR_FOLDER_NOT_FOUND",
 		Message: messages.ErrFolderNotFound, Public: true}
 
+	// ErrFolderRequired is shown when no folder_id is provided on asset creation.
+	ErrFolderRequired = &TranslatableError{Code: "FOLDER_REQUIRED", Key: "ERR_FOLDER_REQUIRED",
+		Message: messages.ErrFolderRequired, Public: true}
+
 	// ─── Vault ────────────────────────────────────────────────────────────────
 
 	// ErrVaultDecryptFailed is shown when the client-side decryption password is wrong.

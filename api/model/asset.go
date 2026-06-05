@@ -13,13 +13,13 @@ type AssetType string
 
 const (
 	AssetTypeStockTicker  AssetType = "stock_ticker"  // auto-priced via Yahoo Finance
-	AssetTypeStockManual  AssetType = "stock_manual"   // user-valued stock (ETFs, etc.)
-	AssetTypeCryptoTicker AssetType = "crypto_ticker"  // auto-priced via CoinGecko
-	AssetTypeCryptoManual AssetType = "crypto_manual"  // user-valued crypto
+	AssetTypeStockManual  AssetType = "stock_manual"  // user-valued stock (ETFs, etc.)
+	AssetTypeCryptoTicker AssetType = "crypto_ticker" // auto-priced via CoinGecko
+	AssetTypeCryptoManual AssetType = "crypto_manual" // user-valued crypto
 	AssetTypeRealEstate   AssetType = "real_estate"
 	AssetTypeDomain       AssetType = "domain"
-	AssetTypePhysical     AssetType = "physical"  // gold, jewellery, vehicles, art
-	AssetTypeVC           AssetType = "vc"         // venture capital / angel investment
+	AssetTypePhysical     AssetType = "physical" // gold, jewellery, vehicles, art
+	AssetTypeVC           AssetType = "vc"       // venture capital / angel investment
 	AssetTypeBusiness     AssetType = "business"
 	AssetTypeBank         AssetType = "bank"   // cash account (Plaid or manual)
 	AssetTypeManual       AssetType = "manual" // catch-all user-defined asset
@@ -31,8 +31,8 @@ const (
 type Investability string
 
 const (
-	InvestabilityCash       Investability = "cash"          // checking, savings, stablecoins
-	InvestabilityInvestable Investability = "investable"    // stocks, crypto
+	InvestabilityCash       Investability = "cash"           // checking, savings, stablecoins
+	InvestabilityInvestable Investability = "investable"     // stocks, crypto
 	InvestabilityNonInvest  Investability = "non_investable" // real estate, business, VC
 )
 
@@ -53,11 +53,11 @@ func (j *JSONB) Scan(value any) error {
 
 // Asset represents any financial holding tracked within a portfolio.
 type Asset struct {
-	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	PortfolioID uuid.UUID  `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
-	FolderID    *uuid.UUID `gorm:"type:uuid;index"                                  json:"folder_id"`
-	Name        string     `gorm:"not null"                                         json:"name"`
-	AssetType   AssetType  `gorm:"not null"                                         json:"asset_type"`
+	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	PortfolioID uuid.UUID `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
+	FolderID    uuid.UUID `gorm:"type:uuid;index"                                  json:"folder_id"`
+	Name        string    `gorm:"not null"                                         json:"name"`
+	AssetType   AssetType `gorm:"not null"                                         json:"asset_type"`
 
 	// Ticker / price-feed fields (populated for ticker-based assets)
 	Ticker        string  `json:"ticker"`
@@ -66,9 +66,9 @@ type Asset struct {
 	CurrentPrice  float64 `gorm:"type:numeric(28,10)"                              json:"current_price"`
 
 	// Common fields
-	Currency  string        `gorm:"not null;default:'USD'"                           json:"currency"`
+	Currency string `gorm:"not null;default:'USD'"                           json:"currency"`
 	// OwnershipPct is always editable — default 100, range 0–100.
-	OwnershipPct float64    `gorm:"type:numeric(6,4);default:100"                    json:"ownership_pct"`
+	OwnershipPct float64 `gorm:"type:numeric(6,4);default:100"                    json:"ownership_pct"`
 	// Investability is preset for most asset types; editable for manual and domain.
 	Investability Investability `json:"investability"`
 
@@ -78,21 +78,20 @@ type Asset struct {
 	// Subtype is used for physical assets (e.g. "vehicle", "watch", "jewelry").
 	// Empty for all other asset types.
 	Subtype string `json:"subtype"`
-	// LogoURL is the company logo for ticker-based assets (auto-fetched from Yahoo Finance).
+	// LogoURL is the company logo for assets
 	LogoURL string `json:"logo_url"`
 
-	Location        string     `json:"location"`
-	Metadata        JSONB      `gorm:"type:jsonb"                                       json:"metadata,omitempty"`
-	LastPriceSync   *time.Time `json:"last_price_sync"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	DeletedAt       *time.Time `gorm:"index"                                            json:"-"`
+	Location      string     `json:"location"`
+	Metadata      JSONB      `gorm:"type:jsonb"                                       json:"metadata,omitempty"`
+	LastPriceSync *time.Time `json:"last_price_sync"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+	DeletedAt     *time.Time `gorm:"index"                                            json:"-"`
 
-	// Lots is populated on explicit Preload only.
+	// Lots are populated on explicit Preload only.
 	Lots []AssetLot `gorm:"foreignKey:AssetID" json:"lots,omitempty"`
 
 	// ── Computed fields (not stored, gorm:"-") ────────────────────────────────
-
 	// Icon is the inline SVG for this asset's class, populated at query time.
 	Icon string `gorm:"-" json:"icon"`
 	// InvestabilityEditable reports whether the user can change the investability.
@@ -103,8 +102,8 @@ type Asset struct {
 
 // CreateAssetRequest is the payload for POST /portfolios/:id/assets.
 type CreateAssetRequest struct {
-	FolderID  *uuid.UUID `json:"folder_id"`
-	AssetType AssetType  `json:"asset_type" binding:"required"`
+	FolderID  uuid.UUID `json:"folder_id" binding:"required"`
+	AssetType AssetType `json:"asset_type" binding:"required"`
 
 	// For stock_ticker / crypto_ticker: provide ticker only.
 	// Name, logo, and current price are fetched automatically.
@@ -135,14 +134,14 @@ type CreateAssetRequest struct {
 // UpdateAssetRequest is the payload for PATCH /portfolios/:id/assets/:id.
 // All fields are optional; omitted fields are not changed.
 type UpdateAssetRequest struct {
-	FolderID      *uuid.UUID     `json:"folder_id"`
-	Name          *string        `json:"name"`
-	Quantity      *float64       `json:"quantity"`
-	CurrentPrice  *float64       `json:"current_price"`
+	FolderID     *uuid.UUID `json:"folder_id"`
+	Name         *string    `json:"name"`
+	Quantity     *float64   `json:"quantity"`
+	CurrentPrice *float64   `json:"current_price"`
 	// OwnershipPct is always accepted — any asset type.
-	OwnershipPct  *float64       `json:"ownership_pct"`
+	OwnershipPct *float64 `json:"ownership_pct"`
 	// Investability is silently ignored for asset types with a preset value.
-	Investability *Investability  `json:"investability"`
-	Location      *string         `json:"location"`
-	Metadata      JSONB           `json:"metadata"`
+	Investability *Investability `json:"investability"`
+	Location      *string        `json:"location"`
+	Metadata      JSONB          `json:"metadata"`
 }

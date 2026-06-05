@@ -27,7 +27,6 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios/:portfolioID/assets")
 
-	// ── Ticker search — any portfolio member can search ───────────────────────
 	member := g.Group("", mid.RequirePortfolioMember())
 	member.GET("/ticker/search", h.tickerSearch)
 	member.GET("/ticker/preview", h.tickerPreview)
@@ -37,7 +36,6 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, mid *middleware.Middleware) {
 	member.GET("/:id/cash-flows", h.listCashFlows)
 	member.GET("/:id/value-history", h.listValueHistory)
 
-	// ── Write operations — requires at least Editor role ──────────────────────
 	editor := g.Group("", mid.RequirePortfolioEditor())
 	editor.POST("", h.create)
 	editor.PATCH("/:id", h.update)

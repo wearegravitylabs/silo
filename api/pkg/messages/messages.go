@@ -145,6 +145,8 @@ const (
 
 	// ErrFolderNotFound is shown when the folder ID doesn't exist or the caller lacks access.
 	ErrFolderNotFound = "That folder doesn't exist or you don't have access to it."
+	// ErrFolderRequired is shown when no folder_id is provided on asset creation.
+	ErrFolderRequired = "Please choose a folder for this asset."
 )
 
 // ─── Cash flows ───────────────────────────────────────────────────────────────
