@@ -101,7 +101,7 @@ func (h *Handler) Build() {
 	onboarded := v1.Group("", h.mid.RequireAuth(), h.mid.RequireOnboarded())
 	portfolio.New(onboarded, h.portfolioSvc, h.mid)
 	folder.New(onboarded, h.folderSvc, h.mid)
-	asset.New(onboarded, h.assetSvc)
+	asset.New(onboarded, h.assetSvc, h.mid)
 	debt.New(onboarded, h.debtSvc)
 	autopilot.New(onboarded, h.autopilotSvc)
 	snapshot.New(onboarded, h.snapshotSvc)

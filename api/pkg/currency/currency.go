@@ -7,9 +7,14 @@ package currency
 
 import "strings"
 
+// Code is the ISO 4217 currency identifier (e.g. "USD", "NGN").
+// It is a type alias for string so GORM and JSON serialisation work transparently,
+// while communicating in code that a value is expected to be a valid currency code.
+type Code = string
+
 // Currency carries display metadata for a single currency.
 type Currency struct {
-	Code   string `json:"code"`   // ISO 4217 (e.g. "USD")
+	Code   Code   `json:"code"`   // ISO 4217 (e.g. "USD")
 	Name   string `json:"name"`   // e.g. "US Dollar"
 	Symbol string `json:"symbol"` // e.g. "$"
 	Flag   string `json:"flag"`   // emoji flag, e.g. "🇺🇸"

@@ -32,36 +32,36 @@ type Asset interface {
 	// Create adds a new asset (ticker or manual) to a portfolio with one or more lots.
 	// For ticker types, same-portfolio deduplication is applied automatically.
 	Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error)
-	// GetByID fetches a single asset (with lots preloaded).
-	GetByID(ctx context.Context, id uuid.UUID) (model.Asset, error)
-	// ListByPortfolio returns all non-deleted assets for a portfolio.
-	ListByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Asset, error)
-	// Update applies partial changes to an asset.
-	Update(ctx context.Context, id uuid.UUID, req model.UpdateAssetRequest) (model.Asset, error)
-	// Delete soft-deletes an asset.
-	Delete(ctx context.Context, id uuid.UUID) error
+	// GetByID fetches a single asset (with lots preloaded). callerID is used for audit logging.
+	GetByID(ctx context.Context, id, callerID uuid.UUID) (model.Asset, error)
+	// ListByPortfolio returns all non-deleted assets for a portfolio scoped to the caller.
+	ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Asset, error)
+	// Update applies partial changes to an asset. callerID is used for audit logging.
+	Update(ctx context.Context, id, callerID uuid.UUID, req model.UpdateAssetRequest) (model.Asset, error)
+	// Delete soft-deletes an asset. callerID is used for audit logging.
+	Delete(ctx context.Context, id, callerID uuid.UUID) error
 	// AddLot appends a purchase lot to an existing asset.
-	AddLot(ctx context.Context, assetID uuid.UUID, req model.CreateLotRequest) (model.AssetLot, error)
+	AddLot(ctx context.Context, assetID, callerID uuid.UUID, req model.CreateLotRequest) (model.AssetLot, error)
 	// ListLots returns all lots for an asset ordered by acquisition date.
-	ListLots(ctx context.Context, assetID uuid.UUID) ([]model.AssetLot, error)
+	ListLots(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetLot, error)
 	// DeleteLot removes a lot and updates the asset's total quantity.
-	DeleteLot(ctx context.Context, assetID, lotID uuid.UUID) error
+	DeleteLot(ctx context.Context, assetID, callerID, lotID uuid.UUID) error
 	// RefreshPrices fetches live prices for all ticker-based assets in the portfolio.
 	RefreshPrices(ctx context.Context, portfolioID uuid.UUID) error
 
 	// ── Cash flows ────────────────────────────────────────────────────────────
 
 	// AddCashFlow records an income or expense event for an asset.
-	AddCashFlow(ctx context.Context, assetID uuid.UUID, req model.CreateCashFlowRequest) (model.AssetCashFlow, error)
+	AddCashFlow(ctx context.Context, assetID, callerID uuid.UUID, req model.CreateCashFlowRequest) (model.AssetCashFlow, error)
 	// ListCashFlows returns all cash flows for an asset, newest first.
-	ListCashFlows(ctx context.Context, assetID uuid.UUID) ([]model.AssetCashFlow, error)
+	ListCashFlows(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetCashFlow, error)
 	// DeleteCashFlow removes a cash flow entry.
-	DeleteCashFlow(ctx context.Context, assetID, flowID uuid.UUID) error
+	DeleteCashFlow(ctx context.Context, assetID, callerID, flowID uuid.UUID) error
 
 	// ── Value history ─────────────────────────────────────────────────────────
 
 	// ListValueHistory returns per-asset value snapshots within the time range.
-	ListValueHistory(ctx context.Context, assetID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
+	ListValueHistory(ctx context.Context, assetID, callerID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
 }
 
 type service struct{ dp app.Dependency }
@@ -179,6 +179,7 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 	// Return the asset with lots preloaded.
 	result, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch asset after creation")
 		return model.Asset{}, err
 	}
 	lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
@@ -261,7 +262,7 @@ func (s *service) upsertStockAsset(
 // ─── Lot management ───────────────────────────────────────────────────────────
 
 // AddLot appends a purchase lot to an existing asset and syncs the total quantity.
-func (s *service) AddLot(ctx context.Context, assetID uuid.UUID, req model.CreateLotRequest) (model.AssetLot, error) {
+func (s *service) AddLot(ctx context.Context, assetID, callerID uuid.UUID, req model.CreateLotRequest) (model.AssetLot, error) {
 	asset, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
 	if err != nil {
 		return model.AssetLot{}, err
@@ -306,12 +307,12 @@ func (s *service) addLotInternal(
 }
 
 // ListLots returns all lots for an asset.
-func (s *service) ListLots(ctx context.Context, assetID uuid.UUID) ([]model.AssetLot, error) {
+func (s *service) ListLots(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetLot, error) {
 	return s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
 }
 
 // DeleteLot removes a lot and re-syncs the asset's total quantity.
-func (s *service) DeleteLot(ctx context.Context, assetID, lotID uuid.UUID) error {
+func (s *service) DeleteLot(ctx context.Context, assetID, callerID, lotID uuid.UUID) error {
 	if err := s.dp.AssetLotStore.DeleteLot(ctx, lotID); err != nil {
 		return err
 	}
@@ -336,7 +337,7 @@ func (s *service) syncQuantity(ctx context.Context, assetID uuid.UUID) error {
 // ─── Standard CRUD ────────────────────────────────────────────────────────────
 
 // GetByID fetches a single asset with lots preloaded.
-func (s *service) GetByID(ctx context.Context, id uuid.UUID) (model.Asset, error) {
+func (s *service) GetByID(ctx context.Context, id, callerID uuid.UUID) (model.Asset, error) {
 	a, err := s.dp.AssetStore.GetAssetByID(ctx, id)
 	if err != nil {
 		return model.Asset{}, err
@@ -348,7 +349,7 @@ func (s *service) GetByID(ctx context.Context, id uuid.UUID) (model.Asset, error
 }
 
 // ListByPortfolio returns all assets for a portfolio with class metadata enriched.
-func (s *service) ListByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Asset, error) {
+func (s *service) ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Asset, error) {
 	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID)
 	if err != nil {
 		return nil, err
@@ -360,7 +361,7 @@ func (s *service) ListByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([
 }
 
 // Update applies partial changes to an existing asset.
-func (s *service) Update(ctx context.Context, id uuid.UUID, req model.UpdateAssetRequest) (model.Asset, error) {
+func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.UpdateAssetRequest) (model.Asset, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "asset.Update").
 		Logger()
@@ -409,7 +410,7 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, req model.UpdateAsse
 }
 
 // Delete soft-deletes an asset.
-func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
+func (s *service) Delete(ctx context.Context, id, callerID uuid.UUID) error {
 	return s.dp.AssetStore.SoftDeleteAsset(ctx, id)
 }
 
@@ -507,7 +508,7 @@ func (s *service) createManualAsset(
 // ─── Cash flows ───────────────────────────────────────────────────────────────
 
 // AddCashFlow records an income or expense event for an asset.
-func (s *service) AddCashFlow(ctx context.Context, assetID uuid.UUID, req model.CreateCashFlowRequest) (model.AssetCashFlow, error) {
+func (s *service) AddCashFlow(ctx context.Context, assetID, callerID uuid.UUID, req model.CreateCashFlowRequest) (model.AssetCashFlow, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "asset.AddCashFlow").
 		Logger()
@@ -541,19 +542,19 @@ func (s *service) AddCashFlow(ctx context.Context, assetID uuid.UUID, req model.
 }
 
 // ListCashFlows returns all cash flows for an asset.
-func (s *service) ListCashFlows(ctx context.Context, assetID uuid.UUID) ([]model.AssetCashFlow, error) {
+func (s *service) ListCashFlows(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetCashFlow, error) {
 	return s.dp.AssetCashFlowStore.ListByAsset(ctx, assetID)
 }
 
 // DeleteCashFlow removes a cash flow entry.
-func (s *service) DeleteCashFlow(ctx context.Context, assetID, flowID uuid.UUID) error {
+func (s *service) DeleteCashFlow(ctx context.Context, assetID, callerID, flowID uuid.UUID) error {
 	return s.dp.AssetCashFlowStore.DeleteCashFlow(ctx, flowID)
 }
 
 // ─── Value history ────────────────────────────────────────────────────────────
 
 // ListValueHistory returns per-asset value snapshots within the time range.
-func (s *service) ListValueHistory(ctx context.Context, assetID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error) {
+func (s *service) ListValueHistory(ctx context.Context, assetID, callerID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error) {
 	return s.dp.AssetValueHistStore.ListByAsset(ctx, assetID, from, to)
 }
 
