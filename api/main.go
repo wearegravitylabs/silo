@@ -18,6 +18,7 @@ import (
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
 	appAutopilot "github.com/wearegravitylabs/silo/api/app/autopilot"
 	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
+	appDocument "github.com/wearegravitylabs/silo/api/app/document"
 	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
 	appInsight "github.com/wearegravitylabs/silo/api/app/insight"
 	appPortfolio "github.com/wearegravitylabs/silo/api/app/portfolio"
@@ -61,6 +62,7 @@ func main() {
 	vaultSvc := appVault.New(dp)
 	insightSvc := appInsight.New(dp)
 	folderSvc := appFolder.New(dp)
+	documentSvc := appDocument.New(dp)
 
 	// ─── HTTP Engine ─────────────────────────────────────────────────────────────
 	engine := gin.New()
@@ -80,7 +82,7 @@ func main() {
 		authSvc, userSvc, portfolioSvc,
 		assetSvc, debtSvc, autopilotSvc,
 		snapshotSvc, vaultSvc, insightSvc,
-		folderSvc, dp.ObjectStorage,
+		folderSvc, documentSvc, dp.ObjectStorage,
 	)
 	handler.Build()
 

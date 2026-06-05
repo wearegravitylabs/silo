@@ -22,6 +22,7 @@ import (
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
 	appAutopilot "github.com/wearegravitylabs/silo/api/app/autopilot"
 	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
+	appDocument "github.com/wearegravitylabs/silo/api/app/document"
 	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
 	appInsight "github.com/wearegravitylabs/silo/api/app/insight"
 	appPortfolio "github.com/wearegravitylabs/silo/api/app/portfolio"
@@ -53,6 +54,7 @@ type Handler struct {
 	vaultSvc     appVault.Vault
 	insightSvc   appInsight.Insight
 	folderSvc    appFolder.Folder
+	documentSvc  appDocument.Document
 	objectStore  objectStorage.ObjectStorage
 }
 
@@ -71,6 +73,7 @@ func New(
 	vaultSvc appVault.Vault,
 	insightSvc appInsight.Insight,
 	folderSvc appFolder.Folder,
+	documentSvc appDocument.Document,
 	store objectStorage.ObjectStorage,
 ) *Handler {
 	return &Handler{
@@ -78,7 +81,7 @@ func New(
 		authSvc: authSvc, userSvc: userSvc, portfolioSvc: portfolioSvc,
 		assetSvc: assetSvc, debtSvc: debtSvc, autopilotSvc: autopilotSvc,
 		snapshotSvc: snapshotSvc, vaultSvc: vaultSvc, insightSvc: insightSvc,
-		folderSvc: folderSvc, objectStore: store,
+		folderSvc: folderSvc, documentSvc: documentSvc, objectStore: store,
 	}
 }
 
@@ -107,7 +110,7 @@ func (h *Handler) Build() {
 	apiUpload.New(onboarded, h.objectStore, h.env)
 	portfolio.New(onboarded, h.portfolioSvc, h.mid)
 	folder.New(onboarded, h.folderSvc, h.mid)
-	asset.New(onboarded, h.assetSvc, h.mid)
+	asset.New(onboarded, h.assetSvc, h.documentSvc, h.mid)
 	debt.New(onboarded, h.debtSvc)
 	autopilot.New(onboarded, h.autopilotSvc)
 	snapshot.New(onboarded, h.snapshotSvc)

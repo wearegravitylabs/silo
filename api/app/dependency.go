@@ -33,7 +33,7 @@ type Dependency struct {
 	AssetLotStore        store.AssetLotDatabase
 	AssetCashFlowStore   store.AssetCashFlowDatabase
 	AssetValueHistStore  store.AssetValueHistoryDatabase
-	AssetDocumentStore   store.AssetDocumentDatabase
+	AssetDocumentStore   store.DocumentDatabase
 	DebtStore            store.DebtDatabase
 	AutopilotStore       store.AutopilotDatabase
 	SnapshotStore        store.SnapshotDatabase

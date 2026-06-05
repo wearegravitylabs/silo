@@ -10,6 +10,7 @@ import (
 
 	apiModel "github.com/wearegravitylabs/silo/api/api/model"
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
+	appDocument "github.com/wearegravitylabs/silo/api/app/document"
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
 	"github.com/wearegravitylabs/silo/api/pkg/contexts"
@@ -19,13 +20,16 @@ import (
 
 const serviceName = "asset"
 
-type handler struct{ svc appAsset.Asset }
+type handler struct {
+	svc    appAsset.Asset
+	docSvc appDocument.Document
+}
 
 // New registers asset routes under /portfolios/:portfolioID/assets.
 // Portfolio role middleware is applied per sub-group — token validation happens
 // upstream via the onboarded route group's RequireAuth + RequireOnboarded chain.
-func New(r *gin.RouterGroup, svc appAsset.Asset, mid *middleware.Middleware) {
-	h := &handler{svc: svc}
+func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, mid *middleware.Middleware) {
+	h := &handler{svc: svc, docSvc: docSvc}
 	g := r.Group("/portfolios/:portfolioID/assets")
 
 	member := g.Group("", mid.RequirePortfolioMember())
@@ -408,6 +412,10 @@ func (h *handler) uploadDocument(c *gin.Context) {
 	if !ok {
 		return
 	}
+	portfolioID, ok := parsePortfolioID(c)
+	if !ok {
+		return
+	}
 	assetID, ok := parseAssetID(c)
 	if !ok {
 		return
@@ -421,8 +429,8 @@ func (h *handler) uploadDocument(c *gin.Context) {
 	}
 	defer file.Close()
 
-	doc, err := h.svc.UploadDocument(
-		c.Request.Context(), assetID, callerID,
+	doc, err := h.docSvc.UploadToAsset(
+		c.Request.Context(), assetID, callerID, portfolioID,
 		header.Filename, header.Header.Get("Content-Type"),
 		file, header.Size,
 	)
@@ -435,9 +443,8 @@ func (h *handler) uploadDocument(c *gin.Context) {
 }
 
 // listDocuments returns metadata for all documents attached to an asset.
-// No download URLs are returned — request them individually via download-url.
 func (h *handler) listDocuments(c *gin.Context) {
-	callerID, ok := mustCallerID(c)
+	_, ok := mustCallerID(c)
 	if !ok {
 		return
 	}
@@ -446,7 +453,7 @@ func (h *handler) listDocuments(c *gin.Context) {
 		return
 	}
 
-	docs, err := h.svc.ListDocuments(c.Request.Context(), assetID, callerID)
+	docs, err := h.docSvc.ListByAsset(c.Request.Context(), assetID)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -456,9 +463,8 @@ func (h *handler) listDocuments(c *gin.Context) {
 }
 
 // documentDownloadURL generates a presigned URL valid for 1 hour.
-// The URL is single-use in spirit — it expires and cannot be stored permanently.
 func (h *handler) documentDownloadURL(c *gin.Context) {
-	callerID, ok := mustCallerID(c)
+	_, ok := mustCallerID(c)
 	if !ok {
 		return
 	}
@@ -469,7 +475,7 @@ func (h *handler) documentDownloadURL(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.svc.DownloadURL(c.Request.Context(), docID, callerID)
+	resp, err := h.docSvc.DownloadURL(c.Request.Context(), docID)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
@@ -480,7 +486,7 @@ func (h *handler) documentDownloadURL(c *gin.Context) {
 
 // deleteDocument removes the file from storage and soft-deletes the record.
 func (h *handler) deleteDocument(c *gin.Context) {
-	callerID, ok := mustCallerID(c)
+	_, ok := mustCallerID(c)
 	if !ok {
 		return
 	}
@@ -491,7 +497,7 @@ func (h *handler) deleteDocument(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.DeleteDocument(c.Request.Context(), docID, callerID); err != nil {
+	if err := h.docSvc.Delete(c.Request.Context(), docID); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
