@@ -17,6 +17,9 @@ type AssetValueHistoryDatabase interface {
 	Create(ctx context.Context, entry model.AssetValueHistory) (model.AssetValueHistory, error)
 	ListByAsset(ctx context.Context, assetID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
 	LatestByAsset(ctx context.Context, assetID uuid.UUID) (model.AssetValueHistory, error)
+	// LatestByAssetBefore returns the most recent value history entry recorded
+	// before the given cutoff. Used for 30-day growth calculations.
+	LatestByAssetBefore(ctx context.Context, assetID uuid.UUID, before time.Time) (model.AssetValueHistory, error)
 }
 
 type assetValueHistStore struct{ storage *Store }
@@ -53,6 +56,20 @@ func (a *assetValueHistStore) LatestByAsset(ctx context.Context, assetID uuid.UU
 	var entry model.AssetValueHistory
 	err := a.storage.DB.WithContext(ctx).
 		Where("asset_id = ?", assetID).
+		Order("recorded_at DESC").
+		First(&entry).Error
+	if err != nil {
+		return model.AssetValueHistory{}, siloErrors.ErrRecordNotFound
+	}
+	return entry, nil
+}
+
+// LatestByAssetBefore returns the most recent value history entry recorded
+// before the given cutoff time. Used for period-over-period growth calculations.
+func (a *assetValueHistStore) LatestByAssetBefore(ctx context.Context, assetID uuid.UUID, before time.Time) (model.AssetValueHistory, error) {
+	var entry model.AssetValueHistory
+	err := a.storage.DB.WithContext(ctx).
+		Where("asset_id = ? AND recorded_at <= ?", assetID, before).
 		Order("recorded_at DESC").
 		First(&entry).Error
 	if err != nil {

@@ -4,6 +4,7 @@ package asset
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +36,9 @@ type Asset interface {
 	Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateAssetRequest) (model.Asset, error)
 	// GetByID fetches a single asset (with lots preloaded). callerID is used for audit logging.
 	GetByID(ctx context.Context, id, callerID uuid.UUID) (model.Asset, error)
+	// Overview returns aggregated metrics for all assets in a portfolio.
+	// All monetary values are in the portfolio's base_currency.
+	Overview(ctx context.Context, portfolioID, callerID uuid.UUID) (model.AssetOverview, error)
 	// ListByPortfolio returns assets for a portfolio with optional filters.
 	ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error)
 	// Update applies partial changes to an asset. callerID is used for audit logging.
@@ -471,6 +475,143 @@ func enrichWithFX(a *model.Asset, baseCurrency currency.Code, rateMap map[string
 	a.OwnedValueConverted = a.OwnedValue * rate
 	a.ConvertedCurrency = baseCurrency
 	a.ExchangeRate = rate
+}
+
+// ─── Overview ─────────────────────────────────────────────────────────────────
+
+// Overview returns aggregated asset metrics for a portfolio in its base_currency.
+func (s *service) Overview(ctx context.Context, portfolioID, callerID uuid.UUID) (model.AssetOverview, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.Overview").
+		Str("portfolio_id", portfolioID.String()).
+		Logger()
+
+	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, callerID)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to fetch portfolio for overview")
+		return model.AssetOverview{}, err
+	}
+	baseCurrency := portfolio.BaseCurrency
+
+	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID, model.ListAssetsFilter{})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to list assets for overview")
+		return model.AssetOverview{}, err
+	}
+
+	// Collect unique native currencies and batch-fetch FX rates once.
+	nativeCurrencies := uniqueCurrencies(assets)
+	rateMap := s.fetchRateMap(ctx, nativeCurrencies, baseCurrency)
+
+	// Enrich assets and aggregate buckets.
+	var (
+		totalValue    float64
+		investable    float64
+		nonInvestable float64
+		investCount   int
+		nonInvCount   int
+	)
+
+	cutoff := time.Now().UTC().AddDate(0, 0, -30)
+	var historical30d float64
+
+	for i := range assets {
+		enrich(&assets[i])
+		enrichWithFX(&assets[i], baseCurrency, rateMap)
+		a := &assets[i]
+
+		totalValue += a.OwnedValueConverted
+
+		switch a.Investability {
+		case model.InvestabilityCash, model.InvestabilityInvestable:
+			investable += a.OwnedValueConverted
+			investCount++
+		case model.InvestabilityNonInvest:
+			nonInvestable += a.OwnedValueConverted
+			nonInvCount++
+		}
+
+		// Historical value for 30d growth.
+		historical30d += s.historicalValue(ctx, a, cutoff, rateMap)
+	}
+
+	growth := totalValue - historical30d
+	var growthPct float64
+	if historical30d > 0 {
+		growthPct = (growth / historical30d) * 100
+	}
+
+	return model.AssetOverview{
+		Currency: baseCurrency,
+		TotalAssets: model.OverviewBucket{
+			Value: round2(totalValue),
+			Count: len(assets),
+		},
+		Growth30d: model.OverviewGrowth{
+			Amount:     round2(growth),
+			Percentage: round2(growthPct),
+		},
+		Investable: model.OverviewBucket{
+			Value: round2(investable),
+			Count: investCount,
+		},
+		NonInvestable: model.OverviewBucket{
+			Value: round2(nonInvestable),
+			Count: nonInvCount,
+		},
+	}, nil
+}
+
+// historicalValue returns the best estimate of an asset's owned_value 30 days ago,
+// converted to the display currency using today's FX rates.
+// Priority: (1) asset_value_history, (2) cost basis from lots, (3) 0.
+func (s *service) historicalValue(ctx context.Context, a *model.Asset, before time.Time, rateMap map[string]float64) float64 {
+	// Try value history first.
+	hist, err := s.dp.AssetValueHistStore.LatestByAssetBefore(ctx, a.ID, before)
+	if err == nil {
+		ownedNative := hist.Value * (a.OwnershipPct / 100.0)
+		rate := rateMap[a.Currency+":"+a.ConvertedCurrency]
+		if rate == 0 {
+			rate = 1.0
+		}
+		return ownedNative * rate
+	}
+
+	// Fall back to cost basis (total acquisition cost from lots).
+	lots, err := s.dp.AssetLotStore.ListLotsByAsset(ctx, a.ID)
+	if err != nil || len(lots) == 0 {
+		return 0
+	}
+	var costBasis float64
+	for _, lot := range lots {
+		if lot.AcquisitionPrice != nil {
+			costBasis += lot.Quantity * *lot.AcquisitionPrice
+		}
+	}
+	ownedCostBasis := costBasis * (a.OwnershipPct / 100.0)
+	rate := rateMap[a.Currency+":"+a.ConvertedCurrency]
+	if rate == 0 {
+		rate = 1.0
+	}
+	return ownedCostBasis * rate
+}
+
+// uniqueCurrencies extracts the set of distinct currency codes from a slice of assets.
+func uniqueCurrencies(assets []model.Asset) []currency.Code {
+	seen := map[currency.Code]bool{}
+	out := make([]currency.Code, 0)
+	for _, a := range assets {
+		if !seen[a.Currency] {
+			out = append(out, a.Currency)
+			seen[a.Currency] = true
+		}
+	}
+	return out
+}
+
+// round2 rounds a float64 to 2 decimal places.
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
 }
 
 // Update applies partial changes to an existing asset.

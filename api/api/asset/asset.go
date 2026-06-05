@@ -28,6 +28,7 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, mid *middleware.Middleware) {
 	g := r.Group("/portfolios/:portfolioID/assets")
 
 	member := g.Group("", mid.RequirePortfolioMember())
+	member.GET("/overview", h.overview)   // must come before /:id to avoid conflict
 	member.GET("/ticker/search", h.tickerSearch)
 	member.GET("/ticker/preview", h.tickerPreview)
 	member.GET("", h.list)
@@ -104,6 +105,27 @@ func (h *handler) tickerPreview(c *gin.Context) {
 		return
 	}
 	apiModel.OK(c, "ticker preview", quote)
+}
+
+// ─── Overview ────────────────────────────────────────────────────────────────
+
+// overview returns aggregated asset metrics for the portfolio in its base_currency.
+func (h *handler) overview(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+	portfolioID, ok := parsePortfolioID(c)
+	if !ok {
+		return
+	}
+
+	ov, err := h.svc.Overview(c.Request.Context(), portfolioID, callerID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "asset overview", ov)
 }
 
 // ─── Asset CRUD ───────────────────────────────────────────────────────────────

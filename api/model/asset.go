@@ -172,6 +172,31 @@ type ListAssetsFilter struct {
 	FolderID *uuid.UUID `form:"folder_id"`
 }
 
+// ─── Overview types ───────────────────────────────────────────────────────────
+
+// AssetOverview is the response for GET /portfolios/:id/assets/overview.
+// All monetary values are in the portfolio's base_currency.
+type AssetOverview struct {
+	// Currency is the portfolio's base_currency — all values below are in this currency.
+	Currency      currency.Code  `json:"currency"`
+	TotalAssets   OverviewBucket `json:"total_assets"`
+	Growth30d     OverviewGrowth `json:"growth_30d"`
+	Investable    OverviewBucket `json:"investable"`
+	NonInvestable OverviewBucket `json:"non_investable"`
+}
+
+// OverviewBucket groups a converted total value with an asset count.
+type OverviewBucket struct {
+	Value float64 `json:"value"`
+	Count int     `json:"count"`
+}
+
+// OverviewGrowth carries the 30-day change in portfolio value.
+type OverviewGrowth struct {
+	Amount     float64 `json:"amount"`
+	Percentage float64 `json:"percentage"`
+}
+
 // UpdateAssetRequest is the payload for PATCH /portfolios/:id/assets/:id.
 // All fields are optional; omitted fields are not changed.
 type UpdateAssetRequest struct {
