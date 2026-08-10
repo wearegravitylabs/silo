@@ -26,9 +26,11 @@ import (
 
 // Asset defines asset management operations.
 type Asset interface {
-	// SearchTicker validates a ticker and returns a live price preview.
+	// SearchTicker searches for tickers matching the query.
+	// tickerType filters by provider: "stock" (Yahoo only), "crypto" (CoinGecko only),
+	// or "" (both, merged).
 	// Used in the two-step ticker add flow before the user commits.
-	SearchTicker(ctx context.Context, query string) ([]market.TickerResult, error)
+	SearchTicker(ctx context.Context, query, tickerType string) ([]market.TickerResult, error)
 	// GetTickerPreview returns current quote data for a single ticker.
 	GetTickerPreview(ctx context.Context, ticker string) (market.Quote, error)
 	// Create adds a new asset (ticker or manual) to a portfolio with one or more lots.
@@ -75,14 +77,62 @@ type service struct{ dp app.Dependency }
 // New returns an Asset service.
 func New(dp app.Dependency) Asset { return &service{dp: dp} }
 
-// SearchTicker searches Yahoo Finance for tickers matching the query.
-func (s *service) SearchTicker(ctx context.Context, query string) ([]market.TickerResult, error) {
-	return s.dp.StockMarket.SearchTicker(ctx, query)
+// SearchTicker searches for tickers matching the query.
+// tickerType: "stock" → Yahoo Finance only, "crypto" → CoinGecko only, "" → both in parallel.
+func (s *service) SearchTicker(ctx context.Context, query, tickerType string) ([]market.TickerResult, error) {
+	switch strings.ToLower(tickerType) {
+	case "stock":
+		return s.dp.StockMarket.SearchTicker(ctx, query)
+	case "crypto":
+		return s.dp.CryptoMarket.SearchTicker(ctx, query)
+	}
+
+	// Both — run in parallel, merge stocks first then crypto.
+	type result struct {
+		items []market.TickerResult
+		err   error
+	}
+	stockCh := make(chan result, 1)
+	cryptoCh := make(chan result, 1)
+
+	go func() {
+		items, err := s.dp.StockMarket.SearchTicker(ctx, query)
+		stockCh <- result{items, err}
+	}()
+	go func() {
+		items, err := s.dp.CryptoMarket.SearchTicker(ctx, query)
+		cryptoCh <- result{items, err}
+	}()
+
+	stocks := <-stockCh
+	crypto := <-cryptoCh
+
+	var combined []market.TickerResult
+	if stocks.err == nil {
+		combined = append(combined, stocks.items...)
+	}
+	if crypto.err == nil {
+		combined = append(combined, crypto.items...)
+	}
+	if stocks.err != nil && crypto.err != nil {
+		return nil, stocks.err
+	}
+	return combined, nil
 }
 
 // GetTickerPreview returns current quote data for a single ticker symbol.
 func (s *service) GetTickerPreview(ctx context.Context, ticker string) (market.Quote, error) {
-	return s.dp.StockMarket.GetStockQuote(ctx, strings.ToUpper(strings.TrimSpace(ticker)))
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.GetTickerPreview").
+		Str("ticker", ticker).
+		Logger()
+
+	quote, err := s.dp.StockMarket.GetStockQuote(ctx, strings.ToUpper(strings.TrimSpace(ticker)))
+	if err != nil {
+		log.Error().Err(err).Msg("ticker preview failed")
+		return market.Quote{}, siloErrors.ErrInvalidTicker
+	}
+	return quote, nil
 }
 
 // Create adds an asset and its initial lots to the portfolio.
@@ -111,6 +161,9 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 	}
 	if folder.PortfolioID != portfolioID {
 		return model.Asset{}, siloErrors.ErrFolderNotFound
+	}
+	if folder.FolderType != model.FolderTypeAsset {
+		return model.Asset{}, siloErrors.ErrFolderTypeMismatch
 	}
 
 	// Resolve currency — fall back to portfolio base currency when empty.
@@ -196,6 +249,56 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 	// Sync total quantity from lots.
 	if err := s.syncQuantity(ctx, assetID); err != nil {
 		log.Error().Err(err).Msg("failed to sync quantity after lot creation")
+	}
+
+	// For manual assets (real estate, physical, etc.) set current_price so that
+	// total_value / owned_value are non-zero immediately after creation.
+	// Priority: (1) explicit current_price from request, (2) first lot's acquisition_price.
+	// Only ticker types auto-fetch price; all others need price seeding from request/lot.
+	isManual := req.AssetType != model.AssetTypeStockTicker &&
+		req.AssetType != model.AssetTypeCryptoTicker
+
+	if isManual {
+		asset, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+		if err == nil {
+			lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
+
+			// Backfill a history entry per lot at the acquisition date, so the
+			// value chart shows the asset's cost basis going back to purchase.
+			for _, lot := range lots {
+				if lot.AcquisitionPrice != nil && *lot.AcquisitionPrice > 0 {
+					entry := model.AssetValueHistory{
+						AssetID:    asset.ID,
+						Value:      *lot.AcquisitionPrice * lot.Quantity,
+						Currency:   asset.Currency,
+						Source:     model.SourceManual,
+						RecordedAt: lot.AcquisitionDate,
+					}
+					_, _ = s.dp.AssetValueHistStore.Create(ctx, entry)
+				}
+			}
+
+			// Set current_price: explicit value from request, or fall back to
+			// the first lot's acquisition price.
+			var seedPrice float64
+			if req.CurrentPrice != nil && *req.CurrentPrice > 0 {
+				seedPrice = *req.CurrentPrice
+			} else {
+				for _, lot := range lots {
+					if lot.AcquisitionPrice != nil && *lot.AcquisitionPrice > 0 {
+						seedPrice = *lot.AcquisitionPrice
+						break
+					}
+				}
+			}
+			if seedPrice > 0 && asset.CurrentPrice == 0 {
+				asset.CurrentPrice = seedPrice
+				if _, err := s.dp.AssetStore.UpdateAsset(ctx, asset); err == nil {
+					// Record today's value as the current estimate.
+					s.recordValueHistory(ctx, asset, model.SourceManual)
+				}
+			}
+		}
 	}
 
 	// Return the asset with lots preloaded.
@@ -318,14 +421,14 @@ func (s *service) addLotInternal(
 	lot := model.AssetLot{
 		AssetID:          assetID,
 		Quantity:         req.Quantity,
-		AcquisitionDate:  req.AcquisitionDate,
+		AcquisitionDate:  req.AcquisitionDate.Time(),
 		AcquisitionPrice: req.AcquisitionPrice,
 		Notes:            req.Notes,
 	}
 
 	// For ticker-based assets, fetch the historical close price unless caller supplied one.
 	if (assetType == model.AssetTypeStockTicker) && lot.AcquisitionPrice == nil && ticker != "" {
-		price, dateUsed, err := s.dp.StockMarket.GetHistoricalPrice(ctx, strings.ToUpper(ticker), req.AcquisitionDate)
+		price, dateUsed, err := s.dp.StockMarket.GetHistoricalPrice(ctx, strings.ToUpper(ticker), req.AcquisitionDate.Time())
 		if err == nil {
 			lot.AcquisitionPrice = &price
 			lot.PriceDateUsed = &dateUsed

@@ -9,7 +9,6 @@ import (
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
 	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
-	"github.com/wearegravitylabs/silo/api/ports"
 	"github.com/wearegravitylabs/silo/api/store"
 	"github.com/wearegravitylabs/silo/api/thirdparty/ai"
 	"github.com/wearegravitylabs/silo/api/thirdparty/ai/claude"
@@ -34,8 +33,11 @@ type Dependency struct {
 	AssetCashFlowStore   store.AssetCashFlowDatabase
 	AssetValueHistStore  store.AssetValueHistoryDatabase
 	AssetDocumentStore   store.DocumentDatabase
+	AssetNoteStore       store.NoteDatabase
+	VaultStore           store.VaultDatabase
 	DebtStore            store.DebtDatabase
 	AutopilotStore       store.AutopilotDatabase
+	ProjectionStore      store.ProjectionDatabase
 	SnapshotStore        store.SnapshotDatabase
 	RefreshTokenStore    store.RefreshTokenDatabase
 	FolderStore          store.FolderDatabase
@@ -50,11 +52,6 @@ type Dependency struct {
 	AIProvider      ai.AIProvider
 	ObjectStorage   storage.ObjectStorage
 	EmailingService email.EmailingService
-
-	// Cloud-only ports (nil in the OSS build; silo-cloud injects implementations)
-	BankConnector        ports.BankConnector
-	NotificationProvider ports.NotificationProvider
-	BillingProvider      ports.BillingProvider
 }
 
 // InitDp builds and returns a fully wired Dependency using the given store and env.
@@ -85,8 +82,11 @@ func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependenc
 		AssetCashFlowStore:   store.NewAssetCashFlowStore(s),
 		AssetValueHistStore:  store.NewAssetValueHistoryStore(s),
 		AssetDocumentStore:   store.NewAssetDocumentStore(s),
+		AssetNoteStore:       store.NewAssetNoteStore(s),
+		VaultStore:           store.NewVaultStore(s),
 		DebtStore:            store.NewDebtStore(s),
 		AutopilotStore:       store.NewAutopilotStore(s),
+		ProjectionStore:      store.NewProjectionStore(s),
 		SnapshotStore:        store.NewSnapshotStore(s),
 		RefreshTokenStore:    store.NewRefreshTokenStore(s),
 		FolderStore:          store.NewFolderStore(s),
@@ -100,10 +100,6 @@ func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependenc
 		AIProvider:      claude.New(env.Get(modelEnv.AnthropicAPIKey), env.Get(modelEnv.ClaudeModel)),
 		ObjectStorage:   mustStorage(ctx, env),
 		EmailingService: emailSvc,
-
-		BankConnector:        nil,
-		NotificationProvider: nil,
-		BillingProvider:      nil,
 	}
 }
 

@@ -79,6 +79,19 @@ func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.Crea
 		log.Error().Err(err).Msg("failed to increment portfolio_count")
 	}
 
+	// Auto-create a default "General" folder for each type. Non-fatal.
+	for _, ft := range []model.FolderType{model.FolderTypeAsset, model.FolderTypeDebt} {
+		defaultFolder := model.Folder{
+			PortfolioID: created.ID,
+			FolderType:  ft,
+			Name:        "General",
+			Position:    0,
+		}
+		if _, err := s.dp.FolderStore.CreateFolder(ctx, defaultFolder); err != nil {
+			log.Error().Err(err).Str("folder_type", string(ft)).Msg("failed to create default folder after portfolio creation")
+		}
+	}
+
 	log.Info().Str("portfolio_id", created.ID.String()).Msg("portfolio created")
 	return created, nil
 }

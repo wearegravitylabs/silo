@@ -147,6 +147,27 @@ const (
 	ErrFolderNotFound = "That folder doesn't exist or you don't have access to it."
 	// ErrFolderRequired is shown when no folder_id is provided on asset creation.
 	ErrFolderRequired = "Please choose a folder for this asset."
+	// ErrFolderTypeMismatch is shown when the folder's type doesn't match the entity being placed in it.
+	ErrFolderTypeMismatch = "That folder cannot hold this type of item."
+)
+
+// ─── Projections (Fast Forward) ───────────────────────────────────────────────
+
+const (
+	ScenarioCreated = "Projection scenario created."
+	ScenarioUpdated = "Scenario updated."
+	ScenarioDeleted = "Scenario deleted."
+	RuleAdded       = "Rule added."
+	RuleUpdated     = "Rule updated."
+	RuleDeleted     = "Rule removed."
+)
+
+// ─── Notes ────────────────────────────────────────────────────────────────────
+
+const (
+	NoteAdded   = "Note added."
+	NoteUpdated = "Note updated."
+	NoteDeleted = "Note removed."
 )
 
 // ─── Cash flows ───────────────────────────────────────────────────────────────

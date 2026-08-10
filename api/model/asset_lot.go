@@ -31,8 +31,8 @@ type AssetLot struct {
 type CreateLotRequest struct {
 	// Quantity must be positive.
 	Quantity float64 `json:"quantity" binding:"required,gt=0"`
-	// AcquisitionDate is when the purchase was made.
-	AcquisitionDate time.Time `json:"acquisition_date" binding:"required"`
+	// AcquisitionDate is when the purchase was made. Accepts "YYYY-MM-DD" or RFC 3339.
+	AcquisitionDate DateOnly `json:"acquisition_date" binding:"required"`
 	// AcquisitionPrice is required for manual asset types.
 	// For ticker-based types it is optional — fetched from provider like Yahoo Finance.
 	AcquisitionPrice *float64 `json:"acquisition_price"`

@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wearegravitylabs/silo/api/thirdparty/market"
@@ -16,15 +18,19 @@ import (
 
 const (
 	defaultBaseURL = "https://query1.finance.yahoo.com"
-	userAgent      = "Mozilla/5.0 (compatible; Silo/1.0)"
+	userAgent      = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 	maxRetryDays   = 7 // how many prior days to try when a date has no data
 )
 
 // Client fetches stock data from Yahoo Finance public endpoints.
-// No API key is required; the free tier is rate-limited.
+// It maintains a session cookie + crumb required by Yahoo's API since 2024.
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+
+	crumbMu  sync.RWMutex
+	crumb    string
+	crumbExp time.Time
 }
 
 // New returns a Yahoo Finance market data client.
@@ -32,10 +38,84 @@ func New(baseURL string) market.MarketDataProvider {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
+	jar, _ := cookiejar.New(nil)
 	return &Client{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		baseURL: strings.TrimRight(baseURL, "/"),
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+			Jar:     jar,
+		},
 	}
+}
+
+// ─── Crumb management ─────────────────────────────────────────────────────────
+
+// ensureCrumb returns a valid crumb, refreshing it if expired or missing.
+// Yahoo Finance requires a paired session cookie + crumb for all quote endpoints.
+//
+// Flow (matches what yfinance and other libraries use in 2025):
+//  1. Hit fc.yahoo.com to establish a .yahoo.com-scoped session cookie.
+//  2. Fetch the crumb from query2 using that session.
+func (c *Client) ensureCrumb(ctx context.Context) (string, error) {
+	c.crumbMu.RLock()
+	if c.crumb != "" && time.Now().Before(c.crumbExp) {
+		crumb := c.crumb
+		c.crumbMu.RUnlock()
+		return crumb, nil
+	}
+	c.crumbMu.RUnlock()
+
+	c.crumbMu.Lock()
+	defer c.crumbMu.Unlock()
+
+	if c.crumb != "" && time.Now().Before(c.crumbExp) {
+		return c.crumb, nil
+	}
+
+	commonHeaders := func(r *http.Request) {
+		r.Header.Set("User-Agent", userAgent)
+		r.Header.Set("Accept-Language", "en-US,en;q=0.9")
+		r.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	}
+
+	// Step 1: fc.yahoo.com sets a .yahoo.com-scoped cookie (avoids EU consent wall).
+	fcReq, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://fc.yahoo.com", nil)
+	if err != nil {
+		return "", fmt.Errorf("yahoo: fc request build: %w", err)
+	}
+	commonHeaders(fcReq)
+	fcReq.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	if _, err = c.httpClient.Do(fcReq); err != nil {
+		// Non-fatal — proceed anyway; cookie jar may already have a valid session.
+		_ = err
+	}
+
+	// Step 2: Fetch the crumb from query2 (more reliable than query1 for this).
+	for _, host := range []string{"query2.finance.yahoo.com", "query1.finance.yahoo.com"} {
+		crumbURL := "https://" + host + "/v1/test/getcrumb"
+		crumbReq, err := http.NewRequestWithContext(ctx, http.MethodGet, crumbURL, nil)
+		if err != nil {
+			continue
+		}
+		commonHeaders(crumbReq)
+		crumbReq.Header.Set("Accept", "text/plain, */*")
+
+		resp, err := c.httpClient.Do(crumbReq)
+		if err != nil {
+			continue
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		crumb := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusOK && crumb != "" && !strings.HasPrefix(crumb, "<") {
+			c.crumb = crumb
+			c.crumbExp = time.Now().Add(30 * time.Minute)
+			return crumb, nil
+		}
+	}
+
+	return "", fmt.Errorf("yahoo: failed to obtain crumb from all endpoints")
 }
 
 // ─── Internal HTTP helper ─────────────────────────────────────────────────────
@@ -58,10 +138,50 @@ func (c *Client) get(ctx context.Context, path string, params url.Values) ([]byt
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("yahoo: HTTP %d for %s", resp.StatusCode, path)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("yahoo: read body for %s: %w", path, err)
 	}
-	return io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		snippet := string(body)
+		if len(snippet) > 200 {
+			snippet = snippet[:200]
+		}
+		return nil, fmt.Errorf("yahoo: HTTP %d for %s: %s", resp.StatusCode, path, snippet)
+	}
+	return body, nil
+}
+
+// getWithCrumb is like get but injects the crumb param — required for quote endpoints.
+// On a 401 or 500 it invalidates the cached crumb and retries once with a fresh one.
+func (c *Client) getWithCrumb(ctx context.Context, path string, params url.Values) ([]byte, error) {
+	if params == nil {
+		params = url.Values{}
+	}
+
+	for attempt := 0; attempt < 2; attempt++ {
+		crumb, err := c.ensureCrumb(ctx)
+		if err != nil {
+			return nil, err
+		}
+		params.Set("crumb", crumb)
+
+		body, err := c.get(ctx, path, params)
+		if err == nil {
+			return body, nil
+		}
+
+		// Invalidate crumb so next attempt fetches a fresh one.
+		c.crumbMu.Lock()
+		c.crumb = ""
+		c.crumbMu.Unlock()
+
+		if attempt == 0 {
+			continue // retry with fresh crumb
+		}
+		return nil, err
+	}
+	return nil, fmt.Errorf("yahoo: getWithCrumb exhausted retries for %s", path)
 }
 
 // ─── SearchTicker ─────────────────────────────────────────────────────────────
@@ -106,6 +226,7 @@ func (c *Client) SearchTicker(ctx context.Context, query string) ([]market.Ticke
 			CompanyName: name,
 			Exchange:    q.Exchange,
 			AssetType:   q.QuoteType,
+			LogoURL:     logoFallback(q.Symbol),
 		})
 	}
 	return results, nil
@@ -115,9 +236,9 @@ func (c *Client) SearchTicker(ctx context.Context, query string) ([]market.Ticke
 func (c *Client) GetStockQuote(ctx context.Context, ticker string) (market.Quote, error) {
 	params := url.Values{
 		"symbols": {ticker},
-		"fields":  {"shortName,longName,regularMarketPrice,currency,fullExchangeName,regularMarketChange,regularMarketChangePercent,logoUrl"},
+		"fields":  {"shortName,longName,regularMarketPrice,currency,fullExchangeName,regularMarketChange,regularMarketChangePercent"},
 	}
-	body, err := c.get(ctx, "/v8/finance/quote", params)
+	body, err := c.getWithCrumb(ctx, "/v8/finance/quote", params)
 	if err != nil {
 		return market.Quote{}, fmt.Errorf("yahoo: GetStockQuote: %w", err)
 	}
@@ -153,9 +274,6 @@ func (c *Client) GetStockQuote(ctx context.Context, ticker string) (market.Quote
 		name = r.ShortName
 	}
 
-	// Yahoo Finance doesn't always return a logoUrl field; build a fallback.
-	logoURL := logoFallback(r.Symbol)
-
 	return market.Quote{
 		Ticker:      r.Symbol,
 		CompanyName: name,
@@ -164,7 +282,7 @@ func (c *Client) GetStockQuote(ctx context.Context, ticker string) (market.Quote
 		Change24h:   r.RegularMarketChange,
 		PctChange:   r.RegularMarketChangePercent,
 		Exchange:    r.FullExchangeName,
-		LogoURL:     logoURL,
+		LogoURL:     logoFallback(r.Symbol),
 		UpdatedAt:   time.Now().UTC(),
 	}, nil
 }
@@ -187,7 +305,7 @@ func (c *Client) GetHistoricalPrice(ctx context.Context, ticker string, date tim
 			"period2":  {fmt.Sprintf("%d", period2)},
 			"interval": {"1d"},
 		}
-		body, err := c.get(ctx, fmt.Sprintf("/v8/finance/chart/%s", url.PathEscape(ticker)), params)
+		body, err := c.getWithCrumb(ctx, fmt.Sprintf("/v8/finance/chart/%s", url.PathEscape(ticker)), params)
 		if err != nil {
 			continue
 		}
@@ -238,10 +356,7 @@ func extractClosePrice(body []byte) (float64, bool) {
 }
 
 // logoFallback returns a best-effort logo URL using Clearbit's free logo API.
-// This is a fallback — Yahoo Finance does not reliably expose logo URLs.
 func logoFallback(ticker string) string {
-	// Clearbit maps tickers to company domains — works for most major US stocks.
-	// Returns empty string for unknown tickers; FE should handle gracefully.
 	return fmt.Sprintf("https://logo.clearbit.com/%s.com", strings.ToLower(ticker))
 }
 
@@ -272,7 +387,7 @@ func (c *Client) GetStockHistory(ctx context.Context, ticker string, period mark
 		"range":    {rangeStr},
 		"interval": {"1d"},
 	}
-	body, err := c.get(ctx, fmt.Sprintf("/v8/finance/chart/%s", url.PathEscape(ticker)), params)
+	body, err := c.getWithCrumb(ctx, fmt.Sprintf("/v8/finance/chart/%s", url.PathEscape(ticker)), params)
 	if err != nil {
 		return nil, fmt.Errorf("yahoo: GetStockHistory: %w", err)
 	}

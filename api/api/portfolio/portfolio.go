@@ -26,13 +26,13 @@ func New(r *gin.RouterGroup, svc appPortfolio.Portfolio, mid *middleware.Middlew
 	g.POST("", h.create)
 	g.GET("", h.list)
 
-	g.GET("/:id", mid.RequirePortfolioMember(), h.get)
-	g.PATCH("/:id", mid.RequirePortfolioEditor(), h.update)
-	g.DELETE("/:id", mid.RequirePortfolioOwner(), h.delete)
+	g.GET("/:portfolioID", mid.RequirePortfolioMember(), h.get)
+	g.PATCH("/:portfolioID", mid.RequirePortfolioEditor(), h.update)
+	g.DELETE("/:portfolioID", mid.RequirePortfolioOwner(), h.delete)
 
-	g.GET("/:id/members", mid.RequirePortfolioMember(), h.listMembers)
-	g.POST("/:id/members", mid.RequirePortfolioOwner(), h.addMember)
-	g.DELETE("/:id/members/:userID", mid.RequirePortfolioOwner(), h.removeMember)
+	g.GET("/:portfolioID/members", mid.RequirePortfolioMember(), h.listMembers)
+	g.POST("/:portfolioID/members", mid.RequirePortfolioOwner(), h.addMember)
+	g.DELETE("/:portfolioID/members/:userID", mid.RequirePortfolioOwner(), h.removeMember)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ func (h *handler) get(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parseID(c, "id")
+	portfolioID, ok := parseID(c, "portfolioID")
 	if !ok {
 		return
 	}
@@ -124,7 +124,7 @@ func (h *handler) update(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parseID(c, "id")
+	portfolioID, ok := parseID(c, "portfolioID")
 	if !ok {
 		return
 	}
@@ -149,7 +149,7 @@ func (h *handler) delete(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parseID(c, "id")
+	portfolioID, ok := parseID(c, "portfolioID")
 	if !ok {
 		return
 	}
@@ -167,7 +167,7 @@ func (h *handler) listMembers(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parseID(c, "id")
+	portfolioID, ok := parseID(c, "portfolioID")
 	if !ok {
 		return
 	}
@@ -186,7 +186,7 @@ func (h *handler) addMember(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parseID(c, "id")
+	portfolioID, ok := parseID(c, "portfolioID")
 	if !ok {
 		return
 	}
@@ -210,7 +210,7 @@ func (h *handler) removeMember(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parseID(c, "id")
+	portfolioID, ok := parseID(c, "portfolioID")
 	if !ok {
 		return
 	}

@@ -10,7 +10,9 @@ import (
 	"github.com/wearegravitylabs/silo/api/api/auth"
 	"github.com/wearegravitylabs/silo/api/api/asset"
 	"github.com/wearegravitylabs/silo/api/api/autopilot"
+	"github.com/wearegravitylabs/silo/api/api/dashboard"
 	"github.com/wearegravitylabs/silo/api/api/debt"
+	"github.com/wearegravitylabs/silo/api/api/projection"
 	"github.com/wearegravitylabs/silo/api/api/folder"
 	"github.com/wearegravitylabs/silo/api/api/insight"
 	"github.com/wearegravitylabs/silo/api/api/portfolio"
@@ -24,7 +26,10 @@ import (
 	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
 	appDocument "github.com/wearegravitylabs/silo/api/app/document"
 	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
+	appDashboard "github.com/wearegravitylabs/silo/api/app/dashboard"
 	appInsight "github.com/wearegravitylabs/silo/api/app/insight"
+	appNote "github.com/wearegravitylabs/silo/api/app/note"
+	appProjection "github.com/wearegravitylabs/silo/api/app/projection"
 	appPortfolio "github.com/wearegravitylabs/silo/api/app/portfolio"
 	appSnapshot "github.com/wearegravitylabs/silo/api/app/snapshot"
 	appUser "github.com/wearegravitylabs/silo/api/app/user"
@@ -54,8 +59,11 @@ type Handler struct {
 	vaultSvc     appVault.Vault
 	insightSvc   appInsight.Insight
 	folderSvc    appFolder.Folder
-	documentSvc  appDocument.Document
-	objectStore  objectStorage.ObjectStorage
+	documentSvc   appDocument.Document
+	noteSvc       appNote.Note
+	projectionSvc  appProjection.Projection
+	dashboardSvc   appDashboard.Dashboard
+	objectStore    objectStorage.ObjectStorage
 }
 
 // New creates a Handler with all dependencies injected.
@@ -74,6 +82,9 @@ func New(
 	insightSvc appInsight.Insight,
 	folderSvc appFolder.Folder,
 	documentSvc appDocument.Document,
+	noteSvc appNote.Note,
+	projectionSvc appProjection.Projection,
+	dashboardSvc appDashboard.Dashboard,
 	store objectStorage.ObjectStorage,
 ) *Handler {
 	return &Handler{
@@ -81,7 +92,8 @@ func New(
 		authSvc: authSvc, userSvc: userSvc, portfolioSvc: portfolioSvc,
 		assetSvc: assetSvc, debtSvc: debtSvc, autopilotSvc: autopilotSvc,
 		snapshotSvc: snapshotSvc, vaultSvc: vaultSvc, insightSvc: insightSvc,
-		folderSvc: folderSvc, documentSvc: documentSvc, objectStore: store,
+		folderSvc: folderSvc, documentSvc: documentSvc, noteSvc: noteSvc,
+		projectionSvc: projectionSvc, dashboardSvc: dashboardSvc, objectStore: store,
 	}
 }
 
@@ -110,12 +122,24 @@ func (h *Handler) Build() {
 	apiUpload.New(onboarded, h.objectStore, h.env)
 	portfolio.New(onboarded, h.portfolioSvc, h.mid)
 	folder.New(onboarded, h.folderSvc, h.mid)
-	asset.New(onboarded, h.assetSvc, h.documentSvc, h.mid)
-	debt.New(onboarded, h.debtSvc)
-	autopilot.New(onboarded, h.autopilotSvc)
+	asset.New(onboarded, h.assetSvc, h.documentSvc, h.noteSvc, h.mid)
+	debt.New(onboarded, h.debtSvc, h.noteSvc, h.documentSvc, h.mid)
+	autopilot.New(onboarded, h.autopilotSvc, h.mid)
+	projection.New(onboarded, h.projectionSvc, h.mid)
+	dashboard.New(onboarded, h.dashboardSvc, h.mid)
 	snapshot.New(onboarded, h.snapshotSvc)
-	vault.New(onboarded, h.vaultSvc)
+	vault.New(onboarded, h.vaultSvc, h.mid)
 	insight.New(onboarded, h.insightSvc)
+
+	// ── Internal — no user auth required, should be network-restricted in production ──
+	internal := h.engine.Group("/internal")
+	internal.POST("/autopilot/run", func(c *gin.Context) {
+		if err := h.autopilotSvc.RunDue(c.Request.Context()); err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, gin.H{"message": "autopilot rules executed"})
+	})
 }
 
 // assetClassesHandler returns the static asset class catalogue.

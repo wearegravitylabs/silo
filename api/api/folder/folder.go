@@ -79,7 +79,13 @@ func (h *handler) list(c *gin.Context) {
 		return
 	}
 
-	folders, err := h.svc.List(c.Request.Context(), portfolioID, callerID)
+	ft := model.FolderType(c.Query("type"))
+	if ft != model.FolderTypeAsset && ft != model.FolderTypeDebt {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	folders, err := h.svc.List(c.Request.Context(), portfolioID, callerID, ft)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return

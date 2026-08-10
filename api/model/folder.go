@@ -6,24 +6,34 @@ import (
 	"github.com/google/uuid"
 )
 
-// Folder is an organisational group for assets within a portfolio.
-// Folders are ordered by position (ascending) for display.
+// FolderType distinguishes folders that hold assets from those that hold debts.
+type FolderType string
+
+const (
+	FolderTypeAsset FolderType = "asset"
+	FolderTypeDebt  FolderType = "debt"
+)
+
+// Folder is an organisational group for assets or debts within a portfolio.
+// Folders are ordered by position (ascending) for display, scoped per type.
 type Folder struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	PortfolioID uuid.UUID `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
-	Name        string    `gorm:"not null"                                         json:"name"`
-	Icon        *string   `json:"icon"`      // emoji or short identifier, e.g. "📈"
-	ImageURL    *string   `json:"image_url"` // user-uploaded cover image
-	Position    int       `gorm:"not null;default:0"                               json:"position"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	PortfolioID uuid.UUID  `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
+	FolderType  FolderType `gorm:"not null"                                         json:"folder_type"`
+	Name        string     `gorm:"not null"                                         json:"name"`
+	Icon        *string    `json:"icon"`      // emoji or short identifier, e.g. "📈"
+	ImageURL    *string    `json:"image_url"` // user-uploaded cover image
+	Position    int        `gorm:"not null;default:0"                               json:"position"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 // CreateFolderRequest is the payload for POST /portfolios/:id/folders.
 type CreateFolderRequest struct {
-	Name     string  `json:"name"      binding:"required,min=1,max=255"`
-	Icon     *string `json:"icon"`
-	ImageURL *string `json:"image_url"`
+	FolderType FolderType `json:"folder_type" binding:"required,oneof=asset debt"`
+	Name       string     `json:"name"        binding:"required,min=1,max=255"`
+	Icon       *string    `json:"icon"`
+	ImageURL   *string    `json:"image_url"`
 }
 
 // UpdateFolderRequest is the payload for PATCH /portfolios/:id/folders/:fid.

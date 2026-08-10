@@ -21,10 +21,11 @@ type Quote struct {
 
 // TickerResult is a single result from a ticker search query.
 type TickerResult struct {
-	Ticker      string
-	CompanyName string
-	Exchange    string
-	AssetType   string // EQUITY, ETF, etc.
+	Ticker      string `json:"ticker"`
+	CompanyName string `json:"company_name"`
+	Exchange    string `json:"exchange"`
+	AssetType   string `json:"asset_type"` // EQUITY, ETF, CRYPTO, etc.
+	LogoURL     string `json:"logo_url,omitempty"`
 }
 
 // OHLCV represents a single candlestick data point.

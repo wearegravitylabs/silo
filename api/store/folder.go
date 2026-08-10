@@ -16,12 +16,13 @@ import (
 type FolderDatabase interface {
 	CreateFolder(ctx context.Context, folder model.Folder) (model.Folder, error)
 	GetFolderByID(ctx context.Context, id uuid.UUID) (model.Folder, error)
-	ListFoldersByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Folder, error)
+	// ListFoldersByPortfolio returns folders of the given type, ordered by position ascending.
+	ListFoldersByPortfolio(ctx context.Context, portfolioID uuid.UUID, folderType model.FolderType) ([]model.Folder, error)
 	UpdateFolder(ctx context.Context, folder model.Folder) (model.Folder, error)
 	DeleteFolder(ctx context.Context, id uuid.UUID) error
-	// MaxPosition returns the highest existing position value within a portfolio.
-	// Returns -1 when no folders exist yet (so the first folder gets position 0).
-	MaxPosition(ctx context.Context, portfolioID uuid.UUID) (int, error)
+	// MaxPosition returns the highest existing position value within a portfolio for the given type.
+	// Returns -1 when no folders of that type exist yet (so the first folder gets position 0).
+	MaxPosition(ctx context.Context, portfolioID uuid.UUID, folderType model.FolderType) (int, error)
 	// ReorderFolders applies all position updates atomically in one transaction.
 	ReorderFolders(ctx context.Context, portfolioID uuid.UUID, positions []model.FolderPosition) error
 }
@@ -52,11 +53,11 @@ func (f *folderStore) GetFolderByID(ctx context.Context, id uuid.UUID) (model.Fo
 	return folder, nil
 }
 
-// ListFoldersByPortfolio returns all folders for a portfolio ordered by position ascending.
-func (f *folderStore) ListFoldersByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.Folder, error) {
+// ListFoldersByPortfolio returns folders of the given type for a portfolio, ordered by position ascending.
+func (f *folderStore) ListFoldersByPortfolio(ctx context.Context, portfolioID uuid.UUID, folderType model.FolderType) ([]model.Folder, error) {
 	var folders []model.Folder
 	err := f.storage.DB.WithContext(ctx).
-		Where("portfolio_id = ?", portfolioID).
+		Where("portfolio_id = ? AND folder_type = ?", portfolioID, folderType).
 		Order("position ASC").
 		Find(&folders).Error
 	if err != nil {
@@ -86,13 +87,13 @@ func (f *folderStore) DeleteFolder(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// MaxPosition returns the highest position value among folders in a portfolio.
-func (f *folderStore) MaxPosition(ctx context.Context, portfolioID uuid.UUID) (int, error) {
+// MaxPosition returns the highest position value among folders of a given type in a portfolio.
+func (f *folderStore) MaxPosition(ctx context.Context, portfolioID uuid.UUID, folderType model.FolderType) (int, error) {
 	var max int
 	err := f.storage.DB.WithContext(ctx).
 		Model(&model.Folder{}).
 		Select("COALESCE(MAX(position), -1)").
-		Where("portfolio_id = ?", portfolioID).
+		Where("portfolio_id = ? AND folder_type = ?", portfolioID, folderType).
 		Scan(&max).Error
 	return max, err
 }

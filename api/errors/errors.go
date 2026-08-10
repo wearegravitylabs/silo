@@ -167,6 +167,10 @@ var (
 	ErrFolderRequired = &TranslatableError{Code: "FOLDER_REQUIRED", Key: "ERR_FOLDER_REQUIRED",
 		Message: messages.ErrFolderRequired, Public: true}
 
+	// ErrFolderTypeMismatch is shown when a folder's type doesn't match the entity (asset vs debt).
+	ErrFolderTypeMismatch = &TranslatableError{Code: "FOLDER_TYPE_MISMATCH", Key: "ERR_FOLDER_TYPE_MISMATCH",
+		Message: messages.ErrFolderTypeMismatch, Public: true}
+
 	// ─── Vault ────────────────────────────────────────────────────────────────
 
 	// ErrVaultDecryptFailed is shown when the client-side decryption password is wrong.

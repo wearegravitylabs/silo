@@ -82,6 +82,7 @@ func (c *Client) SearchTicker(ctx context.Context, query string) ([]market.Ticke
 			ID     string `json:"id"`     // e.g. "bitcoin"
 			Symbol string `json:"symbol"` // e.g. "btc"
 			Name   string `json:"name"`   // e.g. "Bitcoin"
+			Thumb  string `json:"thumb"`  // small logo URL
 		} `json:"coins"`
 	}
 	if err := json.Unmarshal(body, &resp); err != nil {
@@ -91,10 +92,11 @@ func (c *Client) SearchTicker(ctx context.Context, query string) ([]market.Ticke
 	results := make([]market.TickerResult, 0, len(resp.Coins))
 	for _, coin := range resp.Coins {
 		results = append(results, market.TickerResult{
-			Ticker:      coin.ID,           // coin ID is used as the ticker for CoinGecko
+			Ticker:      coin.ID, // coin ID is used as the ticker for CoinGecko
 			CompanyName: coin.Name,
 			Exchange:    strings.ToUpper(coin.Symbol),
 			AssetType:   "CRYPTO",
+			LogoURL:     coin.Thumb,
 		})
 	}
 	return results, nil

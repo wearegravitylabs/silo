@@ -90,8 +90,24 @@ func (a *assetStore) ListAssetsByPortfolio(ctx context.Context, portfolioID uuid
 		q = q.Where("folder_id = ?", *filter.FolderID)
 	}
 
+	// Sort order — direction defaults to ASC; NULLS LAST for nullable numeric columns.
+	dir := "ASC"
+	if strings.ToLower(filter.Order) == "desc" {
+		dir = "DESC"
+	}
+	switch strings.ToLower(filter.Sort) {
+	case "price":
+		q = q.Order("current_price " + dir + " NULLS LAST")
+	case "name":
+		q = q.Order("LOWER(name) " + dir)
+	case "created_at":
+		q = q.Order("created_at " + dir)
+	default:
+		q = q.Order("created_at ASC")
+	}
+
 	var assets []model.Asset
-	if err := q.Order("created_at ASC").Find(&assets).Error; err != nil {
+	if err := q.Find(&assets).Error; err != nil {
 		return nil, siloErrors.ErrGenericErr
 	}
 	return assets, nil

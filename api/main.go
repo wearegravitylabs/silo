@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"net/http"
 	"os"
 	"os/signal"
@@ -11,16 +12,20 @@ import (
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
+	"github.com/pressly/goose/v3"
 
 	"github.com/wearegravitylabs/silo/api/api"
 	"github.com/wearegravitylabs/silo/api/app"
-	appAuth "github.com/wearegravitylabs/silo/api/app/auth"
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
+	appAuth "github.com/wearegravitylabs/silo/api/app/auth"
 	appAutopilot "github.com/wearegravitylabs/silo/api/app/autopilot"
 	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
 	appDocument "github.com/wearegravitylabs/silo/api/app/document"
 	appFolder "github.com/wearegravitylabs/silo/api/app/folder"
+	appDashboard "github.com/wearegravitylabs/silo/api/app/dashboard"
 	appInsight "github.com/wearegravitylabs/silo/api/app/insight"
+	appNote "github.com/wearegravitylabs/silo/api/app/note"
+	appProjection "github.com/wearegravitylabs/silo/api/app/projection"
 	appPortfolio "github.com/wearegravitylabs/silo/api/app/portfolio"
 	appSnapshot "github.com/wearegravitylabs/silo/api/app/snapshot"
 	appUser "github.com/wearegravitylabs/silo/api/app/user"
@@ -31,6 +36,9 @@ import (
 	"github.com/wearegravitylabs/silo/api/pkg/middleware"
 	"github.com/wearegravitylabs/silo/api/store"
 )
+
+//go:embed migration/*.sql
+var migrations embed.FS
 
 func main() {
 	log := siloLogger.New()
@@ -48,6 +56,18 @@ func main() {
 	// ─── Data Layer ───────────────────────────────────────────────────────────────
 	storage := store.New(env)
 
+	// ─── Migrations ───────────────────────────────────────────────────────────────
+	sqlDB, err := storage.DB.DB()
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to get sql.DB for migrations")
+	}
+	goose.SetBaseFS(migrations)
+	goose.SetLogger(goose.NopLogger())
+	if err := goose.Up(sqlDB, "migration"); err != nil {
+		log.Fatal().Err(err).Msg("failed to run migrations")
+	}
+	log.Info().Msg("migrations applied")
+
 	// ─── Dependency Injection ─────────────────────────────────────────────────────
 	dp := app.InitDp(context.Background(), storage, env)
 
@@ -63,6 +83,9 @@ func main() {
 	insightSvc := appInsight.New(dp)
 	folderSvc := appFolder.New(dp)
 	documentSvc := appDocument.New(dp)
+	noteSvc := appNote.New(dp)
+	projectionSvc := appProjection.New(dp)
+	dashboardSvc := appDashboard.New(dp)
 
 	// ─── HTTP Engine ─────────────────────────────────────────────────────────────
 	engine := gin.New()
@@ -82,7 +105,7 @@ func main() {
 		authSvc, userSvc, portfolioSvc,
 		assetSvc, debtSvc, autopilotSvc,
 		snapshotSvc, vaultSvc, insightSvc,
-		folderSvc, documentSvc, dp.ObjectStorage,
+		folderSvc, documentSvc, noteSvc, projectionSvc, dashboardSvc, dp.ObjectStorage,
 	)
 	handler.Build()
 

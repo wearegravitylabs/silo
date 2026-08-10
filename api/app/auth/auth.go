@@ -106,19 +106,25 @@ func (s *service) VerifyCode(ctx context.Context, emailAddr, code string) (model
 		return model.AuthResponse{}, siloErrors.ErrInvalidOTP
 	}
 
-	// 2. Guard: no OTP is stored (code was never requested or already consumed).
-	if user.OTPCode == "" || user.OTPExpiry == nil {
-		return model.AuthResponse{}, siloErrors.ErrInvalidOTP
-	}
+	// 2. Sandbox shortcut — accept "000000" without a real OTP when IS_SANDBOX_MODE=true.
+	// This lets you sign in during local development without a working email provider.
+	sandboxBypass := s.dp.Env.IsSandbox() && code == "000000"
 
-	// 3. Check expiry.
-	if time.Now().UTC().After(*user.OTPExpiry) {
-		return model.AuthResponse{}, siloErrors.ErrInvalidOTP
-	}
+	if !sandboxBypass {
+		// 3. Guard: no OTP is stored (code was never requested or already consumed).
+		if user.OTPCode == "" || user.OTPExpiry == nil {
+			return model.AuthResponse{}, siloErrors.ErrInvalidOTP
+		}
 
-	// 4. Bcrypt compare — constant-time to prevent timing attacks.
-	if !crypto.CheckPassword(code, user.OTPCode) {
-		return model.AuthResponse{}, siloErrors.ErrInvalidOTP
+		// 4. Check expiry.
+		if time.Now().UTC().After(*user.OTPExpiry) {
+			return model.AuthResponse{}, siloErrors.ErrInvalidOTP
+		}
+
+		// 5. Bcrypt compare — constant-time to prevent timing attacks.
+		if !crypto.CheckPassword(code, user.OTPCode) {
+			return model.AuthResponse{}, siloErrors.ErrInvalidOTP
+		}
 	}
 
 	// 5. Consume the OTP and mark the email as verified.

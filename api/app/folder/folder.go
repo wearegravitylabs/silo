@@ -20,7 +20,8 @@ import (
 type Folder interface {
 	Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error)
 	Get(ctx context.Context, folderID, callerID uuid.UUID) (model.Folder, error)
-	List(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Folder, error)
+	// List returns folders of the given type ordered by position.
+	List(ctx context.Context, portfolioID, callerID uuid.UUID, folderType model.FolderType) ([]model.Folder, error)
 	Update(ctx context.Context, folderID, callerID uuid.UUID, req model.UpdateFolderRequest) (model.Folder, error)
 	Delete(ctx context.Context, folderID, callerID uuid.UUID) error
 	Reorder(ctx context.Context, portfolioID, callerID uuid.UUID, req model.ReorderFoldersRequest) error
@@ -31,7 +32,7 @@ type service struct{ dp app.Dependency }
 // New returns a Folder service backed by the provided dependency container.
 func New(dp app.Dependency) Folder { return &service{dp: dp} }
 
-// Create adds a new folder positioned at max(existing) + 1.
+// Create adds a new folder positioned at max(existing of same type) + 1.
 func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, req model.CreateFolderRequest) (model.Folder, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "folder.Create").
@@ -39,7 +40,7 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		Str("caller_id", callerID.String()).
 		Logger()
 
-	maxPos, err := s.dp.FolderStore.MaxPosition(ctx, portfolioID)
+	maxPos, err := s.dp.FolderStore.MaxPosition(ctx, portfolioID, req.FolderType)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to get max folder position")
 		return model.Folder{}, err
@@ -47,6 +48,7 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 
 	folder := model.Folder{
 		PortfolioID: portfolioID,
+		FolderType:  req.FolderType,
 		Name:        req.Name,
 		Icon:        req.Icon,
 		ImageURL:    req.ImageURL,
@@ -78,14 +80,14 @@ func (s *service) Get(ctx context.Context, folderID, callerID uuid.UUID) (model.
 	return folder, nil
 }
 
-// List returns folders for the portfolio ordered by position.
-func (s *service) List(ctx context.Context, portfolioID, callerID uuid.UUID) ([]model.Folder, error) {
+// List returns folders of the given type for the portfolio ordered by position.
+func (s *service) List(ctx context.Context, portfolioID, callerID uuid.UUID, folderType model.FolderType) ([]model.Folder, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "folder.List").
 		Str("portfolio_id", portfolioID.String()).
 		Logger()
 
-	folders, err := s.dp.FolderStore.ListFoldersByPortfolio(ctx, portfolioID)
+	folders, err := s.dp.FolderStore.ListFoldersByPortfolio(ctx, portfolioID, folderType)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to list folders")
 		return nil, err

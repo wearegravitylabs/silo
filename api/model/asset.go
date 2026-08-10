@@ -150,6 +150,10 @@ type CreateAssetRequest struct {
 
 	Location string `json:"location"`
 	Metadata JSONB  `json:"metadata"`
+	// CurrentPrice is the current estimated value for manual asset types
+	// (real estate, physical, domain, etc.). Optional — defaults to the first
+	// lot's acquisition_price when omitted or zero.
+	CurrentPrice *float64 `json:"current_price"`
 
 	// Lots records one or more purchase tranches.
 	// For ticker types, acquisition_price is optional — fetched from Yahoo Finance.
@@ -157,7 +161,7 @@ type CreateAssetRequest struct {
 	Lots []CreateLotRequest `json:"lots" binding:"required,min=1"`
 }
 
-// ListAssetsFilter carries optional filter criteria for GET /assets.
+// ListAssetsFilter carries optional filter and sort criteria for GET /assets.
 type ListAssetsFilter struct {
 	// Classes filters by one or more asset class codes.
 	// Multiple values are OR'd: ?class=stock&class=crypto returns stocks AND crypto.
@@ -169,7 +173,14 @@ type ListAssetsFilter struct {
 	//   false → investability = 'non_investable'
 	Investable *bool `form:"investable"`
 	// FolderID filters assets that belong to a specific folder.
-	FolderID *uuid.UUID `form:"folder_id"`
+	// Bound manually in the handler (form:"-") because Gin's query binder
+	// cannot unmarshal a *uuid.UUID from a query string.
+	FolderID *uuid.UUID `form:"-"`
+	// Sort is the field to sort by. Valid values: price, name, created_at.
+	// Defaults to created_at when omitted.
+	Sort string `form:"sort"`
+	// Order is the sort direction: asc or desc. Defaults to asc.
+	Order string `form:"order"`
 }
 
 // ─── Overview types ───────────────────────────────────────────────────────────

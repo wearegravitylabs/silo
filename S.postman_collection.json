@@ -1,0 +1,784 @@
+{
+  "info": {
+    "name": "S — API",
+    "description": "Complete API collection for S. Set `base_url` and `access_token` collection variables before use.\n\n**Quick start:**\n1. `POST /auth/send-code` → enter your email\n2. `POST /auth/verify-code` with code `000000` (sandbox mode) → `access_token` is auto-saved\n3. `PATCH /users/me/onboard` → complete profile\n4. `POST /portfolios` → `portfolioID` is auto-saved\n5. `POST /portfolios/:id/folders` → `folderID` is auto-saved",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url",     "value": "http://localhost:8080/api/v1", "type": "string" },
+    { "key": "access_token", "value": "",  "type": "string" },
+    { "key": "portfolioID",  "value": "",  "type": "string" },
+    { "key": "folderID",     "value": "",  "type": "string" },
+    { "key": "assetID",      "value": "",  "type": "string" },
+    { "key": "debtID",       "value": "",  "type": "string" },
+    { "key": "lotID",        "value": "",  "type": "string" },
+    { "key": "flowID",       "value": "",  "type": "string" },
+    { "key": "docID",        "value": "",  "type": "string" },
+    { "key": "noteID",       "value": "",  "type": "string" },
+    { "key": "ruleID",       "value": "",  "type": "string" },
+    { "key": "memberUserID", "value": "",  "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Send sign-in code",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/send-code", "host": ["{{base_url}}"], "path": ["auth","send-code"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"you@example.com\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Sends a 6-digit OTP. Response is intentionally vague — never reveals whether the email exists. Creates the account on first use."
+          }
+        },
+        {
+          "name": "Verify code (sign in)",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.access_token) pm.collectionVariables.set('access_token', r.data.access_token);"], "type": "text/javascript" } }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/verify-code", "host": ["{{base_url}}"], "path": ["auth","verify-code"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"you@example.com\",\n  \"code\": \"000000\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Code `000000` works in sandbox mode (IS_SANDBOX_MODE=true). The test script auto-saves `access_token`."
+          }
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/auth/refresh-token", "host": ["{{base_url}}"], "path": ["auth","refresh-token"] },
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"<your_refresh_token>\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Config (public)",
+      "item": [
+        {
+          "name": "Asset classes",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{base_url}}/asset-classes", "host": ["{{base_url}}"], "path": ["asset-classes"] } }
+        },
+        {
+          "name": "Physical subtypes",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{base_url}}/physical-subtypes", "host": ["{{base_url}}"], "path": ["physical-subtypes"] } }
+        },
+        {
+          "name": "Currencies",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{base_url}}/currencies", "host": ["{{base_url}}"], "path": ["currencies"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/users/me", "host": ["{{base_url}}"], "path": ["users","me"] } }
+        },
+        {
+          "name": "Onboard (complete profile)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/users/me/onboard", "host": ["{{base_url}}"], "path": ["users","me","onboard"] },
+            "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\",\n  \"phone_number\": \"8012345678\",\n  \"phone_country_code\": \"+234\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Call once after first sign-in. Required before accessing portfolio endpoints."
+          }
+        },
+        {
+          "name": "Update profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/users/me", "host": ["{{base_url}}"], "path": ["users","me"] },
+            "body": { "mode": "raw", "raw": "{\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\",\n  \"avatar_url\": \"https://example.com/avatar.png\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Delete account",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/users/me", "host": ["{{base_url}}"], "path": ["users","me"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Upload",
+      "item": [
+        {
+          "name": "Upload file (public bucket)",
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/upload", "host": ["{{base_url}}"], "path": ["upload"] },
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] },
+            "description": "Max 50 MB. Allowed: image/*, PDF, DOC, XLS, plain text."
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Portfolios",
+      "item": [
+        {
+          "name": "Create portfolio",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('portfolioID', r.data.id);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios", "host": ["{{base_url}}"], "path": ["portfolios"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"My Portfolio\",\n  \"description\": \"Main investment portfolio\",\n  \"base_currency\": \"USD\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "List portfolios",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/portfolios", "host": ["{{base_url}}"], "path": ["portfolios"],
+              "query": [
+                { "key": "name", "value": "", "disabled": true },
+                { "key": "currency", "value": "", "disabled": true },
+                { "key": "role", "value": "", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get portfolio",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}"] } }
+        },
+        {
+          "name": "Update portfolio",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Name\",\n  \"base_currency\": \"USD\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Delete portfolio",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}"] } }
+        },
+        {
+          "name": "List members",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/members", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","members"] } }
+        },
+        {
+          "name": "Add member",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/members", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","members"] },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"collaborator@example.com\",\n  \"role\": \"editor\"\n}", "options": { "raw": { "language": "json" } } },
+            "description": "Roles: owner | editor | viewer"
+          }
+        },
+        {
+          "name": "Remove member",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/members/{{memberUserID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","members","{{memberUserID}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Folders",
+      "item": [
+        {
+          "name": "List folders",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/folders", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","folders"] } }
+        },
+        {
+          "name": "Create folder",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('folderID', r.data.id);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/folders", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","folders"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Equities\",\n  \"icon\": \"📈\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Update folder",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/folders/{{folderID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","folders","{{folderID}}"] },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Stocks & ETFs\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Delete folder",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/folders/{{folderID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","folders","{{folderID}}"] } }
+        },
+        {
+          "name": "Reorder folders",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/folders/reorder", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","folders","reorder"] },
+            "body": { "mode": "raw", "raw": "{\n  \"folders\": [\n    { \"id\": \"<folder-uuid-1>\", \"position\": 0 },\n    { \"id\": \"<folder-uuid-2>\", \"position\": 1 }\n  ]\n}", "options": { "raw": { "language": "json" } } }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Assets",
+      "item": [
+
+        {
+          "name": "Search & Preview",
+          "item": [
+            {
+              "name": "Search ticker (stocks + crypto)",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/ticker/search?q=AAPL", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","ticker","search"], "query": [{ "key": "q", "value": "AAPL" }] },
+                "description": "Searches Yahoo Finance (stocks/ETFs) + CoinGecko (crypto) in parallel. Returns `ticker`, `company_name`, `exchange`, `asset_type`, `logo_url`."
+              }
+            },
+            {
+              "name": "Ticker preview",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/ticker/preview?ticker=AAPL", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","ticker","preview"], "query": [{ "key": "ticker", "value": "AAPL" }] }
+              }
+            },
+            {
+              "name": "Asset overview",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/overview", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","overview"] },
+                "description": "Aggregated totals, 30d growth, investable vs non-investable — all in portfolio base currency."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "CRUD",
+          "item": [
+            {
+              "name": "List assets",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets",
+                  "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets"],
+                  "query": [
+                    { "key": "class",      "value": "stock",        "disabled": true, "description": "Repeatable: ?class=stock&class=crypto" },
+                    { "key": "search",     "value": "",             "disabled": true },
+                    { "key": "investable", "value": "true",         "disabled": true },
+                    { "key": "folder_id",  "value": "{{folderID}}", "disabled": true },
+                    { "key": "sort",       "value": "price",        "disabled": true, "description": "price | name | created_at" },
+                    { "key": "order",      "value": "asc",          "disabled": true, "description": "asc | desc" }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create asset — stock ticker",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('assetID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets"] },
+                "body": { "mode": "raw", "raw": "{\n  \"folder_id\": \"{{folderID}}\",\n  \"asset_type\": \"stock_ticker\",\n  \"ticker\": \"AAPL\",\n  \"lots\": [\n    {\n      \"quantity\": 10,\n      \"acquisition_date\": \"2024-01-15\",\n      \"notes\": \"First purchase\"\n    }\n  ]\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Create asset — crypto (DCA)",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets"] },
+                "body": { "mode": "raw", "raw": "{\n  \"folder_id\": \"{{folderID}}\",\n  \"asset_type\": \"crypto_ticker\",\n  \"ticker\": \"bitcoin\",\n  \"lots\": [\n    {\n      \"quantity\": 0.5,\n      \"acquisition_date\": \"2024-03-01\",\n      \"acquisition_price\": 65000\n    }\n  ]\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Create asset — real estate",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets"] },
+                "body": { "mode": "raw", "raw": "{\n  \"folder_id\": \"{{folderID}}\",\n  \"asset_type\": \"real_estate\",\n  \"name\": \"123 Main Street\",\n  \"location\": \"Austin, TX\",\n  \"currency\": \"USD\",\n  \"ownership_pct\": 100,\n  \"current_price\": 550000,\n  \"lots\": [\n    {\n      \"quantity\": 1,\n      \"acquisition_date\": \"2022-06-01\",\n      \"acquisition_price\": 450000\n    }\n  ]\n}", "options": { "raw": { "language": "json" } },
+                "description": "`current_price` = estimated value today. `acquisition_price` = what you paid (cost basis). If `current_price` is omitted it defaults to `acquisition_price`."
+              }
+            },
+            {
+              "name": "Create asset — physical",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets"] },
+                "body": { "mode": "raw", "raw": "{\n  \"folder_id\": \"{{folderID}}\",\n  \"asset_type\": \"physical\",\n  \"subtype\": \"watch\",\n  \"name\": \"Rolex Submariner\",\n  \"currency\": \"USD\",\n  \"current_price\": 14000,\n  \"lots\": [\n    {\n      \"quantity\": 1,\n      \"acquisition_date\": \"2023-12-01\",\n      \"acquisition_price\": 12000\n    }\n  ]\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Get asset",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}"] } }
+            },
+            {
+              "name": "Update asset",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"current_price\": 195.50,\n  \"ownership_pct\": 75\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Delete asset",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}"] } }
+            }
+          ]
+        },
+
+        {
+          "name": "Lots",
+          "item": [
+            {
+              "name": "List lots",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/lots", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","lots"] } }
+            },
+            {
+              "name": "Add lot",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('lotID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/lots", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","lots"] },
+                "body": { "mode": "raw", "raw": "{\n  \"quantity\": 5,\n  \"acquisition_date\": \"2024-06-01\",\n  \"acquisition_price\": 180.00,\n  \"notes\": \"Bought on dip\"\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Delete lot",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/lots/{{lotID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","lots","{{lotID}}"] } }
+            }
+          ]
+        },
+
+        {
+          "name": "Cash Flows",
+          "item": [
+            {
+              "name": "List cash flows",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/cash-flows", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","cash-flows"] } }
+            },
+            {
+              "name": "Add cash flow — income",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('flowID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/cash-flows", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","cash-flows"] },
+                "body": { "mode": "raw", "raw": "{\n  \"flow_type\": \"cash_in\",\n  \"category\": \"rental_income\",\n  \"amount\": 2500.00,\n  \"currency\": \"USD\",\n  \"flow_date\": \"2024-06-01\",\n  \"notes\": \"June rent\"\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Add cash flow — expense",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/cash-flows", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","cash-flows"] },
+                "body": { "mode": "raw", "raw": "{\n  \"flow_type\": \"cash_out\",\n  \"category\": \"maintenance\",\n  \"amount\": 350.00,\n  \"currency\": \"USD\",\n  \"flow_date\": \"2024-06-10\",\n  \"notes\": \"Plumbing repair\"\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Delete cash flow",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/cash-flows/{{flowID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","cash-flows","{{flowID}}"] } }
+            }
+          ]
+        },
+
+        {
+          "name": "Value History",
+          "item": [
+            {
+              "name": "Get value history",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/value-history",
+                  "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","value-history"],
+                  "query": [
+                    { "key": "from", "value": "2024-01-01T00:00:00Z", "disabled": true },
+                    { "key": "to",   "value": "2024-12-31T23:59:59Z", "disabled": true }
+                  ]
+                },
+                "description": "Defaults to last 12 months. Ordered oldest → newest. Each entry has `value`, `currency`, `source` (manual|ticker|cron), `recorded_at`."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Documents",
+          "item": [
+            {
+              "name": "List documents",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/documents", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","documents"] } }
+            },
+            {
+              "name": "Upload document",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('docID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/documents", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","documents"] },
+                "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] },
+                "description": "Max 50 MB. Stored in private bucket — download only via presigned URL."
+              }
+            },
+            {
+              "name": "Get download URL",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/documents/{{docID}}/download-url", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","documents","{{docID}}","download-url"] }, "description": "Returns presigned URL valid for 1 hour." }
+            },
+            {
+              "name": "Delete document",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/documents/{{docID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","documents","{{docID}}"] } }
+            }
+          ]
+        },
+
+        {
+          "name": "Notes",
+          "item": [
+            {
+              "name": "List notes",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/notes", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","notes"] } }
+            },
+            {
+              "name": "Add note",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('noteID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/notes", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","notes"] },
+                "body": { "mode": "raw", "raw": "{\n  \"title\": \"Investment thesis\",\n  \"content\": \"Bullish on long-term growth. Strong moat, consistent buybacks.\",\n  \"tags\": [\"research\", \"long-term\"]\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Update note",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/notes/{{noteID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","notes","{{noteID}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"content\": \"Revised view after Q3 earnings.\",\n  \"tags\": [\"updated\"]\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Delete note",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/notes/{{noteID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","assets","{{assetID}}","notes","{{noteID}}"] } }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Debts",
+      "item": [
+
+        {
+          "name": "CRUD",
+          "item": [
+            {
+              "name": "List debts",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts",
+                  "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts"],
+                  "query": [
+                    { "key": "search",    "value": "",              "disabled": true },
+                    { "key": "debt_type", "value": "mortgage",      "disabled": true, "description": "mortgage|student_loan|car_loan|personal|credit_card|manual" },
+                    { "key": "folder_id", "value": "{{folderID}}", "disabled": true },
+                    { "key": "sort",      "value": "balance",       "disabled": true, "description": "balance | name | created_at" },
+                    { "key": "order",     "value": "desc",          "disabled": true }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Create debt — mortgage",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('debtID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts"] },
+                "body": { "mode": "raw", "raw": "{\n  \"folder_id\": \"{{folderID}}\",\n  \"name\": \"Home Mortgage\",\n  \"debt_type\": \"mortgage\",\n  \"principal\": 400000,\n  \"balance\": 385000,\n  \"interest_rate\": 6.75,\n  \"payment_amount\": 2600,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"currency\": \"USD\",\n  \"ownership_pct\": 100,\n  \"start_date\": \"2022-06-01T00:00:00Z\"\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Create debt — credit card",
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts"] },
+                "body": { "mode": "raw", "raw": "{\n  \"name\": \"Chase Sapphire\",\n  \"debt_type\": \"credit_card\",\n  \"principal\": 5000,\n  \"balance\": 3200,\n  \"interest_rate\": 24.99,\n  \"currency\": \"USD\"\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Get debt",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}"] } }
+            },
+            {
+              "name": "Update debt",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"balance\": 380000,\n  \"ownership_pct\": 50\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Delete debt",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}"] } }
+            },
+            {
+              "name": "Amortization schedule",
+              "request": {
+                "method": "GET",
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/amortization", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","amortization"] },
+                "description": "Requires `has_schedule: true`, `payment_amount > 0`, and `interest_rate > 0`."
+              }
+            }
+          ]
+        },
+
+        {
+          "name": "Documents",
+          "item": [
+            {
+              "name": "List documents",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/documents", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","documents"] } }
+            },
+            {
+              "name": "Upload document",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('docID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/documents", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","documents"] },
+                "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] }
+              }
+            },
+            {
+              "name": "Get download URL",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/documents/{{docID}}/download-url", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","documents","{{docID}}","download-url"] } }
+            },
+            {
+              "name": "Delete document",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/documents/{{docID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","documents","{{docID}}"] } }
+            }
+          ]
+        },
+
+        {
+          "name": "Notes",
+          "item": [
+            {
+              "name": "List notes",
+              "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/notes", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","notes"] } }
+            },
+            {
+              "name": "Add note",
+              "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('noteID', r.data.id);"], "type": "text/javascript" } }],
+              "request": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/notes", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","notes"] },
+                "body": { "mode": "raw", "raw": "{\n  \"title\": \"Refinance plan\",\n  \"content\": \"Planning to refinance when rates drop below 6%.\",\n  \"tags\": [\"refinance\"]\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Update note",
+              "request": {
+                "method": "PATCH",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/notes/{{noteID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","notes","{{noteID}}"] },
+                "body": { "mode": "raw", "raw": "{\n  \"content\": \"Locked in 5.9% — closing next month.\"\n}", "options": { "raw": { "language": "json" } } }
+              }
+            },
+            {
+              "name": "Delete note",
+              "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/notes/{{noteID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","debts","{{debtID}}","notes","{{noteID}}"] } }
+            }
+          ]
+        }
+
+      ]
+    },
+
+    {
+      "name": "Vault",
+      "description": "Private encrypted document store. Password-gate is handled client-side — the server stores the encrypted bytes as-is.",
+      "item": [
+        {
+          "name": "List documents",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/documents", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","vault","documents"] } }
+        },
+        {
+          "name": "Upload document",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('docID', r.data.id);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/documents", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","vault","documents"] },
+            "body": { "mode": "formdata", "formdata": [{ "key": "file", "type": "file", "src": "" }] },
+            "description": "Stored in private bucket. Max 50 MB."
+          }
+        },
+        {
+          "name": "Get download URL",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/documents/{{docID}}/download-url", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","vault","documents","{{docID}}","download-url"] },
+            "description": "Presigned URL valid for 1 hour. Only the uploading user can access this."
+          }
+        },
+        {
+          "name": "Delete document",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/documents/{{docID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","vault","documents","{{docID}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Auto-Pilot",
+      "description": "Automated rules that apply changes to assets or debts on a schedule.",
+      "item": [
+        {
+          "name": "List rules",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules"] } }
+        },
+        {
+          "name": "Create rule — DCA $100 BTC monthly",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data.id) pm.collectionVariables.set('ruleID', r.data.id);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules"] },
+            "body": { "mode": "raw", "raw": "{\n  \"target_type\": \"asset\",\n  \"target_id\": \"{{assetID}}\",\n  \"action\": \"add\",\n  \"amount\": 100,\n  \"frequency\": \"monthly\",\n  \"start_date\": \"2026-07-01T00:00:00Z\"\n}", "options": { "raw": { "language": "json" } },
+            "description": "Buys $100 worth of the crypto asset every month at the current market price."
+          }
+          }
+        },
+        {
+          "name": "Create rule — buy 1 TSLA weekly",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules"] },
+            "body": { "mode": "raw", "raw": "{\n  \"target_type\": \"asset\",\n  \"target_id\": \"{{assetID}}\",\n  \"action\": \"add\",\n  \"units\": 1,\n  \"frequency\": \"weekly\",\n  \"start_date\": \"2026-07-01T00:00:00Z\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Create rule — appreciate property 3% annually",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules"] },
+            "body": { "mode": "raw", "raw": "{\n  \"target_type\": \"asset\",\n  \"target_id\": \"{{assetID}}\",\n  \"action\": \"add\",\n  \"percentage\": 3.0,\n  \"frequency\": \"annually\",\n  \"start_date\": \"2027-01-01T00:00:00Z\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Create rule — pay mortgage $1,200 monthly",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules"] },
+            "body": { "mode": "raw", "raw": "{\n  \"target_type\": \"debt\",\n  \"target_id\": \"{{debtID}}\",\n  \"action\": \"remove\",\n  \"amount\": 1200,\n  \"frequency\": \"monthly\",\n  \"start_date\": \"2026-07-01T00:00:00Z\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Get rule",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{ruleID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules","{{ruleID}}"] } }
+        },
+        {
+          "name": "Pause rule",
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{ruleID}}/pause", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules","{{ruleID}}","pause"] } }
+        },
+        {
+          "name": "Resume rule",
+          "request": { "method": "POST", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{ruleID}}/resume", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules","{{ruleID}}","resume"] } }
+        },
+        {
+          "name": "Delete rule",
+          "request": { "method": "DELETE", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{ruleID}}", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","autopilot","rules","{{ruleID}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Snapshots",
+      "item": [
+        {
+          "name": "List snapshots",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/snapshots", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","snapshots"] } }
+        },
+        {
+          "name": "Latest snapshot",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/snapshots/latest", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","snapshots","latest"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "Insights",
+      "item": [
+        {
+          "name": "Daily insight",
+          "request": { "method": "GET", "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/insights/daily", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","insights","daily"] } }
+        },
+        {
+          "name": "Query (NLP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/insights/query", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","insights","query"] },
+            "body": { "mode": "raw", "raw": "{\n  \"query\": \"What is my total exposure to tech stocks?\"\n}", "options": { "raw": { "language": "json" } } }
+          }
+        },
+        {
+          "name": "Fast-forward",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/portfolios/{{portfolioID}}/insights/fast-forward", "host": ["{{base_url}}"], "path": ["portfolios","{{portfolioID}}","insights","fast-forward"] },
+            "body": { "mode": "raw", "raw": "{}", "options": { "raw": { "language": "json" } } }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "Internal",
+      "description": "⚠️ Internal endpoints — no auth required. Restrict network access in production.",
+      "item": [
+        {
+          "name": "Run due autopilot rules",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": { "raw": "http://localhost:8080/internal/autopilot/run", "host": ["http://localhost:8080"], "path": ["internal","autopilot","run"] },
+            "description": "Executes all autopilot rules whose `next_run_at` is in the past. Call this from a cron job or cloud scheduler. Updates asset prices, creates lots for DCA rules, reduces debt balances, records value history, and advances `next_run_at`."
+          }
+        }
+      ]
+    }
+
+  ]
+}

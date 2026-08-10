@@ -11,6 +11,7 @@ import (
 	apiModel "github.com/wearegravitylabs/silo/api/api/model"
 	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
 	appDocument "github.com/wearegravitylabs/silo/api/app/document"
+	appNote "github.com/wearegravitylabs/silo/api/app/note"
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
 	"github.com/wearegravitylabs/silo/api/pkg/contexts"
@@ -21,15 +22,16 @@ import (
 const serviceName = "asset"
 
 type handler struct {
-	svc    appAsset.Asset
-	docSvc appDocument.Document
+	svc     appAsset.Asset
+	docSvc  appDocument.Document
+	noteSvc appNote.Note
 }
 
 // New registers asset routes under /portfolios/:portfolioID/assets.
 // Portfolio role middleware is applied per sub-group — token validation happens
 // upstream via the onboarded route group's RequireAuth + RequireOnboarded chain.
-func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, mid *middleware.Middleware) {
-	h := &handler{svc: svc, docSvc: docSvc}
+func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, noteSvc appNote.Note, mid *middleware.Middleware) {
+	h := &handler{svc: svc, docSvc: docSvc, noteSvc: noteSvc}
 	g := r.Group("/portfolios/:portfolioID/assets")
 
 	member := g.Group("", mid.RequirePortfolioMember())
@@ -44,6 +46,8 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, mi
 	// Documents — read
 	member.GET("/:id/documents", h.listDocuments)
 	member.GET("/:id/documents/:docID/download-url", h.documentDownloadURL)
+	// Notes — read
+	member.GET("/:id/notes", h.listNotes)
 
 	editor := g.Group("", mid.RequirePortfolioEditor())
 	editor.POST("", h.create)
@@ -56,6 +60,10 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, mi
 	// Documents — write
 	editor.POST("/:id/documents", h.uploadDocument)
 	editor.DELETE("/:id/documents/:docID", h.deleteDocument)
+	// Notes — write
+	editor.POST("/:id/notes", h.addNote)
+	editor.PATCH("/:id/notes/:noteID", h.updateNote)
+	editor.DELETE("/:id/notes/:noteID", h.deleteNote)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -96,7 +104,8 @@ func (h *handler) tickerSearch(c *gin.Context) {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
 	}
-	results, err := h.svc.SearchTicker(c.Request.Context(), q)
+	tickerType := c.Query("type") // "stock" | "crypto" | "" (both)
+	results, err := h.svc.SearchTicker(c.Request.Context(), q, tickerType)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrMarketDataUnavailable)
 		return
@@ -178,6 +187,15 @@ func (h *handler) list(c *gin.Context) {
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
+	}
+	// folder_id is bound manually — Gin's query binder can't parse a *uuid.UUID.
+	if raw := c.Query("folder_id"); raw != "" {
+		folderID, err := uuid.Parse(raw)
+		if err != nil {
+			apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+			return
+		}
+		filter.FolderID = &folderID
 	}
 
 	assets, err := h.svc.ListByPortfolio(c.Request.Context(), portfolioID, callerID, filter)
@@ -503,4 +521,101 @@ func (h *handler) deleteDocument(c *gin.Context) {
 	}
 
 	apiModel.OK(c, "document deleted", nil)
+}
+
+// ─── Note handlers ────────────────────────────────────────────────────────────
+
+// listNotes returns all notes attached to an asset.
+func (h *handler) listNotes(c *gin.Context) {
+	_, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	notes, err := h.noteSvc.ListByAsset(c.Request.Context(), assetID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "notes", notes)
+}
+
+// addNote creates a new note and attaches it to an asset.
+func (h *handler) addNote(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+	portfolioID, ok := parsePortfolioID(c)
+	if !ok {
+		return
+	}
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+
+	var req model.CreateNoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	note, err := h.noteSvc.AddToAsset(c.Request.Context(), assetID, callerID, portfolioID, req)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.Created(c, messages.NoteAdded, note)
+}
+
+// updateNote edits the title and/or content of an existing note.
+func (h *handler) updateNote(c *gin.Context) {
+	_, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+
+	noteID, err := uuid.Parse(c.Param("noteID"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	var req model.UpdateNoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	note, err := h.noteSvc.Update(c.Request.Context(), noteID, req)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, messages.NoteUpdated, note)
+}
+
+// deleteNote soft-deletes a note.
+func (h *handler) deleteNote(c *gin.Context) {
+	_, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+
+	noteID, err := uuid.Parse(c.Param("noteID"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+
+	if err := h.noteSvc.Delete(c.Request.Context(), noteID); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, messages.NoteDeleted, nil)
 }
