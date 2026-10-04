@@ -5,7 +5,7 @@ import { Logo } from '@/components/Logo'
 import { FieldError } from '@/components/FieldError'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
-import { cn } from '@/lib/utils'
+import { cn, getApiErrorMessage } from '@/lib/utils'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -29,7 +29,7 @@ export function LoginPage() {
   })
 
   const apiError =
-    (error as any)?.response?.data?.error?.message ?? (error ? 'Something went wrong' : null)
+    getApiErrorMessage(error, 'Something went wrong')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

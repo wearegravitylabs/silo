@@ -12,7 +12,7 @@ import type { AvatarId } from '@/components/AvatarPicker'
 import { portfolioApi, currencyApi } from '@/lib/api'
 import type { Currency } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
-import { cn } from '@/lib/utils'
+import { cn, getApiErrorMessage } from '@/lib/utils'
 
 // ─── Log out button (same gradient family as ProfilePage) ─────────────────────
 const LOG_OUT_SHADOW =
@@ -205,7 +205,7 @@ function CurrencySelect({
 export function PortfolioPage() {
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarId>('lime')
   const [name, setName] = useState('')
-  const [currency, setCurrency] = useState('USD')
+  const [selectedCurrency, setCurrency] = useState<string | null>(null)
   const [description, setDescription] = useState('')
   const [submitAttempted, setSubmitAttempted] = useState(false)
 
@@ -225,12 +225,10 @@ export function PortfolioPage() {
   })
   const currencies: Currency[] = currenciesData ?? []
 
-  // Once currencies load, default to "USD" if present; fall back to first
-  useEffect(() => {
-    if (!currencies.length) return
-    const hasUSD = currencies.some((c) => c.code === 'USD')
-    if (!hasUSD) setCurrency(currencies[0].code)
-  }, [currencies])
+  // Default to "USD" if present; fall back to first loaded currency
+  const defaultCurrency =
+    !currencies.length || currencies.some((c) => c.code === 'USD') ? 'USD' : currencies[0].code
+  const currency = selectedCurrency ?? defaultCurrency
 
   const { mutate, isPending, error } = useMutation({
     mutationFn: () => {
@@ -250,8 +248,7 @@ export function PortfolioPage() {
   })
 
   const apiError =
-    (error as any)?.response?.data?.error?.message ??
-    (error ? 'Something went wrong' : null)
+    getApiErrorMessage(error, 'Something went wrong')
 
   const nameError = submitAttempted && !name.trim() ? 'Enter a portfolio name' : ''
   const canSubmit = name.trim().length > 0 && currency.length > 0

@@ -6,7 +6,7 @@ import { OtpInput } from '@/components/OtpInput'
 import { FieldError } from '@/components/FieldError'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
-import { cn } from '@/lib/utils'
+import { cn, getApiErrorMessage } from '@/lib/utils'
 import type { AuthResponse } from '@/types/api'
 
 const RESEND_COOLDOWN = 60
@@ -47,7 +47,7 @@ export function VerifyEmailPage() {
   })
 
   const codeError =
-    (error as any)?.response?.data?.error?.message ?? (error ? 'Invalid code, please try again.' : null)
+    getApiErrorMessage(error, 'Invalid code, please try again.')
 
   const filled = code.replace(/\s/g, '').length === 6
 

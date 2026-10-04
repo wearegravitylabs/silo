@@ -1161,10 +1161,10 @@ function FolderTabs({
   useEffect(() => { if (showInput) inputRef.current?.focus() }, [showInput])
 
   // ── drag & drop ─────────────────────────────────────────────────────────
-  const [localFolders, setLocalFolders] = useState<Folder[]>(folders)
+  const [dragOrder, setDragOrder] = useState<Folder[] | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const dragOverId = useRef<string | null>(null)
-  useEffect(() => { if (!draggedId) setLocalFolders(folders) }, [folders, draggedId])
+  const localFolders = dragOrder ?? folders
 
   // ── inline rename ───────────────────────────────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -1183,8 +1183,8 @@ function FolderTabs({
   const { mutate: reorderFolders } = useMutation({
     mutationFn: (ordered: Folder[]) =>
       folderApi.reorder(portfolioId, ordered.map((f, i) => ({ id: f.id, position: i }))),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['folders', portfolioId] }),
-    onError: () => setLocalFolders(folders),
+    onMutate: (ordered) => qc.setQueryData(['folders', portfolioId], ordered),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['folders', portfolioId] }),
   })
 
   const { mutate: renameFolder } = useMutation({
@@ -1205,13 +1205,14 @@ function FolderTabs({
   })
 
   // ── drag handlers ───────────────────────────────────────────────────────
-  const handleDragStart = (id: string) => { setDraggedId(id); dragOverId.current = id }
+  const handleDragStart = (id: string) => { setDraggedId(id); setDragOrder(folders); dragOverId.current = id }
 
   const handleDragOver = (e: React.DragEvent, overId: string) => {
     e.preventDefault()
     if (overId === draggedId || overId === dragOverId.current) return
     dragOverId.current = overId
-    setLocalFolders(prev => {
+    setDragOrder(prev => {
+      if (!prev) return prev
       const from = prev.findIndex(f => f.id === draggedId)
       const to = prev.findIndex(f => f.id === overId)
       if (from === -1 || to === -1) return prev
@@ -1224,10 +1225,10 @@ function FolderTabs({
 
   const handleDrop = () => {
     if (draggedId) reorderFolders(localFolders)
-    setDraggedId(null); dragOverId.current = null
+    setDraggedId(null); setDragOrder(null); dragOverId.current = null
   }
 
-  const handleDragEnd = () => { setDraggedId(null); dragOverId.current = null }
+  const handleDragEnd = () => { setDraggedId(null); setDragOrder(null); dragOverId.current = null }
 
   const handleCreate = () => {
     const name = inputValue.trim()
@@ -1352,22 +1353,8 @@ function FolderTabs({
   )
 }
 
-// ─── Assets overview (two stat cards) ────────────────────────────────────────
-function AssetsOverview({
-  assets, currency, loading, showCards,
-}: {
-  assets: AssetItem[]
-  currency: string
-  loading: boolean
-  showCards: boolean
-}) {
-  const investable = assets.filter((a) => a.investability === 'investable')
-  const nonInvestable = assets.filter((a) => a.investability !== 'investable')
-  const totalValue = assets.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-  const investableValue = investable.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-  const nonInvestableValue = nonInvestable.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-
-  const StatCard = ({ title, main, investableLabel, nonInvestableLabel }: { title: string; main: React.ReactNode; investableLabel: string; nonInvestableLabel: string }) => (
+function StatCard({ title, main, investableLabel, nonInvestableLabel, loading }: { title: string; main: React.ReactNode; investableLabel: string; nonInvestableLabel: string; loading: boolean }) {
+  return (
     <div style={{ flex: 1, background: '#FFF', boxShadow: PANEL_SHADOW, borderRadius: '16px', overflow: 'hidden' }}>
       <div style={{ padding: '16px 16px 12px' }}>
         <div className="flex items-center gap-2" style={{ marginBottom: '8px' }}>
@@ -1394,6 +1381,22 @@ function AssetsOverview({
       </div>
     </div>
   )
+}
+
+// ─── Assets overview (two stat cards) ────────────────────────────────────────
+function AssetsOverview({
+  assets, currency, loading, showCards,
+}: {
+  assets: AssetItem[]
+  currency: string
+  loading: boolean
+  showCards: boolean
+}) {
+  const investable = assets.filter((a) => a.investability === 'investable')
+  const nonInvestable = assets.filter((a) => a.investability !== 'investable')
+  const totalValue = assets.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
+  const investableValue = investable.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
+  const nonInvestableValue = nonInvestable.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
 
   return (
     <div style={{ padding: '20px 40px 0' }}>
@@ -1404,13 +1407,42 @@ function AssetsOverview({
             main={fmt(totalValue, currency)}
             investableLabel={fmt(investableValue, currency)}
             nonInvestableLabel={fmt(nonInvestableValue, currency)}
+            loading={loading}
           />
           <StatCard
             title="Total Assets"
             main={String(assets.length)}
             investableLabel={String(investable.length)}
             nonInvestableLabel={String(nonInvestable.length)}
+            loading={loading}
           />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterBtn({ label, value, options, open, onOpen, onSelect }: {
+  label: string; value: string | null; options: { label: string; value: string | null }[]
+  open: boolean; onOpen: () => void; onSelect: (v: string | null) => void
+}) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <button type="button" onClick={onOpen}
+        className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+        style={{ height: '28px', padding: '0 10px', borderRadius: '6px', border: value ? '1px solid #033AB8' : 'none', background: value ? '#F0F4FF' : 'linear-gradient(180deg, #FFFFFF 0%, #F9F9FB 65%, #EFF0F5 100%)', boxShadow: value ? 'none' : BTN_SHADOW, fontSize: '12px', fontWeight: 500, color: value ? '#033AB8' : '#2C2E35', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        {value ? options.find((o) => o.value === value)?.label ?? label : label}
+        <ChevronDownIcon size={10} color={value ? '#033AB8' : '#6E738C'} />
+      </button>
+      {open && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: '#FFF', boxShadow: DROPDOWN_SHADOW, borderRadius: '10px', zIndex: 50, padding: '4px', minWidth: '160px' }}>
+          {options.map((opt) => (
+            <button key={String(opt.value)} type="button"
+              onClick={() => { onSelect(opt.value); onOpen() }}
+              style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '6px 10px', borderRadius: '6px', border: 'none', background: value === opt.value ? '#EFF0F5' : 'transparent', fontSize: '13px', color: '#2C2E35', cursor: 'pointer', textAlign: 'left' }}>
+              {opt.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -1456,31 +1488,6 @@ function AssetTable({
   }
 
   const presentTypes = [...new Set(assets.map((a) => a.asset_type))]
-
-  const FilterBtn = ({ label, value, options, open, onOpen, onSelect }: {
-    label: string; value: string | null; options: { label: string; value: string | null }[]
-    open: boolean; onOpen: () => void; onSelect: (v: string | null) => void
-  }) => (
-    <div style={{ position: 'relative' }}>
-      <button type="button" onClick={onOpen}
-        className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-        style={{ height: '28px', padding: '0 10px', borderRadius: '6px', border: value ? '1px solid #033AB8' : 'none', background: value ? '#F0F4FF' : 'linear-gradient(180deg, #FFFFFF 0%, #F9F9FB 65%, #EFF0F5 100%)', boxShadow: value ? 'none' : BTN_SHADOW, fontSize: '12px', fontWeight: 500, color: value ? '#033AB8' : '#2C2E35', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-        {value ? options.find((o) => o.value === value)?.label ?? label : label}
-        <ChevronDownIcon size={10} color={value ? '#033AB8' : '#6E738C'} />
-      </button>
-      {open && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: '#FFF', boxShadow: DROPDOWN_SHADOW, borderRadius: '10px', zIndex: 50, padding: '4px', minWidth: '160px' }}>
-          {options.map((opt) => (
-            <button key={String(opt.value)} type="button"
-              onClick={() => { onSelect(opt.value); onOpen() }}
-              style={{ display: 'flex', alignItems: 'center', width: '100%', padding: '6px 10px', borderRadius: '6px', border: 'none', background: value === opt.value ? '#EFF0F5' : 'transparent', fontSize: '13px', color: '#2C2E35', cursor: 'pointer', textAlign: 'left' }}>
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 
   return (
     <div style={{ flex: 1, margin: '0 40px 40px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -2023,10 +2030,10 @@ function AssetSidePanel({
   const [showAddRule, setShowAddRule] = useState(false)
   const [pausingRule, setPausingRule] = useState<AutopilotRule | null>(null)
   const docFileRef = useRef<HTMLInputElement>(null)
-  const menuBtnRef = useRef<HTMLButtonElement>(null)
 
   // Panel action states
   const [showPanelMenu, setShowPanelMenu] = useState(false)
+  const [menuAnchor, setMenuAnchor] = useState({ bottom: 0, right: 0 })
   const [showMoveModal, setShowMoveModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
 
@@ -2172,9 +2179,12 @@ function AssetSidePanel({
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="#6E738C" strokeWidth="1.5" strokeLinecap="round"/></svg>
           </button>
           <button
-            ref={menuBtnRef}
             type="button"
-            onClick={() => setShowPanelMenu(v => !v)}
+            onClick={(e) => {
+              const { bottom, right } = e.currentTarget.getBoundingClientRect()
+              setMenuAnchor({ bottom, right })
+              setShowPanelMenu(v => !v)
+            }}
             style={{ width: '28px', height: '28px', borderRadius: '8px', border: 'none', background: showPanelMenu ? '#EFF0F5' : 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <circle cx="8" cy="4" r="1.2" fill="#6E738C"/>
@@ -2661,8 +2671,8 @@ function AssetSidePanel({
           <div style={{ position: 'fixed', inset: 0, zIndex: 299 }} onClick={() => setShowPanelMenu(false)} />
           <div style={{
             position: 'fixed',
-            top: (menuBtnRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
-            left: (menuBtnRef.current?.getBoundingClientRect().right ?? 0) - 191,
+            top: menuAnchor.bottom + 4,
+            left: menuAnchor.right - 191,
             width: '191px',
             background: '#FFFFFF',
             borderRadius: '10px',
@@ -2768,7 +2778,7 @@ function AssetSidePanel({
 export function AssetsPage() {
   const [collapsed, setCollapsed] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [pickedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [showCards, setShowCards] = useState(true)
   const [selectedAsset, setSelectedAsset] = useState<AssetItem | null>(null)
 
@@ -2811,11 +2821,7 @@ export function AssetsPage() {
   })
 
   // Auto-select first folder
-  useEffect(() => {
-    if (folders && folders.length > 0 && !selectedFolderId) {
-      setSelectedFolderId(folders[0].id)
-    }
-  }, [folders, selectedFolderId])
+  const selectedFolderId = pickedFolderId ?? folders?.[0]?.id ?? null
 
   // Assets — scoped server-side to the selected folder (?folder_id=…).
   const { data: assets, isLoading: loadingAssets } = useQuery({

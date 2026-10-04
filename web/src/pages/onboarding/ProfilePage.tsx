@@ -12,7 +12,7 @@ import {
 import type { Country } from '@/components/CountryPhoneInput'
 import { userApi } from '@/lib/api'
 import { useAuthStore } from '@/store/auth'
-import { cn } from '@/lib/utils'
+import { cn, getApiErrorMessage } from '@/lib/utils'
 
 // ─── Log out button style ─────────────────────────────────────────────────────
 const LOG_OUT_SHADOW =
@@ -60,8 +60,7 @@ export function ProfilePage() {
   })
 
   const apiError =
-    (error as any)?.response?.data?.error?.message ??
-    (error ? 'Something went wrong' : null)
+    getApiErrorMessage(error, 'Something went wrong')
 
   const canSubmit = firstName.trim().length > 0 && lastName.trim().length > 0
 
