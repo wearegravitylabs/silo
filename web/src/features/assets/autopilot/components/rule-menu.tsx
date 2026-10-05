@@ -1,78 +1,72 @@
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
-import { DROPDOWN_SHADOW } from '@/lib/shadows'
+import { Svg } from '@/components/icons'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import { useRuleMutations } from '../queries'
 import type { AutopilotRule } from '../types'
 
+/** ⋯ menu on a rule card: pause/resume, edit, delete. */
 export function RuleMenu({
-  rule, portfolioId, onEdit, onPause, onResume, onDelete,
+  rule,
+  portfolioId,
+  onEdit,
+  onPause,
 }: {
   rule: AutopilotRule
   portfolioId: string
   onEdit: () => void
   onPause: () => void
-  onResume?: () => void
-  onDelete?: () => void
 }) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node) && !btnRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [open])
-
-  const handleOpen = () => {
-    if (!btnRef.current) return
-    const r = btnRef.current.getBoundingClientRect()
-    setPos({ top: r.bottom + 4, left: r.right - 148 })
-    setOpen(v => !v)
-  }
-
   const { remove, resume } = useRuleMutations(portfolioId)
-  const deleteRule = () => remove.mutate(rule.id, { onSuccess: onDelete })
-  const resumeRule = () => resume.mutate(rule.id, { onSuccess: onResume })
-
-  const item = (label: string, icon: React.ReactNode, color: string, onClick: () => void) => (
-    <button type="button" onClick={() => { setOpen(false); onClick() }}
-      style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '13px', color, textAlign: 'left' }}>
-      {icon}{label}
-    </button>
-  )
+  const item = 'gap-2 rounded-md px-3 py-2 text-13 font-normal [&_svg]:size-3 [&_svg]:text-current'
 
   return (
-    <>
-      <button ref={btnRef} type="button" onClick={handleOpen}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', display: 'flex', alignItems: 'center', color: '#B3B8CB', borderRadius: '4px' }}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <circle cx="3" cy="7" r="1.1" fill="currentColor"/><circle cx="7" cy="7" r="1.1" fill="currentColor"/><circle cx="11" cy="7" r="1.1" fill="currentColor"/>
-        </svg>
-      </button>
-      {open && createPortal(
-        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, width: '148px', background: '#FFF', boxShadow: DROPDOWN_SHADOW, borderRadius: '10px', zIndex: 400, padding: '4px', overflow: 'hidden' }}>
-          {rule.is_active
-            ? item('Pause Rule',
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="2.5" y="2" width="3" height="8" rx="0.8" fill="currentColor"/><rect x="6.5" y="2" width="3" height="8" rx="0.8" fill="currentColor"/></svg>,
-                '#2C2E35', onPause)
-            : item('Resume Rule',
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 2l7 4-7 4V2z" fill="currentColor"/></svg>,
-                '#008753', resumeRule)
-          }
-          {item('Edit Rule',
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M8.5 1.5l2 2-7 7-2.5.5.5-2.5 7-7z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>,
-            '#2C2E35', onEdit)}
-          {item('Delete Rule',
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M4 3V2h4v1M5 5.5v3M7 5.5v3M3 3l.5 7h5l.5-7H3z" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-            '#F03722', () => deleteRule())}
-        </div>,
-        document.body,
-      )}
-    </>
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Rule options"
+        className="flex items-center rounded-sm px-1 py-0.5 text-subtle outline-none hover:text-muted-foreground"
+      >
+        <Svg viewBox="0 0 14 14" className="size-3.5">
+          <circle cx="3" cy="7" r="1.1" fill="currentColor" />
+          <circle cx="7" cy="7" r="1.1" fill="currentColor" />
+          <circle cx="11" cy="7" r="1.1" fill="currentColor" />
+        </Svg>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-37 p-1">
+        {rule.is_active ? (
+          <DropdownMenuItem className={item} onSelect={onPause}>
+            <Svg viewBox="0 0 12 12">
+              <rect x="2.5" y="2" width="3" height="8" rx="0.8" fill="currentColor" />
+              <rect x="6.5" y="2" width="3" height="8" rx="0.8" fill="currentColor" />
+            </Svg>
+            Pause Rule
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem className={cn(item, 'text-positive')} onSelect={() => resume.mutate(rule.id)}>
+            <Svg viewBox="0 0 12 12">
+              <path d="M3 2l7 4-7 4V2z" fill="currentColor" />
+            </Svg>
+            Resume Rule
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem className={item} onSelect={onEdit}>
+          <Svg viewBox="0 0 12 12">
+            <path d="M8.5 1.5l2 2-7 7-2.5.5.5-2.5 7-7z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+          </Svg>
+          Edit Rule
+        </DropdownMenuItem>
+        <DropdownMenuItem variant="destructive" className={item} onSelect={() => remove.mutate(rule.id)}>
+          <Svg viewBox="0 0 12 12">
+            <path
+              d="M2 3h8M4 3V2h4v1M5 5.5v3M7 5.5v3M3 3l.5 7h5l.5-7H3z"
+              stroke="currentColor"
+              strokeWidth="1.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          Delete Rule
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

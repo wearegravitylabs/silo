@@ -1,71 +1,63 @@
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/format'
-import { PANEL_SHADOW } from '@/lib/shadows'
+import { cn } from '@/lib/utils'
 import type { AssetItem } from '../types'
 
-export function StatCard({ title, main, investableLabel, nonInvestableLabel, loading }: { title: string; main: React.ReactNode; investableLabel: string; nonInvestableLabel: string; loading: boolean }) {
+/** Two stat cards (value, count) for the current folder, split investable / non-investable. */
+export function AssetsOverview({ assets, currency, loading }: { assets: AssetItem[]; currency: string; loading?: boolean }) {
+  const investable = assets.filter((a) => a.investability === 'investable')
+  const other = assets.filter((a) => a.investability !== 'investable')
+  const sum = (list: AssetItem[]) => list.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
+  const money = (list: AssetItem[]) => formatCurrency(sum(list), currency)
+
   return (
-    <div style={{ flex: 1, background: '#FFF', boxShadow: PANEL_SHADOW, borderRadius: '16px', overflow: 'hidden' }}>
-      <div style={{ padding: '16px 16px 12px' }}>
-        <div className="flex items-center gap-2" style={{ marginBottom: '8px' }}>
-          <div style={{ width: '10px', height: '10px', borderRadius: '50%', border: '2.5px solid #033AB8', flexShrink: 0 }} />
-          <span style={{ fontSize: '13px', color: '#6E738C', fontWeight: 500 }}>{title}</span>
-        </div>
-        {loading ? (
-          <div style={{ height: '36px', width: '160px', background: '#EFF0F5', borderRadius: '6px' }} />
-        ) : (
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '32px', fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.5px', color: '#2C2E35' }}>{main}</span>
-        )}
-      </div>
-      <div style={{ display: 'flex', borderTop: '1px solid #EFF0F5' }}>
-        <div style={{ flex: 1, padding: '12px 16px 0', borderRight: '1px solid #EFF0F5' }}>
-          <div style={{ fontSize: '11px', color: '#6E738C', marginBottom: '6px' }}>Investable Assets</div>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: '#2C2E35', marginBottom: '12px' }}>{investableLabel}</div>
-          <div style={{ height: '2px', background: '#033AB8' }} />
-        </div>
-        <div style={{ flex: 1, padding: '12px 16px 0' }}>
-          <div style={{ fontSize: '11px', color: '#6E738C', marginBottom: '6px' }}>Non-Investable Assets</div>
-          <div style={{ fontSize: '15px', fontWeight: 600, color: '#2C2E35', marginBottom: '12px' }}>{nonInvestableLabel}</div>
-          <div style={{ height: '2px', borderBottom: '2px dashed #033AB8' }} />
-        </div>
-      </div>
+    <div className="flex gap-4 px-10 pt-5">
+      <StatCard title="Investment Value" main={money(assets)} investable={money(investable)} other={money(other)} loading={loading} />
+      <StatCard title="Total Assets" main={assets.length} investable={investable.length} other={other.length} loading={loading} />
     </div>
   )
 }
 
-export function AssetsOverview({
-  assets, currency, loading, showCards,
+function StatCard({
+  title,
+  main,
+  investable,
+  other,
+  loading,
 }: {
-  assets: AssetItem[]
-  currency: string
-  loading: boolean
-  showCards: boolean
+  title: string
+  main: string | number
+  investable: string | number
+  other: string | number
+  loading?: boolean
 }) {
-  const investable = assets.filter((a) => a.investability === 'investable')
-  const nonInvestable = assets.filter((a) => a.investability !== 'investable')
-  const totalValue = assets.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-  const investableValue = investable.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-  const nonInvestableValue = nonInvestable.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-
+  const split = [
+    { label: 'Investable Assets', value: investable, rule: 'border-solid' },
+    { label: 'Non-Investable Assets', value: other, rule: 'border-dashed' },
+  ]
   return (
-    <div style={{ padding: '20px 40px 0' }}>
-      {showCards && (
-        <div style={{ display: 'flex', gap: '16px' }}>
-          <StatCard
-            title="Investment Value"
-            main={formatCurrency(totalValue, currency)}
-            investableLabel={formatCurrency(investableValue, currency)}
-            nonInvestableLabel={formatCurrency(nonInvestableValue, currency)}
-            loading={loading}
-          />
-          <StatCard
-            title="Total Assets"
-            main={String(assets.length)}
-            investableLabel={String(investable.length)}
-            nonInvestableLabel={String(nonInvestable.length)}
-            loading={loading}
-          />
-        </div>
-      )}
-    </div>
+    <Card className="flex-1">
+      <div className="px-4 pt-4 pb-3">
+        <h3 className="mb-2 flex items-center gap-2 text-13 font-medium text-muted-foreground">
+          <span className="size-2.5 shrink-0 rounded-full border-[2.5px] border-primary-dark" />
+          {title}
+        </h3>
+        {loading ? (
+          <Skeleton className="h-9 w-40 rounded-md" />
+        ) : (
+          <span className="font-heading text-32 leading-[1.1] font-bold tracking-[-0.5px]">{main}</span>
+        )}
+      </div>
+      <dl className="flex divide-x border-t">
+        {split.map(({ label, value, rule }) => (
+          <div key={label} className="flex-1 px-4 pt-3">
+            <dt className="mb-1.5 text-11 text-muted-foreground">{label}</dt>
+            <dd className="mb-3 text-15 font-semibold">{loading ? <Skeleton className="h-4 w-20" /> : value}</dd>
+            <div className={cn('border-b-2 border-primary-dark', rule)} />
+          </div>
+        ))}
+      </dl>
+    </Card>
   )
 }

@@ -1,114 +1,68 @@
 import { useState, type ReactNode } from 'react'
-import { FieldError } from '@/components/field-error'
+import { FormField, FormHeading } from '@/components/form-field'
 import { Logo } from '@/components/logo'
-import { getErrorMessage } from '@/lib/api-client'
-import { ELEVATED_SHADOW } from '@/lib/shadows'
-import { cn } from '@/lib/utils'
-import { useSendCode } from '../queries'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** Email-only sign-in/sign-up form: sends a one-time code, then calls onCodeSent. */
+/** Email-only sign-in/sign-up form. UI only: validates, then hands the email to onSubmit. */
 export function EmailAuthForm({
   title,
   subtitle,
   footer,
-  onCodeSent,
+  onSubmit,
 }: {
   title: string
   subtitle: string
   footer: ReactNode
-  onCodeSent: () => void
+  onSubmit: (email: string) => void
 }) {
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
-  const { mutate, isPending, error } = useSendCode()
-
-  const emailError = touched && !EMAIL_RE.test(email) ? 'Enter a valid email address' : ''
-  const apiError = getErrorMessage(error, 'Something went wrong')
+  const emailError = touched && !EMAIL_RE.test(email) ? 'Enter a valid email address' : undefined
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
-    if (!EMAIL_RE.test(email)) return
-    mutate(email, { onSuccess: onCodeSent })
+    if (EMAIL_RE.test(email)) onSubmit(email)
   }
 
   return (
     <>
-      {/* Header */}
-      <div className="text-center mb-6">
-        <Logo className="justify-center mb-6" />
-        <h1
-          className="font-bold text-foreground mb-3"
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontSize: '24px',
-            lineHeight: '32px',
-            letterSpacing: '-0.1px',
-          }}
-        >
-          {title}
-        </h1>
-        <p className="text-sm text-muted-foreground leading-[22px] tracking-[-0.1px]">
-          {subtitle}
-        </p>
+      <div className="mb-6 flex flex-col items-center gap-6">
+        <Logo />
+        <FormHeading title={title} subtitle={subtitle} />
       </div>
 
-      {/* Social buttons — cloud only */}
-      <div className="flex flex-col gap-3 mb-5">
+      {/* Social sign-in: Silo Cloud only */}
+      <div className="mb-5 flex flex-col gap-3">
         <SocialButton icon={<GoogleIcon />} label="Continue with Google" />
         <SocialButton icon={<AppleIcon />} label="Continue with Apple ID" />
       </div>
 
-      {/* Divider */}
-      <div className="flex items-center gap-1 mb-5">
-        <div className="flex-1 h-px bg-[#E3E5ED]" />
-        <span className="text-sm text-muted-foreground px-1">or</span>
-        <div className="flex-1 h-px bg-[#E3E5ED]" />
+      <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground" role="separator">
+        <span className="h-px flex-1 bg-line" />
+        or
+        <span className="h-px flex-1 bg-line" />
       </div>
 
-      {/* Email form */}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-1">
-        <div className="flex flex-col gap-2 mb-1">
-          <label
-            className="text-sm font-medium text-foreground tracking-[0.1px]"
-            htmlFor="email"
-          >
-            Email Address
-          </label>
-          <input
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        <FormField label="Email Address" htmlFor="email" error={emailError}>
+          <Input
             id="email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched(true)}
             placeholder="john.doe@yahoo.com"
-            className={cn(
-              'w-full h-10 px-4 rounded-xl bg-surface text-foreground placeholder:text-subtle text-sm outline-none transition-colors',
-              emailError
-                ? 'border-2 border-danger focus:border-danger'
-                : 'border border-border focus:border-primary',
-            )}
+            aria-invalid={!!emailError || undefined}
           />
-          {emailError && <FieldError message={emailError} />}
-          {apiError && !emailError && <FieldError message={apiError} />}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isPending}
-          className={cn(
-            'w-full h-10 rounded-xl text-white font-semibold text-sm tracking-[0.1px] mt-3',
-            'bg-gradient-to-b from-primary to-primary-dark',
-            'transition-[opacity,transform] duration-150',
-            isPending
-              ? 'opacity-60 cursor-not-allowed'
-              : 'hover:opacity-90 active:scale-[0.98] active:opacity-80',
-          )}
-        >
-          {isPending ? 'Sending...' : 'Continue with Email'}
-        </button>
+        </FormField>
+        <Button type="submit" size="lg" className="w-full">
+          Continue with Email
+        </Button>
       </form>
 
       {footer}
@@ -116,27 +70,19 @@ export function EmailAuthForm({
   )
 }
 
-function SocialButton({ icon, label }: { icon: React.ReactNode; label: string }) {
+function SocialButton({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <button
-      type="button"
-      disabled
-      title="Available in Silo Cloud"
-      className="flex items-center justify-center gap-2 w-full h-10 px-[14px] rounded-xl text-foreground text-sm font-semibold tracking-[0.1px] opacity-50 cursor-not-allowed"
-      style={{
-        background: 'linear-gradient(180deg, #FFFFFF 0%, #F9F9FB 65%, #EFF0F5 100%)',
-        boxShadow: ELEVATED_SHADOW,
-      }}
-    >
+    <Button variant="secondary" size="lg" disabled title="Available in Silo Cloud" className="w-full gap-2 shadow-elevated">
       {icon}
       {label}
-    </button>
+    </Button>
   )
 }
 
+/* Brand marks keep their official colours. */
 function GoogleIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 18 18" aria-hidden="true" className="size-4">
       <path
         d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908C16.658 14.253 17.64 11.945 17.64 9.2z"
         fill="#4285F4"
@@ -159,7 +105,7 @@ function GoogleIcon() {
 
 function AppleIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 814 1000" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+    <svg viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true" className="size-4">
       <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-54.3-155.5-127.4C46.7 790.7 0 663 0 541.8c0-207.5 135.4-317.3 268.5-317.3 71 0 130.1 46.4 173.4 46.4 42.6 0 109.5-49.8 190.8-49.8zM520 188.9c-7.4-41.1 15.4-81.9 37.9-107.8C584.2 47.8 629.7 20 672.6 20c2.3 0 4.7 0 6.9.2-2.5 41.1-19.4 81.7-45 111.3-23.3 27.4-66.6 56.4-114.5 57.4z" />
     </svg>
   )

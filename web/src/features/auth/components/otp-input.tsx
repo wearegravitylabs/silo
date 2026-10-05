@@ -9,13 +9,7 @@ interface OtpInputProps {
   className?: string
 }
 
-export function OtpInput({
-  value,
-  onChange,
-  length = 6,
-  hasError = false,
-  className,
-}: OtpInputProps) {
+export function OtpInput({ value, onChange, length = 6, hasError = false, className }: OtpInputProps) {
   const refs = useRef<(HTMLInputElement | null)[]>([])
 
   const digits = value.padEnd(length, ' ').split('').slice(0, length)
@@ -54,7 +48,7 @@ export function OtpInput({
   }
 
   return (
-    <div className={cn('flex gap-2', className)}>
+    <div className={cn('flex gap-2', className)} role="group" aria-label="Verification code">
       {Array.from({ length }, (_, i) => (
         <input
           key={i}
@@ -69,19 +63,12 @@ export function OtpInput({
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
           placeholder="·"
+          aria-label={`Digit ${i + 1} of ${length}`}
+          aria-invalid={hasError || undefined}
           className={cn(
-            'w-12 h-12 text-center rounded-xl outline-none transition-colors',
-            'bg-surface placeholder:text-subtle',
-            hasError
-              ? 'border-2 border-danger text-danger'
-              : 'border border-transparent focus:border-primary text-foreground',
+            'size-12 rounded-xl bg-surface text-center font-heading text-xl leading-7 font-bold transition-colors outline-none placeholder:text-subtle',
+            hasError ? 'border-2 border-destructive text-destructive' : 'border border-transparent text-foreground focus:border-primary',
           )}
-          style={{
-            fontFamily: 'var(--font-heading)',
-            fontWeight: 700,
-            fontSize: '20px',
-            lineHeight: '28px',
-          }}
         />
       ))}
     </div>

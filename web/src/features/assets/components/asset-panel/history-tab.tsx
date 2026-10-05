@@ -1,34 +1,35 @@
 import { formatCurrency, formatDate } from '@/lib/format'
 import { useAssetLots } from '../../queries'
-import type { AssetItem, AssetLot } from '../../types'
-import { TabBody } from './tab-layout'
+import type { AssetItem } from '../../types'
+import { TabBody, TabEmpty, TabListSkeleton } from './tab-layout'
 
 export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolioId: string }) {
-  const { data: lots } = useAssetLots(portfolioId, asset.id)
+  const { data: lots, isPending } = useAssetLots(portfolioId, asset.id)
+
   return (
     <TabBody>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {!lots?.length ? (
-            <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: '13px', color: '#B3B8CB' }}>No history available</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: '#EFF0F5', borderRadius: '12px', overflow: 'hidden' }}>
-              {lots.map((lot: AssetLot) => (
-                <div key={lot.id} style={{ background: '#FFF', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#2C2E35' }}>{lot.quantity.toLocaleString()} units acquired</div>
-                    <div style={{ fontSize: '11px', color: '#B3B8CB', marginTop: '2px' }}>{formatDate(lot.acquisition_date)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#2C2E35' }}>
-                      {lot.acquisition_price != null ? formatCurrency(lot.acquisition_price, asset.currency) : '—'}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#B3B8CB' }}>per unit</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+      {isPending ? (
+        <TabListSkeleton rows={2} />
+      ) : !lots?.length ? (
+        <TabEmpty title="No history yet" body="Purchases and sales of this asset will show up here." />
+      ) : (
+        <ul className="flex flex-col gap-px overflow-hidden rounded-xl bg-accent">
+          {lots.map((lot) => (
+            <li key={lot.id} className="flex items-center justify-between bg-background px-4 py-3">
+              <div>
+                <p className="text-13 font-semibold">{lot.quantity.toLocaleString()} units acquired</p>
+                <p className="mt-0.5 text-11 text-subtle">{formatDate(lot.acquisition_date)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-13 font-semibold">
+                  {lot.acquisition_price != null ? formatCurrency(lot.acquisition_price, asset.currency) : '—'}
+                </p>
+                <p className="text-11 text-subtle">per unit</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </TabBody>
   )
 }

@@ -1,9 +1,22 @@
-import { BankConnectionsIcon, BusinessIcon, CryptoTickerIcon, CryptoWalletIcon, DomainsIcon, ManualAssetIcon, PhysicalIcon, RealEstateIcon, StockTickerIcon, VentureCapitalIcon } from '../icons'
+import type { ReactNode } from 'react'
+import {
+  BankConnectionsIcon,
+  BusinessIcon,
+  CryptoTickerIcon,
+  CryptoWalletIcon,
+  DomainsIcon,
+  ManualAssetIcon,
+  PhysicalIcon,
+  RealEstateIcon,
+  StockTickerIcon,
+  VentureCapitalIcon,
+} from '../icons'
 
 export interface AssetTypeConfig {
   id: string
   label: string
-  icon: React.ReactNode
+  icon: ReactNode
+  /** Only stocks can be added today; the rest show as "soon". */
   enabled: boolean
 }
 

@@ -1,11 +1,16 @@
+import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/format'
-import { type DashboardChartPoint, type DashboardNetWorth, type DashboardPeriod, PERIODS } from '../types'
-import { Card, CardHead } from './card'
+import { cn } from '@/lib/utils'
+import { PERIODS, type DashboardChartPoint, type DashboardNetWorth, type DashboardPeriod } from '../types'
+import { CardHead } from './card-head'
 import { CoinIcon } from './icons'
 import { LineChart } from './line-chart'
 
 export function NetWorthCard({
-  nw, chartPoints, period, onPeriod,
+  nw,
+  chartPoints,
+  period,
+  onPeriod,
 }: {
   nw: DashboardNetWorth
   chartPoints: DashboardChartPoint[]
@@ -13,46 +18,56 @@ export function NetWorthCard({
   onPeriod: (p: DashboardPeriod) => void
 }) {
   const up = (nw.change_pct ?? 0) >= 0
+  const split = [
+    { label: 'Assets', value: nw.assets, bar: 'bg-positive' },
+    { label: 'Liabilities', value: nw.debts, bar: 'bg-negative' },
+  ]
+
   return (
     <Card>
       <CardHead icon={<CoinIcon />} title="Net Worth" />
-      {/* Stats */}
-      <div className="flex items-end justify-between" style={{ padding: '16px 16px 0' }}>
+
+      <div className="flex items-end justify-between px-4 pt-4">
         <div className="flex flex-col gap-1">
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '28px', fontWeight: 700, lineHeight: '36px', letterSpacing: '-0.3px', color: '#2C2E35' }}>
-            {formatCurrency(nw.total, nw.currency)}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <span style={{ fontSize: '12px', color: '#6E738C' }}>Total net worth</span>
+          <span className="font-heading text-28 leading-9 font-bold tracking-[-0.3px]">{formatCurrency(nw.total, nw.currency)}</span>
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            Total net worth
             {nw.change_pct != null && (
               <>
-                <span style={{ fontSize: '12px', color: '#B3B8CB' }}>·</span>
-                <span style={{ fontSize: '12px', fontWeight: 500, color: up ? '#008753' : '#C50F3C' }}>
-                  {up ? '+' : ''}{nw.change_pct.toFixed(2)}% this period
+                <span className="text-subtle">·</span>
+                <span className={cn('font-medium', up ? 'text-positive' : 'text-negative')}>
+                  {up ? '+' : ''}
+                  {nw.change_pct.toFixed(2)}% this period
                 </span>
               </>
             )}
-          </div>
+          </p>
         </div>
-        <div className="flex gap-8">
-          {([['#008753', 'Assets', nw.assets], ['#C50F3C', 'Liabilities', nw.debts]] as const).map(([color, label, val]) => (
+
+        <dl className="flex gap-8">
+          {split.map(({ label, value, bar }) => (
             <div key={label} className="flex items-center gap-2">
-              <div style={{ width: '4px', height: '40px', background: color, borderRadius: '16px', flexShrink: 0 }} />
+              <span className={cn('h-10 w-1 shrink-0 rounded-2xl', bar)} />
               <div className="flex flex-col gap-1.5">
-                <span style={{ fontSize: '12px', color: '#6E738C', lineHeight: '20px' }}>{label}</span>
-                <span style={{ fontSize: '14px', fontWeight: 500, color: '#2C2E35', letterSpacing: '0.1px' }}>{formatCurrency(val, nw.currency)}</span>
+                <dt className="text-xs leading-5 text-muted-foreground">{label}</dt>
+                <dd className="text-sm font-medium tracking-label">{formatCurrency(value, nw.currency)}</dd>
               </div>
             </div>
           ))}
-        </div>
+        </dl>
       </div>
-      {/* Chart + tabs */}
-      <div style={{ padding: '16px' }}>
+
+      <div className="p-4">
         <LineChart points={chartPoints} />
-        <div className="flex items-center justify-center" style={{ gap: '2px', marginTop: '8px' }}>
+        <div className="mt-2 flex items-center justify-center gap-0.5" role="group" aria-label="Chart period">
           {PERIODS.map(({ label }) => (
-            <button key={label} type="button" onClick={() => onPeriod(label)}
-              style={{ padding: '5px 10px', height: '24px', borderRadius: '8px', background: label === period ? '#EFF0F5' : 'transparent', fontSize: '12px', fontWeight: label === period ? 600 : 500, color: label === period ? '#2C2E35' : '#6E738C', border: 'none', cursor: 'pointer', transition: 'background 0.15s' }}>
+            <button
+              key={label}
+              type="button"
+              aria-pressed={label === period}
+              onClick={() => onPeriod(label)}
+              className="h-6 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:font-semibold aria-pressed:text-foreground"
+            >
               {label}
             </button>
           ))}

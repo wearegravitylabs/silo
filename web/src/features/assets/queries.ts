@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import {
   addNote,
   createAsset,
@@ -32,21 +32,23 @@ export const assetKeys = {
 
 // ─── Lists & overview ─────────────────────────────────────────────────────────
 
-export const useAssets = (portfolioId: string, folderId: string | null, { enabled = true } = {}) =>
-  useQuery({
+/** Assets in one folder (or the whole portfolio when folderId is null). */
+export const assetsQuery = (portfolioId: string, folderId: string | null) =>
+  queryOptions({
     queryKey: assetKeys.list(portfolioId, folderId),
     queryFn: () => listAssets(portfolioId, folderId ?? undefined),
-    enabled: !!portfolioId && enabled,
     staleTime: 60_000,
   })
 
-export const useAssetOverview = (portfolioId: string) =>
-  useQuery({
-    queryKey: assetKeys.overview(portfolioId),
-    queryFn: () => getAssetOverview(portfolioId),
-    enabled: !!portfolioId,
-    staleTime: 60_000,
-  })
+export const assetOverviewQuery = (portfolioId: string) =>
+  queryOptions({ queryKey: assetKeys.overview(portfolioId), queryFn: () => getAssetOverview(portfolioId), staleTime: 60_000 })
+
+/** Folder's assets; keeps the previous folder's rows visible while switching (isPlaceholderData). */
+export const useAssets = (portfolioId: string, folderId: string | null, { enabled = true } = {}) =>
+  useQuery({ ...assetsQuery(portfolioId, folderId), enabled, placeholderData: keepPreviousData })
+
+/** Portfolio totals. Suspends — preload with `assetOverviewQuery` in the route loader. */
+export const useAssetOverview = (portfolioId: string) => useSuspenseQuery(assetOverviewQuery(portfolioId)).data
 
 // ─── Ticker lookup ────────────────────────────────────────────────────────────
 

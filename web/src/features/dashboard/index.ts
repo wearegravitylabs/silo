@@ -1,4 +1,5 @@
 export { DashboardOverview } from './components/dashboard-overview'
+export { DashboardSkeleton } from './components/dashboard-skeleton'
 export { WelcomeModal } from './components/welcome-modal'
-export { useDashboard } from './queries'
+export { dashboardQuery, useDashboard } from './queries'
 export { isDashboardPeriod, type DashboardPeriod } from './types'

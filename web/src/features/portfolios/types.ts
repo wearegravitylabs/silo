@@ -10,8 +10,8 @@ export interface Portfolio {
 }
 
 export interface Currency {
-  code: string   // "USD"
-  name: string   // "US Dollar"
+  code: string // "USD"
+  name: string // "US Dollar"
   symbol: string // "$"
 }
 

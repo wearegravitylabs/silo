@@ -1,143 +1,254 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:is(.dark *));
-
-/* ─── Silo brand palette ──────────────────────────────────────────────────────
-   shadcn semantic tokens (primary, muted, border…) are mapped onto these in
-   :root below. Brand-only tokens that shadcn has no slot for live here. */
-@theme static {
+/* ─── Design tokens ────────────────────────────────────────────────────────────
+   One source of truth for colour, type, radius, shadow and motion. Components use
+   these through Tailwind utilities (bg-primary, text-muted-foreground, shadow-panel…);
+   no hex values belong anywhere else. Names follow shadcn so its primitives fit. */
+@theme {
+  /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-heading: 'Space Grotesk', system-ui, -apple-system, sans-serif;
 
-  --color-primary-dark: #033AB8;
-  --color-brand: #1620FF;
-  --color-highlight: #BBE03B;
-  --color-highlight-light: #E5F7A0;
-  --color-highlight-faint: #F8FAEC;
+  /* Every size keeps the inherited 1.5 line-height; set leading-* explicitly where a design calls for it. */
+  --text-2xs: 0.625rem; /* 10px */
+  --text-2xs--line-height: 1.5;
+  --text-11: 0.6875rem;
+  --text-11--line-height: 1.5;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.5;
+  --text-13: 0.8125rem;
+  --text-13--line-height: 1.5;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.5;
+  --text-15: 0.9375rem;
+  --text-15--line-height: 1.5;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.5;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.5;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.5;
+  --text-28: 1.75rem; /* page totals */
+  --text-28--line-height: 1.5;
+  --text-32: 2rem; /* stat & quote display */
+  --text-32--line-height: 1.5;
 
-  --color-subtle: #B3B8CB;
-  --color-surface: #F9F9FB;
-  --color-panel: #001040;
+  --tracking-label: 0.1px; /* labels, buttons, values */
+  --tracking-body: -0.1px; /* body copy */
+  --tracking-caps: 1px; /* small uppercase eyebrows */
 
-  --color-ink: #040103;
-  --color-dark: #3A3A3A;
-  --color-dark-medium: #444444;
+  /* Neutrals */
+  --color-background: #ffffff;
+  --color-foreground: #2c2e35;
+  --color-muted-foreground: #6e738c;
+  --color-subtle: #b3b8cb; /* placeholders, meta text, disabled */
+  --color-surface: #f9f9fb; /* page ground, inputs, sub-cards */
+  --color-accent: #eff0f5; /* hover/selected fills, chips */
+  --color-accent-foreground: #2c2e35;
+  --color-line: #e3e5ed; /* stronger divider, inactive dots */
+  --color-border: #eff0f5;
+  --color-input: #eff0f5;
+  --color-ink: #040103; /* overlays: bg-ink/40 */
 
-  --color-success: #29AF0B;
-  --color-success-light: #C7F6BC;
-  --color-warning: #F07F22;
-  --color-warning-light: #FAD7BA;
-  --color-danger: #F03722;
-  --color-danger-light: #FAC1BA;
-  --color-info-light: #E0ECFF;
+  /* Brand */
+  --color-primary: #044ffa;
+  --color-primary-dark: #033ab8; /* brand text, active borders, fills */
+  --color-primary-foreground: #ffffff;
+  --color-primary-subtle: #f0f4ff; /* selected rows, tints */
+  --color-brand: #1620ff; /* logo */
+  --color-highlight: #bbe03b; /* lime accent */
+  --color-highlight-light: #e5f7a0;
+  --color-ring: #044ffa;
+  --color-night: #071160; /* auth quote panel */
+  --color-sky: #b3dfff;
 
-  --shadow-panel: 0px 2px 2px -1px rgba(17,29,80,0.04), 0px 4px 2px -1px rgba(17,29,80,0.04), 0px 0px 0px 0.5px rgba(17,29,80,0.12);
-  --shadow-button: 0px 1px 1px -0.5px rgba(17,29,80,0.04), 0px 0px 0px 1px rgba(17,29,80,0.1);
-  --shadow-elevated: 0px 4px 4px -2px rgba(17,29,80,0.04), 0px 2px 2px -1px rgba(17,29,80,0.04), 0px 1px 1px -0.5px rgba(17,29,80,0.04), 0px 0px 0px 1px rgba(17,29,80,0.08);
-  --shadow-dropdown: 0px 8px 8px -1px rgba(17,29,80,0.06), 0px 4px 4px -2px rgba(17,29,80,0.04), 0px 2px 2px -1px rgba(17,29,80,0.04), 0px 1px 1px -0.5px rgba(17,29,80,0.04), 0px 0px 0px 1px rgba(17,29,80,0.08);
-  --shadow-popover: 0 8px 24px -4px rgba(0,0,0,0.12), 0 2px 8px -2px rgba(0,0,0,0.06);
-}
+  /* Status */
+  --color-destructive: #f03722;
+  --color-destructive-subtle: #fff0ee;
+  --color-positive: #008753; /* gains */
+  --color-positive-subtle: #f0fbf4;
+  --color-negative: #c50f3c; /* losses, debts */
+  --color-negative-subtle: #fef2f2;
+  --color-success: #29af0b;
+  --color-success-light: #c7f6bc;
+  --color-warning: #f07f22;
+  --color-warning-light: #fad7ba;
+  --color-destructive-light: #fac1ba;
 
-@theme inline {
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
-  --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-}
+  /* Data viz (allocation bars), darkest first */
+  --color-chart-1: #033ab8;
+  --color-chart-2: #6c8eff;
+  --color-chart-3: #b3c4ff;
+  --color-chart-4: #d6dfff;
+  --color-chart-5: #eef2ff;
 
-:root {
-  --background: #FFFFFF;
-  --foreground: #2C2E35;
-  --card: #FFFFFF;
-  --card-foreground: #2C2E35;
-  --popover: #FFFFFF;
-  --popover-foreground: #2C2E35;
-  --primary: #044FFA;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F9F9FB;
-  --secondary-foreground: #2C2E35;
-  --muted: #F9F9FB;
-  --muted-foreground: #6E738C;
-  --accent: #EFF0F5;
-  --accent-foreground: #2C2E35;
-  --destructive: #F03722;
-  --border: #EFF0F5;
-  --input: #EFF0F5;
-  --ring: #044FFA;
+  /* Folder tab badges, cycled in order */
+  --color-folder-1: #1a56db;
+  --color-folder-2: #7c3aed;
+  --color-folder-3: #059669;
+  --color-folder-4: #d97706;
+  --color-folder-5: #dc2626;
+  --color-folder-6: #0891b2;
+
+  /* shadcn surface slots */
+  --color-card: #ffffff;
+  --color-card-foreground: #2c2e35;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #2c2e35;
+  --color-secondary: #f9f9fb;
+  --color-secondary-foreground: #2c2e35;
+  --color-muted: #f9f9fb;
+
+  /* Radius — Tailwind's standard steps (md 6, lg 8, xl 12, 2xl 16) plus the design's 10px */
   --radius: 0.625rem;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-10: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+
+  /* Elevation */
+  --shadow-panel: 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 4px 2px -1px rgb(17 29 80 / 0.04), 0 0 0 0.5px rgb(17 29 80 / 0.12);
+  --shadow-button: 0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.1);
+  --shadow-elevated:
+    0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 1px 1px -0.5px rgb(17 29 80 / 0.04),
+    0 0 0 1px rgb(17 29 80 / 0.08);
+  --shadow-dropdown:
+    0 8px 8px -1px rgb(17 29 80 / 0.06), 0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04),
+    0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.08);
+  --shadow-popover: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.06);
+  --shadow-sheet: -4px 0 32px rgb(0 0 0 / 0.1);
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in-up: fade-in-up 0.5s var(--ease-out-expo) both; /* page/content entrance */
+  --animate-rise: rise 0.2s var(--ease-out-expo) both; /* modals, menus, small content */
+  --animate-slide-in-right: slide-in-right 0.22s var(--ease-out-expo) both;
+  --animate-sheet-up: sheet-up 0.3s var(--ease-out-expo) both;
+  --animate-quote-in: quote-in 0.5s var(--ease-out-expo) both;
+  --animate-quote-out: quote-out 0.42s ease-in both;
+  --animate-author-in: author-in 0.5s var(--ease-out-expo) 0.1s both;
+  --animate-dot-pulse: dot-pulse 1.5s ease infinite;
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(32px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes quote-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes quote-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+  }
+  @keyframes dot-pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scaleX(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scaleX(1.2);
+    }
+  }
+  @keyframes author-in {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
 }
 
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0);    }
+/* Brand gradients, used by buttons and pills */
+@utility bg-gradient-primary {
+  background-image: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
 }
-@keyframes quoteIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0);    }
+@utility bg-gradient-secondary {
+  background-image: linear-gradient(180deg, #ffffff 0%, var(--color-surface) 65%, var(--color-accent) 100%);
 }
-@keyframes quoteOut {
-  from { opacity: 1; transform: translateY(0);    }
-  to   { opacity: 0; transform: translateY(-12px);}
-}
-@keyframes authorIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to   { opacity: 1; transform: translateX(0);    }
-}
-/* Assets page: smaller rise, panel slide-in, spinner */
-@keyframes fadeInUpSm {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
-}
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(32px); }
-  to   { opacity: 1; transform: translateX(0);    }
-}
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: translateY(0);    }
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-@keyframes dotPulse {
-  0%, 100% { opacity: 0.4; transform: scaleX(1);   }
-  50%       { opacity: 1;   transform: scaleX(1.2); }
+@utility bg-gradient-destructive {
+  background-image: linear-gradient(180deg, var(--color-destructive) 0%, #c91f0c 100%);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-    min-height: 100dvh;
-    margin: 0;
+  html {
+    @apply bg-background font-sans text-foreground antialiased;
   }
+  body,
   #root {
     min-height: 100dvh;
   }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
     cursor: pointer;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

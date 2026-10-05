@@ -1,9 +1,15 @@
 import { useState } from 'react'
 import { CloseIcon, PlusCircleIcon, SearchIcon } from '@/components/icons'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useDebounce } from '@/hooks/use-debounce'
+import { cn } from '@/lib/utils'
 import { useTickerSearch } from '../../queries'
 import type { TickerSearchResult } from '../../types'
+import { StepHeading } from './step-heading'
 import { YahooAttribution } from './yahoo-attribution'
+
+const OPTION =
+  'flex h-18 w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none'
 
 export function StockSearchStep({
   portfolioId,
@@ -21,76 +27,94 @@ export function StockSearchStep({
   const { data: results, isFetching } = useTickerSearch(portfolioId, query)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '32px' }}>
-      <div style={{ width: '400px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', fontWeight: 700, lineHeight: '32px', color: '#2C2E35' }}>
-            Search for a Stock
-          </span>
-          <span style={{ fontSize: '14px', lineHeight: '22px', color: '#6E738C' }}>
-            Add publicly traded stocks by ticker symbol. Prices update automatically so you always see current values.
-          </span>
-        </div>
+    <div className="flex flex-1 justify-center py-10">
+      <div className="flex w-100 flex-col gap-6">
+        <StepHeading
+          title="Search for a Stock"
+          description="Add publicly traded stocks by ticker symbol. Prices update automatically so you always see current values."
+        />
 
-        {/* Search bar */}
-        <div className="flex items-center gap-2" style={{ width: '100%', height: '40px', padding: '0 12px', background: '#EFF0F5', borderRadius: '10px' }}>
+        <label className="flex h-10 items-center gap-2 rounded-10 bg-accent px-3">
           <SearchIcon />
           <input
-            type="text" value={input} onChange={(e) => { setInput(e.target.value); if (selected) onSelect(null) }}
-            placeholder="Search by name or ticker..." autoFocus
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '14px', color: '#2C2E35' }}
+            autoFocus
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value)
+              if (selected) onSelect(null)
+            }}
+            placeholder="Search by name or ticker..."
+            aria-label="Search stocks"
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-subtle"
           />
           {input && (
-            <button type="button" onClick={() => { setInput(''); onSelect(null) }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-              <CloseIcon size={14} />
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                setInput('')
+                onSelect(null)
+              }}
+              className="flex"
+            >
+              <CloseIcon className="size-3.5" />
             </button>
           )}
-        </div>
+        </label>
 
-        {/* Results */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {/* Add manually row */}
-          <button type="button" onClick={onAddManually}
-            className="flex items-center gap-3 hover:opacity-90 transition-opacity"
-            style={{ width: '100%', height: '72px', padding: '12px 16px', borderRadius: '12px', background: '#F9F9FB', border: '1px solid #EFF0F5', cursor: 'pointer', textAlign: 'left' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#ECF7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <PlusCircleIcon color="#033AB8" size={20} />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#2C2E35' }}>Add manually</span>
-              <span style={{ fontSize: '12px', color: '#6E738C' }}>Enter stock details manually</span>
-            </div>
+        <div className="flex flex-col gap-1" role="listbox" aria-label="Search results">
+          <button type="button" onClick={onAddManually} className={cn(OPTION, 'bg-surface hover:opacity-90')}>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-subtle">
+              <PlusCircleIcon className="size-5" />
+            </span>
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold">Add manually</span>
+              <span className="text-xs text-muted-foreground">Enter stock details manually</span>
+            </span>
           </button>
 
-          {query.length >= 1 && isFetching && (
-            <div className="flex items-center justify-center" style={{ height: '60px', color: '#B3B8CB', fontSize: '13px' }}>Searching...</div>
-          )}
-          {query.length >= 1 && !isFetching && results && results.length === 0 && (
-            <div className="flex items-center justify-center" style={{ height: '60px', color: '#B3B8CB', fontSize: '13px' }}>No results for "{query}"</div>
-          )}
-          {results?.map((ticker) => {
-            const isSelected = selected?.ticker === ticker.ticker
-            return (
-              <button key={ticker.ticker} type="button" onClick={() => onSelect(ticker)}
-                className="flex items-center gap-3 transition-all"
-                style={{ width: '100%', height: '72px', padding: '12px 16px', borderRadius: '12px', background: isSelected ? '#F0F4FF' : '#FFF', border: `1px solid ${isSelected ? '#033AB8' : '#EFF0F5'}`, cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1.5px solid #EFF0F5', overflow: 'hidden', flexShrink: 0, background: '#F9F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {ticker.logo_url ? (
-                    <img src={ticker.logo_url} alt={ticker.ticker} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }} />
+          {!query ? (
+            <Hint>Type a company name or ticker to search</Hint>
+          ) : isFetching && !results?.length ? (
+            Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className={cn(OPTION, 'pointer-events-none')} aria-hidden>
+                <Skeleton className="size-10 rounded-full" />
+                <div className="flex flex-col gap-1.5">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            ))
+          ) : !results?.length ? (
+            <Hint>No results for “{query}”</Hint>
+          ) : (
+            results.map((t) => (
+              <button
+                key={t.ticker}
+                type="button"
+                role="option"
+                aria-selected={selected?.ticker === t.ticker}
+                onClick={() => onSelect(t)}
+                className={cn(
+                  OPTION,
+                  'bg-background hover:border-primary-dark/40 aria-selected:border-primary-dark aria-selected:bg-primary-subtle',
+                )}
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-[1.5px] bg-surface">
+                  {t.logo_url ? (
+                    <img src={t.logo_url} alt="" className="size-full object-cover" onError={(e) => e.currentTarget.remove()} />
                   ) : (
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#6E738C' }}>{ticker.ticker.slice(0, 2)}</span>
+                    <span className="text-13 font-bold text-muted-foreground">{t.ticker.slice(0, 2)}</span>
                   )}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#2C2E35', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ticker.company_name}</span>
-                  <span style={{ fontSize: '12px', color: '#6E738C' }}>{ticker.ticker} · {ticker.exchange}</span>
-                </div>
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="truncate text-sm font-semibold">{t.company_name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t.ticker} · {t.exchange}
+                  </span>
+                </span>
               </button>
-            )
-          })}
-          {query.length < 1 && (
-            <div className="flex items-center justify-center" style={{ height: '60px', color: '#B3B8CB', fontSize: '13px' }}>Type a company name or ticker to search</div>
+            ))
           )}
         </div>
 
@@ -98,4 +122,8 @@ export function StockSearchStep({
       </div>
     </div>
   )
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return <p className="flex h-15 items-center justify-center text-13 text-subtle">{children}</p>
 }

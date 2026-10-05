@@ -14,8 +14,7 @@ export const createFolder = (
 export const updateFolder = (portfolioId: string, folderId: string, data: { name?: string; icon?: string | null }) =>
   api<Folder>(`${base(portfolioId)}/${folderId}`, { method: 'PATCH', body: data })
 
-export const deleteFolder = (portfolioId: string, folderId: string) =>
-  api<null>(`${base(portfolioId)}/${folderId}`, { method: 'DELETE' })
+export const deleteFolder = (portfolioId: string, folderId: string) => api<null>(`${base(portfolioId)}/${folderId}`, { method: 'DELETE' })
 
 export const reorderFolders = (portfolioId: string, folders: Array<{ id: string; position: number }>) =>
   api<null>(`${base(portfolioId)}/reorder`, { method: 'PUT', body: { folders } })

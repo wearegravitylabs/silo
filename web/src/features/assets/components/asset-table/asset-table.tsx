@@ -1,187 +1,232 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { CloseIcon, DotsIcon, SearchIcon } from '@/components/icons'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency } from '@/lib/format'
-import { PANEL_SHADOW } from '@/lib/shadows'
+import { cn } from '@/lib/utils'
 import { ASSET_TYPE_LABELS } from '../../constants'
 import type { AssetItem } from '../../types'
+import { AssetLogo } from '../asset-logo'
+import { ChangeBadge } from '../change-badge'
 import { SortIcon } from '../icons'
-import { FilterBtn } from './filter-btn'
-import { PerformanceBadge } from './performance-badge'
+import { FilterMenu } from './filter-menu'
 
+const INVESTABILITY = [
+  { label: 'All', value: null },
+  { label: 'Investable', value: 'investable' },
+  { label: 'Non-Investable', value: 'non_investable' },
+]
+
+/** Filterable asset list. `loading` shows skeleton rows; `dimmed` while another folder loads. */
 export function AssetTable({
-  assets, loading, onAddAsset, onOpenPanel,
+  assets,
+  loading,
+  dimmed,
+  onAddAsset,
+  onOpenAsset,
 }: {
   assets: AssetItem[]
-  loading: boolean
+  loading?: boolean
+  dimmed?: boolean
   onAddAsset: () => void
-  onOpenPanel: (asset: AssetItem) => void
+  onOpenAsset: (asset: AssetItem) => void
 }) {
-  const [typeFilter, setTypeFilter] = useState<string | null>(null)
-  const [investabilityFilter, setInvestabilityFilter] = useState<string | null>(null)
-  const [tableSearch, setTableSearch] = useState('')
-  const [typeOpen, setTypeOpen] = useState(false)
-  const [investOpen, setInvestOpen] = useState(false)
-  const typeRef = useRef<HTMLDivElement>(null)
-  const investRef = useRef<HTMLDivElement>(null)
+  const [type, setType] = useState<string | null>(null)
+  const [investability, setInvestability] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
-  // Close dropdowns on outside click
-  useEffect(() => {
-    const h = (e: MouseEvent) => {
-      if (!typeRef.current?.contains(e.target as Node)) setTypeOpen(false)
-      if (!investRef.current?.contains(e.target as Node)) setInvestOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [])
-
-  // Filter
-  let display = assets
-  if (typeFilter) display = display.filter((a) => a.asset_type === typeFilter)
-  if (investabilityFilter) display = display.filter((a) =>
-    investabilityFilter === 'investable' ? a.investability === 'investable' : a.investability !== 'investable',
+  const q = search.trim().toLowerCase()
+  const rows = assets.filter(
+    (a) =>
+      (!type || a.asset_type === type) &&
+      (!investability || (investability === 'investable') === (a.investability === 'investable')) &&
+      (!q || a.name.toLowerCase().includes(q) || a.ticker?.toLowerCase().includes(q)),
   )
-  if (tableSearch.trim()) {
-    const q = tableSearch.toLowerCase()
-    display = display.filter((a) => a.name.toLowerCase().includes(q) || (a.ticker ?? '').toLowerCase().includes(q))
-  }
-
-  const presentTypes = [...new Set(assets.map((a) => a.asset_type))]
+  const types = [...new Set(assets.map((a) => a.asset_type))]
 
   return (
-    <div style={{ flex: 1, margin: '0 40px 40px', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {/* Filter bar */}
-      <div className="flex items-center justify-between" style={{ padding: '16px 0', gap: '8px', flexShrink: 0 }}>
+    <section className="mx-10 mb-10 flex min-h-0 flex-1 flex-col" aria-label="Assets">
+      <div className="flex shrink-0 items-center justify-between gap-2 py-4">
         <div className="flex items-center gap-2">
-          <div ref={typeRef}>
-            <FilterBtn
-              label="Asset Type" value={typeFilter}
-              options={[{ label: 'All Types', value: null }, ...presentTypes.map((t) => ({ label: ASSET_TYPE_LABELS[t] ?? t, value: t }))]}
-              open={typeOpen} onOpen={() => { setTypeOpen((o) => !o); setInvestOpen(false) }} onSelect={setTypeFilter}
-            />
-          </div>
-          <div ref={investRef}>
-            <FilterBtn
-              label="Investability" value={investabilityFilter}
-              options={[{ label: 'All', value: null }, { label: 'Investable', value: 'investable' }, { label: 'Non-Investable', value: 'non_investable' }]}
-              open={investOpen} onOpen={() => { setInvestOpen((o) => !o); setTypeOpen(false) }} onSelect={setInvestabilityFilter}
-            />
-          </div>
+          <FilterMenu
+            label="Asset Type"
+            value={type}
+            onChange={setType}
+            options={[{ label: 'All Types', value: null }, ...types.map((t) => ({ label: ASSET_TYPE_LABELS[t] ?? t, value: t }))]}
+          />
+          <FilterMenu label="Investability" value={investability} onChange={setInvestability} options={INVESTABILITY} />
         </div>
-        {/* Search */}
-        <div className="flex items-center gap-2" style={{ height: '32px', padding: '0 12px', background: '#F9F9FB', borderRadius: '8px', border: '1px solid #EFF0F5', width: '240px' }}>
-          <SearchIcon size={14} />
-          <input type="text" value={tableSearch} onChange={(e) => setTableSearch(e.target.value)} placeholder="Search..."
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '13px', color: '#2C2E35' }} />
-          {tableSearch && (
-            <button type="button" onClick={() => setTableSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex' }}>
-              <CloseIcon size={12} />
+        <label className="flex h-8 w-60 items-center gap-2 rounded-lg border bg-surface px-3 focus-within:border-primary">
+          <SearchIcon className="size-3.5" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search..."
+            aria-label="Search assets"
+            className="flex-1 bg-transparent text-13 outline-none placeholder:text-subtle"
+          />
+          {search && (
+            <button type="button" aria-label="Clear search" onClick={() => setSearch('')} className="flex">
+              <CloseIcon className="size-3" />
             </button>
           )}
-        </div>
+        </label>
       </div>
 
-      {/* Table */}
-      <div style={{ flex: 1, background: '#FFF', boxShadow: PANEL_SHADOW, borderRadius: '16px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {/* Table header */}
-        <div className="flex items-center" style={{ height: '40px', padding: '0 16px', borderBottom: '1px solid #EFF0F5', flexShrink: 0, gap: '0' }}>
-          <div style={{ width: '28px', flexShrink: 0 }}>
-            <input type="checkbox" style={{ cursor: 'pointer' }} />
-          </div>
-          {[
-            { label: 'Asset', flex: 1, align: 'left' },
-            { label: 'Type', width: '140px', align: 'left' },
-            { label: '1M', width: '100px', align: 'left' },
-            { label: 'Value', width: '160px', align: 'right' },
-          ].map((col) => (
-            <div key={col.label} className="flex items-center gap-1" style={{ flex: col.flex, width: col.width, flexShrink: col.flex ? undefined : 0, justifyContent: col.align === 'right' ? 'flex-end' : undefined }}>
-              <span style={{ fontSize: '11px', fontWeight: 500, color: '#6E738C', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{col.label}</span>
-              <SortIcon />
-            </div>
-          ))}
-          <div style={{ width: '32px', flexShrink: 0 }} />
-        </div>
+      <Card className={cn('flex flex-1 flex-col transition-opacity', dimmed && 'opacity-60')} aria-busy={loading || dimmed}>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <table className="w-full table-fixed border-collapse">
+            <colgroup>
+              <col className="w-11" />
+              <col />
+              <col className="w-35" />
+              <col className="w-25" />
+              <col className="w-40" />
+              <col className="w-12" />
+            </colgroup>
+            <thead className="sticky top-0 z-1 bg-card">
+              <tr className="h-10 border-b text-left text-11 font-medium tracking-[0.5px] text-muted-foreground uppercase">
+                <th className="pl-4">
+                  <input type="checkbox" aria-label="Select all assets" className="cursor-pointer align-middle" />
+                </th>
+                {['Asset', 'Type', '1M'].map((label) => (
+                  <th key={label} className="font-medium">
+                    <span className="inline-flex items-center gap-1">
+                      {label}
+                      <SortIcon />
+                    </span>
+                  </th>
+                ))}
+                <th className="text-right font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    Value
+                    <SortIcon />
+                  </span>
+                </th>
+                <th>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {loading
+                ? Array.from({ length: 4 }, (_, i) => <SkeletonRow key={i} />)
+                : rows.map((asset) => <AssetRow key={asset.id} asset={asset} onOpen={() => onOpenAsset(asset)} />)}
+            </tbody>
+          </table>
 
-        {/* Rows / states */}
-        {loading ? (
-          <div className="flex items-center justify-center" style={{ flex: 1, minHeight: '160px' }}>
-            <div style={{ width: '20px', height: '20px', border: '2px solid #EFF0F5', borderTopColor: '#033AB8', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-          </div>
-        ) : display.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4" style={{ flex: 1, padding: '48px 40px', animation: 'fadeInUpSm 0.4s ease both' }}>
-            <div className="flex items-center justify-center" style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#EFF0F5' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                <path fillRule="evenodd" clipRule="evenodd" d="M3 6a2 2 0 0 1 2-2h4.586L11 5.414A2 2 0 0 0 12.414 6H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z" fill="#033AB8" opacity="0.25" />
-                <path d="M12 9v6M9 12h6" stroke="#033AB8" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontFamily: 'var(--font-heading)', fontSize: '15px', fontWeight: 700, color: '#2C2E35', margin: '0 0 4px' }}>No assets found</p>
-              <p style={{ fontSize: '13px', color: '#6E738C', margin: 0 }}>
-                {assets.length === 0 ? 'Add your first asset to get started' : 'Try adjusting your filters'}
-              </p>
-            </div>
-            {assets.length === 0 && (
-              <button type="button" onClick={onAddAsset}
-                className="flex items-center justify-center gap-1.5 hover:opacity-90 active:scale-[0.97] transition-[opacity,transform]"
-                style={{ height: '32px', padding: '0 16px', borderRadius: '8px', background: 'linear-gradient(180deg, #044FFA 0%, #033AB8 100%)', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer' }}>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2v8M2 6h8" stroke="white" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                Create Asset
-              </button>
-            )}
-          </div>
-        ) : (
-          <div style={{ flex: 1, overflowY: 'auto' }}>
-            {display.map((asset, i) => (
-              <div key={asset.id} className="flex items-center group"
-                style={{ height: '60px', padding: '0 16px', borderBottom: i < display.length - 1 ? '1px solid #EFF0F5' : 'none', gap: '0' }}>
-                {/* Checkbox */}
-                <div style={{ width: '28px', flexShrink: 0 }}>
-                  <input type="checkbox" style={{ cursor: 'pointer' }} />
-                </div>
-                {/* Asset */}
-                <div className="flex items-center gap-3" style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '1px solid #EFF0F5', background: '#F9F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
-                    {asset.logo_url ? (
-                      <img src={asset.logo_url} alt={asset.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    ) : asset.icon ? (
-                      <span dangerouslySetInnerHTML={{ __html: asset.icon }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px' }} />
-                    ) : (
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#6E738C' }}>{(asset.ticker || asset.name).slice(0, 2).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', minWidth: 0 }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#2C2E35', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.name}</span>
-                    {asset.ticker && <span style={{ fontSize: '11px', color: '#B3B8CB' }}>{asset.ticker}</span>}
-                  </div>
-                </div>
-                {/* Type */}
-                <div style={{ width: '140px', flexShrink: 0 }}>
-                  <span style={{ fontSize: '13px', color: '#6E738C' }}>{ASSET_TYPE_LABELS[asset.asset_type] ?? asset.asset_type}</span>
-                </div>
-                {/* 1M performance */}
-                <div style={{ width: '100px', flexShrink: 0 }}>
-                  <PerformanceBadge pct={asset.change_pct} />
-                </div>
-                {/* Value */}
-                <div style={{ width: '160px', flexShrink: 0, textAlign: 'right' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#2C2E35' }}>{formatCurrency(asset.owned_value_converted, asset.converted_currency)}</div>
-                  {asset.total_quantity != null && asset.ticker && (
-                    <div style={{ fontSize: '11px', color: '#B3B8CB' }}>{asset.total_quantity.toLocaleString()} {asset.ticker}</div>
-                  )}
-                </div>
-                {/* Actions */}
-                <div style={{ width: '32px', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-                  <button type="button" onClick={() => onOpenPanel(asset)}
-                    className="flex items-center justify-center hover:opacity-70 transition-opacity"
-                    style={{ width: '24px', height: '24px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer' }}>
-                    <DotsIcon />
-                  </button>
-                </div>
+          {!loading && rows.length === 0 && (
+            <div className="flex animate-rise flex-col items-center justify-center gap-4 px-10 py-12">
+              <div className="flex size-12 items-center justify-center rounded-xl bg-accent">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="size-6 text-primary-dark">
+                  <path
+                    fillRule="evenodd"
+                    clipRule="evenodd"
+                    fill="currentColor"
+                    opacity="0.25"
+                    d="M3 6a2 2 0 0 1 2-2h4.586L11 5.414A2 2 0 0 0 12.414 6H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z"
+                  />
+                  <path d="M12 9v6M9 12h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
               </div>
-            ))}
+              <div className="flex flex-col gap-1 text-center">
+                <p className="font-heading text-15 font-bold">No assets found</p>
+                <p className="text-13 text-muted-foreground">
+                  {assets.length === 0 ? 'Add your first asset to get started' : 'Try adjusting your filters'}
+                </p>
+              </div>
+              {assets.length === 0 && (
+                <Button onClick={onAddAsset} className="px-4">
+                  <PlusIcon />
+                  Create Asset
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+    </section>
+  )
+}
+
+function AssetRow({ asset, onOpen }: { asset: AssetItem; onOpen: () => void }) {
+  return (
+    <tr className="h-15 text-13">
+      <td className="pl-4">
+        <input type="checkbox" aria-label={`Select ${asset.name}`} className="cursor-pointer align-middle" />
+      </td>
+      <td>
+        <div className="flex min-w-0 items-center gap-3">
+          <AssetLogo asset={asset} />
+          <div className="flex min-w-0 flex-col gap-px">
+            <span className="truncate font-semibold">{asset.name}</span>
+            {asset.ticker && <span className="text-11 text-subtle">{asset.ticker}</span>}
+          </div>
+        </div>
+      </td>
+      <td className="text-muted-foreground">{ASSET_TYPE_LABELS[asset.asset_type] ?? asset.asset_type}</td>
+      <td>
+        <ChangeBadge pct={asset.change_pct} />
+      </td>
+      <td className="text-right">
+        <div className="font-semibold">{formatCurrency(asset.owned_value_converted, asset.converted_currency)}</div>
+        {asset.total_quantity != null && asset.ticker && (
+          <div className="text-11 text-subtle">
+            {asset.total_quantity.toLocaleString()} {asset.ticker}
           </div>
         )}
-      </div>
-    </div>
+      </td>
+      <td className="pr-4 text-right">
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label={`Open ${asset.name}`}
+          className="inline-flex size-6 items-center justify-center rounded-md transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+        >
+          <DotsIcon />
+        </button>
+      </td>
+    </tr>
+  )
+}
+
+function SkeletonRow() {
+  return (
+    <tr className="h-15" aria-hidden>
+      <td className="pl-4">
+        <Skeleton className="size-3.5" />
+      </td>
+      <td>
+        <div className="flex items-center gap-3">
+          <Skeleton className="size-9 rounded-full" />
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-3 w-32" />
+            <Skeleton className="h-2.5 w-12" />
+          </div>
+        </div>
+      </td>
+      <td>
+        <Skeleton className="h-3 w-14" />
+      </td>
+      <td>
+        <Skeleton className="h-5.5 w-14 rounded-md" />
+      </td>
+      <td>
+        <div className="flex flex-col items-end gap-1.5">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-2.5 w-12" />
+        </div>
+      </td>
+      <td />
+    </tr>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 12 12" fill="none" aria-hidden="true" className="size-3">
+      <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
   )
 }

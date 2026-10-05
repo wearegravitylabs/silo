@@ -1,10 +1,10 @@
 import { COUNTRY_DIAL_CODES } from './country-data'
 
 export interface Country {
-  code: string     // ISO 3166-1 alpha-2, e.g. "NG"
+  code: string // ISO 3166-1 alpha-2, e.g. "NG"
   dialCode: string // e.g. "+234"
-  name: string     // English display name
-  flag: string     // emoji flag
+  name: string // English display name
+  flag: string // emoji flag
   minDigits: number
   maxDigits: number
 }

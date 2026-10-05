@@ -47,11 +47,9 @@ export const createAsset = (portfolioId: string, data: CreateAssetInput) =>
 export const updateAsset = (portfolioId: string, assetId: string, data: UpdateAssetInput) =>
   api<AssetItem>(one(portfolioId, assetId), { method: 'PATCH', body: data })
 
-export const deleteAsset = (portfolioId: string, assetId: string) =>
-  api<null>(one(portfolioId, assetId), { method: 'DELETE' })
+export const deleteAsset = (portfolioId: string, assetId: string) => api<null>(one(portfolioId, assetId), { method: 'DELETE' })
 
-export const listLots = (portfolioId: string, assetId: string) =>
-  api<AssetLot[] | null>(`${one(portfolioId, assetId)}/lots`).then(orEmpty)
+export const listLots = (portfolioId: string, assetId: string) => api<AssetLot[] | null>(`${one(portfolioId, assetId)}/lots`).then(orEmpty)
 
 export const listNotes = (portfolioId: string, assetId: string) =>
   api<AssetNote[] | null>(`${one(portfolioId, assetId)}/notes`).then(orEmpty)

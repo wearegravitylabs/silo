@@ -1,39 +1,28 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { usePortfolioStore } from '@/stores/portfolio-store'
+import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { createPortfolio, listCurrencies, listPortfolios, updatePortfolio } from './api'
 import type { UpdatePortfolioInput } from './types'
 
-export const portfolioKeys = {
-  all: ['portfolios'] as const,
-  currencies: ['currencies'] as const,
+export const portfoliosQuery = queryOptions({ queryKey: ['portfolios'], queryFn: listPortfolios, staleTime: 5 * 60_000 })
+
+export const currenciesQuery = queryOptions({ queryKey: ['currencies'], queryFn: listCurrencies, staleTime: Infinity })
+
+/** All portfolios. Suspends — preload with `portfoliosQuery` in the route loader. */
+export const usePortfolios = () => useSuspenseQuery(portfoliosQuery).data
+
+/** One portfolio by id (from the URL). The route loader guarantees it exists. */
+export const usePortfolio = (id: string) => {
+  const portfolio = usePortfolios().find((p) => p.id === id)
+  if (!portfolio) throw new Error(`Portfolio ${id} not found`)
+  return portfolio
 }
 
-/** Shared by the hook and the router (which preloads it before the app shell renders). */
-export const portfoliosQuery = queryOptions({ queryKey: portfolioKeys.all, queryFn: listPortfolios, staleTime: 5 * 60_000 })
-
-export const usePortfolios = () => useQuery(portfoliosQuery)
-
-/** The selected portfolio, falling back to the first one when nothing (or a stale id) is selected. */
-export const useCurrentPortfolio = () => {
-  const currentId = usePortfolioStore((s) => s.currentPortfolioId)
-  const query = usePortfolios()
-  const portfolios = query.data ?? []
-  const portfolio = portfolios.find((p) => p.id === currentId) ?? portfolios[0] ?? null
-  return { ...query, portfolio }
-}
-
-export const useCurrencies = () =>
-  useQuery({ queryKey: portfolioKeys.currencies, queryFn: listCurrencies, staleTime: Infinity })
+export const useCurrencies = () => useQuery(currenciesQuery)
 
 export const useCreatePortfolio = () => {
   const qc = useQueryClient()
-  const select = usePortfolioStore((s) => s.setCurrentPortfolioId)
   return useMutation({
     mutationFn: createPortfolio,
-    onSuccess: (portfolio) => {
-      select(portfolio.id)
-      qc.invalidateQueries({ queryKey: portfolioKeys.all })
-    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: portfoliosQuery.queryKey }),
   })
 }
 

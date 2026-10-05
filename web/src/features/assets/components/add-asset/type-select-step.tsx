@@ -1,54 +1,31 @@
-import { ASSET_TYPES, type AssetTypeConfig } from './asset-types'
+import { cn } from '@/lib/utils'
+import { ASSET_TYPES } from './asset-types'
+import { StepHeading } from './step-heading'
 
-export function TypeSelectStep({
-  selected,
-  onSelect,
-}: {
-  selected: string | null
-  onSelect: (id: string) => void
-}) {
-  const rows: AssetTypeConfig[][] = []
-  for (let i = 0; i < ASSET_TYPES.length; i += 2) rows.push(ASSET_TYPES.slice(i, i + 2))
-
+export function TypeSelectStep({ selected, onSelect }: { selected: string | null; onSelect: (id: string) => void }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: '32px' }}>
-      <div style={{ width: '544px', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '24px', fontWeight: 700, lineHeight: '32px', color: '#2C2E35' }}>
-            Choose an Asset Type
-          </span>
-          <span style={{ fontSize: '14px', lineHeight: '22px', color: '#6E738C' }}>
-            Specify the type of asset you want to add.
-          </span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {rows.map((row, ri) => (
-            <div key={ri} style={{ display: 'flex', gap: '8px' }}>
-              {row.map((type) => {
-                const isActive = selected === type.id
-                return (
-                  <button key={type.id} type="button" onClick={() => onSelect(type.id)}
-                    className="flex items-center gap-3 transition-all"
-                    style={{
-                      flex: 1, height: '52px', padding: '12px', borderRadius: '12px',
-                      border: `1px solid ${isActive ? '#033AB8' : '#EFF0F5'}`,
-                      background: isActive ? '#F0F4FF' : '#FFF',
-                      cursor: 'pointer', textAlign: 'left',
-                    }}
-                  >
-                    <div style={{ width: '28px', height: '28px', borderRadius: '40px', background: '#ECF7FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {type.icon}
-                    </div>
-                    <span style={{ fontSize: '14px', fontWeight: 500, color: '#2C2E35', flex: 1 }}>{type.label}</span>
-                    {!type.enabled && (
-                      <span style={{ fontSize: '10px', fontWeight: 500, color: '#B3B8CB', background: '#F0F0F5', borderRadius: '4px', padding: '2px 6px', flexShrink: 0 }}>
-                        soon
-                      </span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
+    <div className="flex justify-center py-10">
+      <div className="flex w-136 flex-col gap-8">
+        <StepHeading title="Choose an Asset Type" description="Specify the type of asset you want to add." />
+        <div role="radiogroup" aria-label="Asset type" className="grid grid-cols-2 gap-2">
+          {ASSET_TYPES.map((type) => (
+            <button
+              key={type.id}
+              type="button"
+              role="radio"
+              aria-checked={selected === type.id}
+              disabled={!type.enabled}
+              onClick={() => onSelect(type.id)}
+              className={cn(
+                'flex h-13 items-center gap-3 rounded-xl border bg-background p-3 text-left transition-colors',
+                'hover:border-primary-dark/40 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none disabled:cursor-not-allowed',
+                'aria-checked:border-primary-dark aria-checked:bg-primary-subtle',
+              )}
+            >
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-subtle">{type.icon}</span>
+              <span className="flex-1 text-sm font-medium">{type.label}</span>
+              {!type.enabled && <span className="shrink-0 rounded-sm bg-accent px-1.5 py-0.5 text-2xs font-medium text-subtle">soon</span>}
+            </button>
           ))}
         </div>
       </div>

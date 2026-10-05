@@ -1,3 +1,5 @@
+import { PageHeader } from '@/components/page-header'
+import { cn } from '@/lib/utils'
 import { useDashboard } from '../queries'
 import type { DashboardPeriod } from '../types'
 import { AllocationCard } from './allocation-card'
@@ -23,82 +25,62 @@ export function DashboardOverview({
   onPeriodChange: (period: DashboardPeriod) => void
   onAddAsset: () => void
 }) {
-  const { data: dashboard, isLoading } = useDashboard(portfolioId, period)
+  const { data: dashboard, isPlaceholderData } = useDashboard(portfolioId, period)
+  if (!dashboard) return <DashboardSkeleton />
 
-  return isLoading ? (
-    <DashboardSkeleton />
-  ) : dashboard?.data_status === 'empty' || !dashboard ? (
-    <>
-      {/* Section heading even in empty state */}
-      <div className="flex items-end justify-between" style={{ padding: '28px 40px 0' }}>
-        <div className="flex flex-col gap-1">
-          <span style={{ fontSize: '10px', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', color: '#6E738C' }}>Portfolio</span>
-          <span style={{ fontFamily: 'var(--font-heading)', fontSize: '20px', fontWeight: 700, color: '#2C2E35' }}>
-            {portfolioName}
-          </span>
-        </div>
-        <QuickActionsMenu onAddAsset={onAddAsset} />
-      </div>
-      <EmptyState portfolioName={portfolioName} onAddAsset={onAddAsset} />
-    </>
-  ) : (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: '40px', animation: 'fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) both' }}>
-      {/* Section header */}
-      <div className="flex items-end justify-between" style={{ padding: '28px 40px 20px' }}>
-        <div className="flex flex-col gap-1">
-          <span style={{ fontSize: '10px', fontWeight: 500, letterSpacing: '1px', textTransform: 'uppercase', color: '#6E738C' }}>Portfolio</span>
+  const title = <h1 className="font-heading text-xl leading-7 font-bold">{portfolioName}</h1>
+  const actions = <QuickActionsMenu onAddAsset={onAddAsset} />
+
+  if (dashboard.data_status === 'empty') {
+    return (
+      <>
+        <PageHeader eyebrow="Portfolio" title={title} actions={actions} />
+        <EmptyState portfolioName={portfolioName} onAddAsset={onAddAsset} />
+      </>
+    )
+  }
+
+  const { net_worth: nw } = dashboard
+  return (
+    <div className="flex flex-1 animate-fade-in-up flex-col pb-10">
+      <PageHeader
+        eyebrow="Portfolio"
+        className="pb-5"
+        actions={actions}
+        title={
           <div className="flex items-center gap-2">
-            <span style={{ fontFamily: 'var(--font-heading)', fontSize: '20px', fontWeight: 700, lineHeight: '28px', color: '#2C2E35' }}>
-              {portfolioName}
-            </span>
-            {/* Insufficient history badge */}
+            {title}
             {dashboard.data_status === 'insufficient_history' && (
-              <div className="flex items-center gap-1.5" style={{ padding: '2px 8px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '20px' }}>
-                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-                <span style={{ fontSize: '11px', color: '#92400E', fontWeight: 500 }}>No history for this period</span>
-              </div>
+              <span className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-11 font-medium text-amber-800">
+                <span className="size-1.25 rounded-full bg-amber-500" />
+                No history for this period
+              </span>
             )}
           </div>
-        </div>
-        <QuickActionsMenu onAddAsset={onAddAsset} />
-      </div>
+        }
+      />
 
-      {/* Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '0 40px' }}>
-        {/* Net worth */}
-        <NetWorthCard
-          nw={dashboard.net_worth}
-          chartPoints={dashboard.chart.points}
-          period={period}
-          onPeriod={onPeriodChange}
-        />
-
-        {/* Allocation */}
-        <AllocationCard
-          allocation={dashboard.allocation}
-          currency={dashboard.net_worth.currency}
-        />
-
-        {/* Movers row */}
+      {/* Dim while a new period loads; the previous period stays visible */}
+      <div className={cn('flex flex-col gap-4 px-10 transition-opacity', isPlaceholderData && 'opacity-60')} aria-busy={isPlaceholderData}>
+        <NetWorthCard nw={nw} chartPoints={dashboard.chart.points} period={period} onPeriod={onPeriodChange} />
+        <AllocationCard allocation={dashboard.allocation} currency={nw.currency} />
         <div className="flex gap-4">
           <MoversCard
             title="Top Gainers"
-            icon={<TrendingUpIcon color="#29AF0B" />}
+            icon={<TrendingUpIcon />}
             movers={dashboard.top_movers.gainers}
-            currency={dashboard.net_worth.currency}
+            currency={nw.currency}
             emptyMsg="No gainers in this period"
           />
           <MoversCard
             title="Top Losers"
-            icon={<TrendingDownIcon color="#F03722" />}
+            icon={<TrendingDownIcon />}
             movers={dashboard.top_movers.losers}
-            currency={dashboard.net_worth.currency}
+            currency={nw.currency}
             emptyMsg="No losers in this period"
           />
         </div>
-
-        {/* Liabilities */}
-        <LiabilitiesCard debts={dashboard.debts} nw={dashboard.net_worth} />
+        <LiabilitiesCard debts={dashboard.debts} nw={nw} />
       </div>
     </div>
   )

@@ -55,7 +55,7 @@ const boundaryConfig = {
 }
 
 export default [
-  { ignores: ['dist', 'node_modules'] },
+  { ignores: ['dist', 'node_modules', 'public', 'src/app/route-tree.gen.ts'] },
   js.configs.recommended,
   ...tsPlugin.configs['flat/recommended'],
   reactHooks.configs.flat.recommended,

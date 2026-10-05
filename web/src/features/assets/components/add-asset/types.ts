@@ -1,11 +1,14 @@
-export interface Lot { quantity: string; date: string }
+export interface Lot {
+  quantity: string
+  date: string
+}
 
 export interface ManualStockForm {
   name: string
   ticker: string
   price: string
   currency: string
-  lots: Array<{ quantity: string; date: string }>
+  lots: Lot[]
   imageUrl: string | null
 }
 

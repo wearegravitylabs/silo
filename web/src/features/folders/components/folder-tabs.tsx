@@ -1,294 +1,252 @@
-import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useRef, useState } from 'react'
 import { CloseIcon, DotsIcon, EyeIcon, EyeOffIcon } from '@/components/icons'
-import { DROPDOWN_SHADOW } from '@/lib/shadows'
+import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import { useFolderMutations } from '../queries'
 import type { Folder } from '../types'
 
-export const FOLDER_TAB_COLORS = ['#1A56DB', '#7C3AED', '#059669', '#D97706', '#DC2626', '#0891B2']
+const TAB_COLORS = ['bg-folder-1', 'bg-folder-2', 'bg-folder-3', 'bg-folder-4', 'bg-folder-5', 'bg-folder-6']
 
-export function FolderTabIcon({ color }: { color: string }) {
-  return (
-    <div style={{ width: '18px', height: '18px', borderRadius: '5px', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <svg width="11" height="10" viewBox="0 0 11 10" fill="none">
-        <path d="M.5 2a1 1 0 0 1 1-1H4l1 1h4.5a1 1 0 0 1 1 1V8a1 1 0 0 1-1 1H1.5A1 1 0 0 1 .5 8V2Z" fill="white" opacity="0.9" />
-      </svg>
-    </div>
-  )
-}
-
-export function FolderTabMenu({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
-  const [open, setOpen] = useState(false)
-  const [pos, setPos] = useState({ top: 0, left: 0 })
-  const btnRef = useRef<HTMLButtonElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    const h = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node) && !btnRef.current?.contains(e.target as Node))
-        setOpen(false)
-    }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [open])
-
-  const handleOpen = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (open) { setOpen(false); return }
-    const rect = btnRef.current!.getBoundingClientRect()
-    setPos({ top: rect.bottom + 4, left: rect.left })
-    setOpen(true)
-  }
-
-  return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        onClick={handleOpen}
-        className="flex items-center justify-center transition-opacity"
-        style={{
-          width: '18px', height: '18px', borderRadius: '4px', border: 'none',
-          background: 'transparent', cursor: 'pointer', padding: 0,
-          color: open ? '#6E738C' : '#C8CCDA', flexShrink: 0,
-        }}
-      >
-        <DotsIcon />
-      </button>
-
-      {open && createPortal(
-        <div
-          ref={menuRef}
-          style={{
-            position: 'fixed', top: pos.top, left: pos.left, zIndex: 1000,
-            width: '139px', background: '#FFFFFF', borderRadius: '10px',
-            padding: '2px', display: 'flex', flexDirection: 'column', gap: '2px',
-            boxShadow: DROPDOWN_SHADOW,
-          }}
-        >
-          {[
-            { label: 'Edit', color: '#2C2E35', hover: '#F9F9FB', action: onEdit },
-            { label: 'Delete', color: '#F03722', hover: '#FFF5F5', action: onDelete },
-          ].map(({ label, color, hover, action }) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() => { action(); setOpen(false) }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = hover }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
-              style={{
-                display: 'flex', alignItems: 'center', padding: '8px 10px',
-                borderRadius: '8px', border: 'none', background: 'transparent',
-                cursor: 'pointer', fontSize: '13px', color, width: '100%', textAlign: 'left',
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>,
-        document.body
-      )}
-    </>
-  )
-}
-
+/**
+ * Folder tab strip: select, drag to reorder, rename inline, delete, create.
+ * The stats toggle sits at the far right.
+ */
 export function FolderTabs({
-  folders, selectedId, onSelect, portfolioId, onFolderCreated, showCards, onToggleCards,
+  folders,
+  selectedId,
+  onSelect,
+  portfolioId,
+  showCards,
+  onToggleCards,
 }: {
   folders: Folder[]
   selectedId: string | null
   onSelect: (id: string) => void
   portfolioId: string
-  onFolderCreated: (id: string) => void
   showCards: boolean
   onToggleCards: () => void
 }) {
-  // ── new folder ──────────────────────────────────────────────────────────
-  const [showInput, setShowInput] = useState(false)
-  const [inputValue, setInputValue] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
-  useEffect(() => { if (showInput) inputRef.current?.focus() }, [showInput])
+  const { create, rename, remove, reorder } = useFolderMutations(portfolioId, 'asset')
+  const [creating, setCreating] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
-  // ── drag & drop ─────────────────────────────────────────────────────────
+  // Drag & drop: a local order while dragging, committed (optimistically) on drop.
   const [dragOrder, setDragOrder] = useState<Folder[] | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
-  const dragOverId = useRef<string | null>(null)
-  const localFolders = dragOrder ?? folders
+  const lastOver = useRef<string | null>(null)
+  const ordered = dragOrder ?? folders
 
-  // ── inline rename ───────────────────────────────────────────────────────
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValue, setEditValue] = useState('')
+  const endDrag = () => {
+    setDraggedId(null)
+    setDragOrder(null)
+    lastOver.current = null
+  }
 
-  // ── mutations ───────────────────────────────────────────────────────────
-  const { create, rename, remove, reorder } = useFolderMutations(portfolioId, 'asset')
-  const creating = create.isPending
-
-  const createFolder = (name: string) =>
-    create.mutate(name, {
-      onSuccess: (folder) => {
-        setShowInput(false); setInputValue('')
-        onFolderCreated(folder.id)
-      },
-    })
-  const renameFolder = (v: { id: string; name: string }) =>
-    rename.mutate(v, { onSuccess: () => setEditingId(null) })
-  const deleteFolder = (id: string) =>
-    remove.mutate(id, {
-      onSuccess: () => {
-        if (id === selectedId) {
-          const remaining = localFolders.filter(f => f.id !== id)
-          if (remaining.length) onSelect(remaining[0].id)
-        }
-      },
-    })
-  const reorderFolders = (ordered: Folder[]) => reorder.mutate(ordered)
-
-  // ── drag handlers ───────────────────────────────────────────────────────
-  const handleDragStart = (id: string) => { setDraggedId(id); setDragOrder(folders); dragOverId.current = id }
-
-  const handleDragOver = (e: React.DragEvent, overId: string) => {
+  const dragOver = (e: React.DragEvent, overId: string) => {
     e.preventDefault()
-    if (overId === draggedId || overId === dragOverId.current) return
-    dragOverId.current = overId
-    setDragOrder(prev => {
+    if (overId === draggedId || overId === lastOver.current) return
+    lastOver.current = overId
+    setDragOrder((prev) => {
       if (!prev) return prev
-      const from = prev.findIndex(f => f.id === draggedId)
-      const to = prev.findIndex(f => f.id === overId)
-      if (from === -1 || to === -1) return prev
       const next = [...prev]
-      const [moved] = next.splice(from, 1)
-      next.splice(to, 0, moved)
+      const from = next.findIndex((f) => f.id === draggedId)
+      const to = next.findIndex((f) => f.id === overId)
+      if (from < 0 || to < 0) return prev
+      next.splice(to, 0, next.splice(from, 1)[0])
       return next
     })
   }
 
-  const handleDrop = () => {
-    if (draggedId) reorderFolders(localFolders)
-    setDraggedId(null); setDragOrder(null); dragOverId.current = null
-  }
-
-  const handleDragEnd = () => { setDraggedId(null); setDragOrder(null); dragOverId.current = null }
-
-  const handleCreate = () => {
-    const name = inputValue.trim()
-    if (!name) { setShowInput(false); setInputValue(''); return }
-    createFolder(name)
-  }
-
-  const commitRename = (id: string) => {
-    const name = editValue.trim()
-    if (name) renameFolder({ id, name })
-    else setEditingId(null)
-  }
+  const deleteFolder = (id: string) =>
+    remove.mutate(id, {
+      onSuccess: () => {
+        const next = ordered.find((f) => f.id !== id)
+        if (id === selectedId && next) onSelect(next.id)
+      },
+    })
 
   return (
-    <div style={{ borderBottom: '1px solid #EFF0F5', padding: '0 40px', display: 'flex', alignItems: 'flex-end', overflowX: 'auto', flexShrink: 0, position: 'relative' }}>
-      {localFolders.map((folder, i) => {
-        const isActive = folder.id === selectedId
-        const color = FOLDER_TAB_COLORS[i % FOLDER_TAB_COLORS.length]
-        const isDragging = folder.id === draggedId
+    <div className="relative flex shrink-0 items-end overflow-x-auto border-b px-10">
+      <div role="tablist" aria-label="Folders" className="flex items-end">
+        {ordered.map((folder, i) => {
+          const color = TAB_COLORS[i % TAB_COLORS.length]
+          const active = folder.id === selectedId
 
-        if (editingId === folder.id) {
+          if (editingId === folder.id) {
+            return (
+              <div key={folder.id} className="-mb-px flex items-center gap-1.5 border-b-2 border-primary-dark px-3 py-2">
+                <FolderBadge className={color} />
+                <RenameInput
+                  initial={folder.name}
+                  onCommit={(name) =>
+                    name && name !== folder.name
+                      ? rename.mutate({ id: folder.id, name }, { onSettled: () => setEditingId(null) })
+                      : setEditingId(null)
+                  }
+                  onCancel={() => setEditingId(null)}
+                />
+              </div>
+            )
+          }
+
           return (
-            <div key={folder.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', marginBottom: '-1px', borderBottom: '2px solid #033AB8' }}>
-              <FolderTabIcon color={color} />
-              <input
-                autoFocus
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename(folder.id)
-                  if (e.key === 'Escape') setEditingId(null)
-                }}
-                onBlur={() => commitRename(folder.id)}
-                style={{ height: '24px', padding: '0 8px', borderRadius: '5px', border: '1px solid #033AB8', fontSize: '13px', color: '#2C2E35', background: '#FFF', outline: 'none', width: '110px' }}
-              />
+            <div
+              key={folder.id}
+              draggable
+              onDragStart={() => {
+                setDraggedId(folder.id)
+                setDragOrder(folders)
+              }}
+              onDragOver={(e) => dragOver(e, folder.id)}
+              onDrop={() => {
+                if (draggedId) reorder.mutate(ordered)
+                endDrag()
+              }}
+              onDragEnd={endDrag}
+              className={cn(
+                '-mb-px flex cursor-grab items-center border-b-2 transition-opacity',
+                active ? 'border-primary-dark' : 'border-transparent',
+                folder.id === draggedId && 'opacity-35',
+              )}
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onSelect(folder.id)}
+                className={cn(
+                  'flex items-center gap-2 py-2.5 pr-1.5 pl-3.5 text-13 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
+                  active ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground',
+                )}
+              >
+                <FolderBadge className={color} />
+                {folder.name}
+              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  aria-label={`${folder.name} options`}
+                  className="mr-2.5 flex size-4.5 items-center justify-center rounded-sm text-subtle outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40 aria-expanded:text-muted-foreground"
+                >
+                  <DotsIcon className="text-current" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-35">
+                  <DropdownMenuItem onSelect={() => setEditingId(folder.id)}>Edit</DropdownMenuItem>
+                  <DropdownMenuItem variant="destructive" onSelect={() => deleteFolder(folder.id)}>
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )
-        }
+        })}
+      </div>
 
-        return (
-          <div
-            key={folder.id}
-            draggable
-            onDragStart={() => handleDragStart(folder.id)}
-            onDragOver={(e) => handleDragOver(e, folder.id)}
-            onDrop={handleDrop}
-            onDragEnd={handleDragEnd}
-            style={{
-              display: 'flex', alignItems: 'center',
-              borderBottom: isActive ? '2px solid #033AB8' : '2px solid transparent',
-              marginBottom: '-1px',
-              opacity: isDragging ? 0.35 : 1,
-              transition: 'opacity 0.12s',
-              cursor: 'grab',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => onSelect(folder.id)}
-              style={{
-                padding: '10px 6px 10px 14px', border: 'none', background: 'transparent',
-                cursor: 'pointer', color: isActive ? '#2C2E35' : '#6E738C',
-                fontSize: '13px', fontWeight: isActive ? 600 : 500,
-                whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '8px',
-              }}
-            >
-              <FolderTabIcon color={color} />
-              <span>{folder.name}</span>
-            </button>
-
-            <div style={{ paddingRight: '10px', display: 'flex', alignItems: 'center' }}>
-              <FolderTabMenu
-                onEdit={() => { setEditingId(folder.id); setEditValue(folder.name) }}
-                onDelete={() => deleteFolder(folder.id)}
-              />
-            </div>
-          </div>
-        )
-      })}
-
-      {showInput && (
-        <div className="flex items-center gap-2" style={{ padding: '6px 8px', marginBottom: '4px' }}>
-          <input ref={inputRef} value={inputValue} onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setShowInput(false); setInputValue('') } }}
-            placeholder="Folder name" disabled={creating}
-            style={{ height: '28px', padding: '0 10px', borderRadius: '6px', border: '1px solid #033AB8', fontSize: '13px', color: '#2C2E35', background: '#FFF', outline: 'none', width: '140px' }} />
-          <button type="button" onClick={handleCreate} disabled={creating}
-            style={{ height: '28px', padding: '0 10px', borderRadius: '6px', border: 'none', background: '#033AB8', color: '#FFF', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-            {creating ? '…' : 'Create'}
-          </button>
-          <button type="button" onClick={() => { setShowInput(false); setInputValue('') }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: '4px' }}>
-            <CloseIcon size={14} />
-          </button>
-        </div>
-      )}
-
-      {!showInput && (
-        <button type="button" onClick={() => setShowInput(true)}
-          className="flex items-center justify-center hover:opacity-70 transition-opacity"
-          style={{ width: '32px', height: '32px', marginBottom: '4px', marginLeft: '4px', borderRadius: '8px', border: 'none', background: 'transparent', cursor: 'pointer' }}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <circle cx="8" cy="8" r="6.5" stroke="#B3B8CB" strokeWidth="1.2" />
-            <path d="M8 5v6M5 8h6" stroke="#B3B8CB" strokeWidth="1.3" strokeLinecap="round" />
+      {creating ? (
+        <NewFolderForm
+          pending={create.isPending}
+          onCancel={() => setCreating(false)}
+          onCreate={(name) =>
+            create.mutate(name, {
+              onSuccess: (folder) => {
+                setCreating(false)
+                onSelect(folder.id)
+              },
+            })
+          }
+        />
+      ) : (
+        <button
+          type="button"
+          aria-label="New folder"
+          onClick={() => setCreating(true)}
+          className="mb-1 ml-1 flex size-8 items-center justify-center rounded-lg text-subtle transition-opacity hover:opacity-70"
+        >
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-4">
+            <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
+            <path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
           </svg>
         </button>
       )}
 
-      {/* Eye toggle — pushed to far right */}
       <button
         type="button"
         onClick={onToggleCards}
+        aria-pressed={!showCards}
         title={showCards ? 'Hide stats' : 'Show stats'}
-        style={{ marginLeft: 'auto', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#B3B8CB', padding: '2px 4px', borderRadius: '6px', fontSize: '12px', fontWeight: 500, flexShrink: 0, transition: 'color 0.15s' }}
-        onMouseEnter={(e) => (e.currentTarget.style.color = '#6E738C')}
-        onMouseLeave={(e) => (e.currentTarget.style.color = '#B3B8CB')}
+        className="mb-1.5 ml-auto flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-medium text-subtle transition-colors hover:text-muted-foreground"
       >
-        {showCards ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
-        <span>{showCards ? 'Hide' : 'Show'}</span>
+        {showCards ? <EyeOffIcon /> : <EyeIcon />}
+        {showCards ? 'Hide' : 'Show'}
       </button>
     </div>
+  )
+}
+
+function FolderBadge({ className }: { className: string }) {
+  return (
+    <span className={cn('flex size-4.5 shrink-0 items-center justify-center rounded-[5px]', className)}>
+      <svg viewBox="0 0 11 10" fill="none" aria-hidden="true" className="h-2.5 w-2.75">
+        <path d="M.5 2a1 1 0 0 1 1-1H4l1 1h4.5a1 1 0 0 1 1 1V8a1 1 0 0 1-1 1H1.5A1 1 0 0 1 .5 8V2Z" className="fill-white/90" />
+      </svg>
+    </span>
+  )
+}
+
+/** Inline rename: Enter or blur commits the trimmed value, Escape cancels. */
+function RenameInput({ initial, onCommit, onCancel }: { initial: string; onCommit: (name: string) => void; onCancel: () => void }) {
+  const [value, setValue] = useState(initial)
+  const done = useRef(false) // Enter then blur must commit only once
+  const finish = (commit: boolean) => {
+    if (done.current) return
+    done.current = true
+    if (commit) onCommit(value.trim())
+    else onCancel()
+  }
+  return (
+    <input
+      autoFocus
+      value={value}
+      aria-label="Folder name"
+      onChange={(e) => setValue(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') finish(true)
+        if (e.key === 'Escape') finish(false)
+      }}
+      onBlur={() => finish(true)}
+      className="h-6 w-27.5 rounded-[5px] border border-primary-dark bg-background px-2 text-13 outline-none"
+    />
+  )
+}
+
+function NewFolderForm({ pending, onCreate, onCancel }: { pending: boolean; onCreate: (name: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState('')
+  return (
+    <form
+      className="mb-1 flex items-center gap-2 px-2 py-1.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (name.trim()) onCreate(name.trim())
+        else onCancel()
+      }}
+    >
+      <input
+        autoFocus
+        value={name}
+        disabled={pending}
+        placeholder="Folder name"
+        aria-label="New folder name"
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === 'Escape' && onCancel()}
+        className="h-7 w-35 rounded-md border border-primary-dark bg-background px-2.5 text-13 outline-none"
+      />
+      <Button size="xs" type="submit" disabled={pending}>
+        {pending ? '…' : 'Create'}
+      </Button>
+      <button type="button" aria-label="Cancel" onClick={onCancel} className="flex p-1">
+        <CloseIcon className="size-3.5" />
+      </button>
+    </form>
   )
 }
