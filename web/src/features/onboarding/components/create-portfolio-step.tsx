@@ -8,12 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { getErrorMessage } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
-import { useCreatePortfolio, useCurrencies } from '../queries'
-import type { Portfolio } from '../types'
-import { AvatarPicker, avatarImageUrl, type AvatarId } from './avatar-picker'
+import { AvatarPicker, avatarImageUrl, useCreatePortfolio, useCurrencies, type AvatarId, type Portfolio } from '@/features/portfolios'
 
 /** New-portfolio form (avatar, name, base currency, description). Calls onCreated with the new portfolio. */
-export function CreatePortfolioForm({ onCreated }: { onCreated: (portfolio: Portfolio) => void }) {
+export function CreatePortfolioStep({ onCreated }: { onCreated: (portfolio: Portfolio) => void }) {
   const [avatar, setAvatar] = useState<AvatarId>('lime')
   const [name, setName] = useState('')
   const [pickedCurrency, setCurrency] = useState<string | null>(null)
@@ -35,7 +33,7 @@ export function CreatePortfolioForm({ onCreated }: { onCreated: (portfolio: Port
   }
 
   return (
-    <div className="flex w-86 animate-fade-in-up flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <FormHeading title="Create a new portfolio" subtitle="Your portfolio is where you track specific assets, debts and insights" />
 
       <AvatarPicker selected={avatar} onChange={setAvatar} />
@@ -74,8 +72,8 @@ export function CreatePortfolioForm({ onCreated }: { onCreated: (portfolio: Port
 
         {error && <FieldError message={getErrorMessage(error, 'Something went wrong')} />}
 
-        <Button type="submit" size="lg" disabled={isPending || !name.trim()} className="w-full">
-          {isPending ? 'Creating…' : 'Continue'}
+        <Button type="submit" size="lg" disabled={!name.trim()} loading={isPending} loadingText="Creating…" className="mt-2 w-full">
+          Continue
         </Button>
       </form>
     </div>

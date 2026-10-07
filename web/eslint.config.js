@@ -5,7 +5,8 @@ import reactHooks from 'eslint-plugin-react-hooks'
 
 // ─── Architecture boundaries ──────────────────────────────────────────────────
 // Imports flow one way: shared (lib, stores, hooks, components) → features → routes → app.
-// Features never import each other, and outsiders only import a feature via its index.ts.
+// Features never import each other — except onboarding, which orchestrates flows across domains and may
+// import other features' index.ts (never the reverse). Outsiders only import a feature via its index.ts.
 const elements = [
   { type: 'app', pattern: 'src/app' },
   { type: 'routes', pattern: 'src/routes' },
@@ -38,6 +39,8 @@ const boundaryConfig = {
           { from: { element: { type: 'routes' } }, allow: to('routes', ...SHARED) },
           // Outside a feature, only its public index.ts may be imported.
           { from: { element: { types: { anyOf: ['app', 'routes'] } } }, allow: FEATURE_INDEX },
+          // Onboarding is the one orchestrating feature: it composes other features through their public index.
+          { from: { element: { type: 'feature', captured: { name: 'onboarding' } } }, allow: FEATURE_INDEX },
           // A feature may import its own files and shared code — never another feature.
           { from: { element: { type: 'feature' } }, allow: to(...SHARED) },
           {

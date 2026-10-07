@@ -1,13 +1,22 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { CreatePortfolioForm } from '@/features/portfolios'
+import { CreatePortfolioStep, flowFor, nextStep } from '@/features/onboarding'
+import { STEP_PATH } from './-steps'
 
 export const Route = createFileRoute('/onboarding/portfolio')({
   component: PortfolioPage,
 })
 
 function PortfolioPage() {
+  const { invite } = Route.useSearch()
   const navigate = Route.useNavigate()
+  const next = nextStep(flowFor(invite), 'portfolio')
   return (
-    <CreatePortfolioForm onCreated={(portfolio) => navigate({ to: '/p/$portfolioId/dashboard', params: { portfolioId: portfolio.id } })} />
+    <CreatePortfolioStep
+      onCreated={(portfolio) =>
+        next
+          ? navigate({ to: STEP_PATH[next], search: (prev) => ({ ...prev, portfolio: portfolio.id }) })
+          : navigate({ to: '/p/$portfolioId/dashboard', params: { portfolioId: portfolio.id } })
+      }
+    />
   )
 }

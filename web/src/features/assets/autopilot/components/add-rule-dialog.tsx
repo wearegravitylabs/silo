@@ -165,8 +165,8 @@ function RuleFormBody({ asset, portfolioId, onDone }: { asset: AssetItem; portfo
         >
           Clear
         </Button>
-        <Button type="submit" size="xs" disabled={create.isPending}>
-          {create.isPending ? 'Saving…' : 'Save Rule'}
+        <Button type="submit" size="xs" loading={create.isPending} loadingText="Saving…">
+          Save Rule
         </Button>
       </DialogFooter>
     </form>

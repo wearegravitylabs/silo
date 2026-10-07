@@ -1,5 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { createPortfolio, listCurrencies, listPortfolios, updatePortfolio } from './api'
+import { createPortfolio, getInvite, getInviteLink, listCurrencies, listPortfolios, requestToJoin, updatePortfolio } from './api'
 import type { UpdatePortfolioInput } from './types'
 
 export const portfoliosQuery = queryOptions({ queryKey: ['portfolios'], queryFn: listPortfolios, staleTime: 5 * 60_000 })
@@ -34,3 +34,16 @@ export const useUpdatePortfolio = (id: string) => {
     onSuccess: () => qc.invalidateQueries(),
   })
 }
+
+export const inviteQuery = (token: string) => queryOptions({ queryKey: ['invites', token], queryFn: () => getInvite(token) })
+
+/** The invite behind a link token. Suspends — preload with `inviteQuery` in the route loader. */
+export const useInvite = (token: string) => useSuspenseQuery(inviteQuery(token)).data
+
+export const inviteLinkQuery = (portfolioId: string) =>
+  queryOptions({ queryKey: ['portfolios', portfolioId, 'invite-link'], queryFn: () => getInviteLink(portfolioId) })
+
+/** Shareable invite link for a portfolio. Suspends — preload with `inviteLinkQuery` in the route loader. */
+export const useInviteLink = (portfolioId: string) => useSuspenseQuery(inviteLinkQuery(portfolioId)).data
+
+export const useRequestToJoin = () => useMutation({ mutationFn: requestToJoin })

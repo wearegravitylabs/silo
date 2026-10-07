@@ -31,8 +31,8 @@ export function PauseRuleDialog({ rule, portfolioId, onClose }: { rule: Autopilo
               Close
             </Button>
           </DialogClose>
-          <Button size="xs" disabled={pause.isPending} onClick={() => pause.mutate(rule.id, { onSuccess: onClose })}>
-            {pause.isPending ? 'Pausing…' : 'Pause Rule'}
+          <Button size="xs" loading={pause.isPending} loadingText="Pausing…" onClick={() => pause.mutate(rule.id, { onSuccess: onClose })}>
+            Pause Rule
           </Button>
         </DialogFooter>
       </DialogContent>

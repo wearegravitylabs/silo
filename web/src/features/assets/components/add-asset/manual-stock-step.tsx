@@ -122,8 +122,8 @@ export function ManualStockStep({
               },
             ]}
           />
-          <Button onClick={onSubmit} disabled={!valid || creating} className="w-full">
-            {creating ? 'Adding…' : `Add ${form.name.trim() || 'Asset'}`}
+          <Button onClick={onSubmit} disabled={!valid} loading={creating} loadingText="Adding…" className="w-full">
+            {`Add ${form.name.trim() || 'Asset'}`}
           </Button>
           {error && <SubmitError message={error} />}
         </>

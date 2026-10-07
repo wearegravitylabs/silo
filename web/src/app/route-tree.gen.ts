@@ -10,13 +10,18 @@
 
 import { Route as rootRouteImport } from './../routes/__root'
 import { Route as IndexRouteImport } from './../routes/index'
-import { Route as AuthRouteImport } from './../routes/_auth'
+import { Route as AuthRouteRouteImport } from './../routes/_auth/route'
 import { Route as OnboardingRouteRouteImport } from './../routes/onboarding/route'
 import { Route as AuthLoginRouteImport } from './../routes/_auth/login'
 import { Route as AuthSignUpRouteImport } from './../routes/_auth/sign-up'
 import { Route as AuthVerifyEmailRouteImport } from './../routes/_auth/verify-email'
+import { Route as InviteTokenRouteImport } from './../routes/invite.$token'
+import { Route as OnboardingIndexRouteImport } from './../routes/onboarding/index'
+import { Route as OnboardingInviteRouteImport } from './../routes/onboarding/invite'
+import { Route as OnboardingJoinRouteImport } from './../routes/onboarding/join'
 import { Route as OnboardingPortfolioRouteImport } from './../routes/onboarding/portfolio'
 import { Route as OnboardingProfileRouteImport } from './../routes/onboarding/profile'
+import { Route as OnboardingRequestSentRouteImport } from './../routes/onboarding/request-sent'
 import { Route as PPortfolioIdRouteRouteImport } from './../routes/p/$portfolioId/route'
 import { Route as PPortfolioIdAssetsRouteImport } from './../routes/p/$portfolioId/assets'
 import { Route as PPortfolioIdDashboardRouteImport } from './../routes/p/$portfolioId/dashboard'
@@ -26,7 +31,7 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthRoute = AuthRouteImport.update({
+const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
@@ -38,17 +43,37 @@ const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => AuthRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthSignUpRoute = AuthSignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
-  getParentRoute: () => AuthRoute,
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
-  getParentRoute: () => AuthRoute,
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const OnboardingInviteRoute = OnboardingInviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
+  getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const OnboardingJoinRoute = OnboardingJoinRouteImport.update({
+  id: '/join',
+  path: '/join',
+  getParentRoute: () => OnboardingRouteRoute,
 } as any)
 const OnboardingPortfolioRoute = OnboardingPortfolioRouteImport.update({
   id: '/portfolio',
@@ -58,6 +83,11 @@ const OnboardingPortfolioRoute = OnboardingPortfolioRouteImport.update({
 const OnboardingProfileRoute = OnboardingProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const OnboardingRequestSentRoute = OnboardingRequestSentRouteImport.update({
+  id: '/request-sent',
+  path: '/request-sent',
   getParentRoute: () => OnboardingRouteRoute,
 } as any)
 const PPortfolioIdRouteRoute = PPortfolioIdRouteRouteImport.update({
@@ -83,34 +113,48 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/onboarding/invite': typeof OnboardingInviteRoute
+  '/onboarding/join': typeof OnboardingJoinRoute
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
+  '/onboarding/request-sent': typeof OnboardingRequestSentRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/p/$portfolioId/assets': typeof PPortfolioIdAssetsRoute
   '/p/$portfolioId/dashboard': typeof PPortfolioIdDashboardRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/p/$portfolioId': typeof PPortfolioIdRouteRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/onboarding/invite': typeof OnboardingInviteRoute
+  '/onboarding/join': typeof OnboardingJoinRoute
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
+  '/onboarding/request-sent': typeof OnboardingRequestSentRoute
+  '/onboarding': typeof OnboardingIndexRoute
   '/p/$portfolioId/assets': typeof PPortfolioIdAssetsRoute
   '/p/$portfolioId/dashboard': typeof PPortfolioIdDashboardRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_auth': typeof AuthRouteRouteWithChildren
   '/onboarding': typeof OnboardingRouteRouteWithChildren
-  '/_auth': typeof AuthRouteWithChildren
   '/p/$portfolioId': typeof PPortfolioIdRouteRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/onboarding/invite': typeof OnboardingInviteRoute
+  '/onboarding/join': typeof OnboardingJoinRoute
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
+  '/onboarding/request-sent': typeof OnboardingRequestSentRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/p/$portfolioId/assets': typeof PPortfolioIdAssetsRoute
   '/p/$portfolioId/dashboard': typeof PPortfolioIdDashboardRoute
 }
@@ -123,42 +167,57 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/verify-email'
+    | '/invite/$token'
+    | '/onboarding/invite'
+    | '/onboarding/join'
     | '/onboarding/portfolio'
     | '/onboarding/profile'
+    | '/onboarding/request-sent'
+    | '/onboarding/'
     | '/p/$portfolioId/assets'
     | '/p/$portfolioId/dashboard'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/onboarding'
     | '/p/$portfolioId'
     | '/login'
     | '/sign-up'
     | '/verify-email'
+    | '/invite/$token'
+    | '/onboarding/invite'
+    | '/onboarding/join'
     | '/onboarding/portfolio'
     | '/onboarding/profile'
+    | '/onboarding/request-sent'
+    | '/onboarding'
     | '/p/$portfolioId/assets'
     | '/p/$portfolioId/dashboard'
   id:
     | '__root__'
     | '/'
-    | '/onboarding'
     | '/_auth'
+    | '/onboarding'
     | '/p/$portfolioId'
     | '/_auth/login'
     | '/_auth/sign-up'
     | '/_auth/verify-email'
+    | '/invite/$token'
+    | '/onboarding/invite'
+    | '/onboarding/join'
     | '/onboarding/portfolio'
     | '/onboarding/profile'
+    | '/onboarding/request-sent'
+    | '/onboarding/'
     | '/p/$portfolioId/assets'
     | '/p/$portfolioId/dashboard'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
-  AuthRoute: typeof AuthRouteWithChildren
   PPortfolioIdRouteRoute: typeof PPortfolioIdRouteRouteWithChildren
+  InviteTokenRoute: typeof InviteTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -174,7 +233,7 @@ declare module '@tanstack/react-router' {
       id: '/_auth'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof AuthRouteImport
+      preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/onboarding': {
@@ -189,21 +248,49 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof AuthRouteRoute
     }
     '/_auth/sign-up': {
       id: '/_auth/sign-up'
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof AuthSignUpRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof AuthRouteRoute
     }
     '/_auth/verify-email': {
       id: '/_auth/verify-email'
       path: '/verify-email'
       fullPath: '/verify-email'
       preLoaderRoute: typeof AuthVerifyEmailRouteImport
-      parentRoute: typeof AuthRoute
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/onboarding/': {
+      id: '/onboarding/'
+      path: '/'
+      fullPath: '/onboarding/'
+      preLoaderRoute: typeof OnboardingIndexRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/onboarding/invite': {
+      id: '/onboarding/invite'
+      path: '/invite'
+      fullPath: '/onboarding/invite'
+      preLoaderRoute: typeof OnboardingInviteRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/onboarding/join': {
+      id: '/onboarding/join'
+      path: '/join'
+      fullPath: '/onboarding/join'
+      preLoaderRoute: typeof OnboardingJoinRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/onboarding/portfolio': {
       id: '/onboarding/portfolio'
@@ -217,6 +304,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/onboarding/profile'
       preLoaderRoute: typeof OnboardingProfileRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/onboarding/request-sent': {
+      id: '/onboarding/request-sent'
+      path: '/request-sent'
+      fullPath: '/onboarding/request-sent'
+      preLoaderRoute: typeof OnboardingRequestSentRouteImport
       parentRoute: typeof OnboardingRouteRoute
     }
     '/p/$portfolioId': {
@@ -243,33 +337,43 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface OnboardingRouteRouteChildren {
-  OnboardingPortfolioRoute: typeof OnboardingPortfolioRoute
-  OnboardingProfileRoute: typeof OnboardingProfileRoute
-}
-
-const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
-  OnboardingPortfolioRoute: OnboardingPortfolioRoute,
-  OnboardingProfileRoute: OnboardingProfileRoute,
-}
-
-const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
-  OnboardingRouteRouteChildren,
-)
-
-interface AuthRouteChildren {
+interface AuthRouteRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
   AuthSignUpRoute: typeof AuthSignUpRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
 }
 
-const AuthRouteChildren: AuthRouteChildren = {
+const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
   AuthSignUpRoute: AuthSignUpRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
 }
 
-const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
+  AuthRouteRouteChildren,
+)
+
+interface OnboardingRouteRouteChildren {
+  OnboardingInviteRoute: typeof OnboardingInviteRoute
+  OnboardingJoinRoute: typeof OnboardingJoinRoute
+  OnboardingPortfolioRoute: typeof OnboardingPortfolioRoute
+  OnboardingProfileRoute: typeof OnboardingProfileRoute
+  OnboardingRequestSentRoute: typeof OnboardingRequestSentRoute
+  OnboardingIndexRoute: typeof OnboardingIndexRoute
+}
+
+const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
+  OnboardingInviteRoute: OnboardingInviteRoute,
+  OnboardingJoinRoute: OnboardingJoinRoute,
+  OnboardingPortfolioRoute: OnboardingPortfolioRoute,
+  OnboardingProfileRoute: OnboardingProfileRoute,
+  OnboardingRequestSentRoute: OnboardingRequestSentRoute,
+  OnboardingIndexRoute: OnboardingIndexRoute,
+}
+
+const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
+  OnboardingRouteRouteChildren,
+)
 
 interface PPortfolioIdRouteRouteChildren {
   PPortfolioIdAssetsRoute: typeof PPortfolioIdAssetsRoute
@@ -286,9 +390,10 @@ const PPortfolioIdRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRouteRoute: AuthRouteRouteWithChildren,
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
-  AuthRoute: AuthRouteWithChildren,
   PPortfolioIdRouteRoute: PPortfolioIdRouteRouteWithChildren,
+  InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

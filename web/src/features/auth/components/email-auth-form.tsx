@@ -68,7 +68,7 @@ export function EmailAuthForm({
             aria-invalid={!!emailError || undefined}
           />
         </FormField>
-        <Button type="submit" size="lg" loading={pending} className="w-full">
+        <Button type="submit" size="lg" loading={pending} loadingText="Sending link…" className="w-full">
           Continue with Email
         </Button>
       </form>

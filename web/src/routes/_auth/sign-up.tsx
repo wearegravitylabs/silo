@@ -4,10 +4,13 @@ import { EmailAuthForm } from '@/features/auth'
 const SIMULATED_DELAY_MS = 1500
 
 export const Route = createFileRoute('/_auth/sign-up')({
+  validateSearch: (search: Record<string, unknown>): { invite?: string } =>
+    typeof search.invite === 'string' ? { invite: search.invite } : {},
   component: SignupPage,
 })
 
 function SignupPage() {
+  const { invite } = Route.useSearch()
   const navigate = Route.useNavigate()
   return (
     <EmailAuthForm
@@ -15,7 +18,7 @@ function SignupPage() {
       subtitle="Welcome to Silo, your personal silo of wealth — isolated, safe, controlled by you"
       onSubmit={async (email) => {
         await new Promise((r) => setTimeout(r, SIMULATED_DELAY_MS)) // stand-in for the sign-up request
-        await navigate({ to: '/verify-email', search: { email, intent: 'sign-up' } })
+        await navigate({ to: '/verify-email', search: { email, intent: 'sign-up', invite } })
       }}
       footer={
         <div className="mt-4 flex flex-col gap-3 text-center">

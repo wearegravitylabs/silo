@@ -78,10 +78,12 @@ export function MoveFolderDialog({
           </DialogClose>
           <Button
             size="xs"
-            disabled={target === asset.folder_id || isPending}
+            disabled={target === asset.folder_id}
+            loading={isPending}
+            loadingText="Moving…"
             onClick={() => move({ folder_id: target }, { onSuccess: () => onOpenChange(false) })}
           >
-            {isPending ? 'Moving…' : 'Move to Folder'}
+            Move to Folder
           </Button>
         </DialogFooter>
       </DialogContent>
