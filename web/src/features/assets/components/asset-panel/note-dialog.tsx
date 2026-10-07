@@ -103,8 +103,8 @@ function NoteForm({
             Cancel
           </Button>
         </DialogClose>
-        <Button type="submit" size="xs" disabled={save.isPending || !content.trim()}>
-          {save.isPending ? 'Saving…' : note ? 'Save Changes' : 'Add Note'}
+        <Button type="submit" size="xs" disabled={!content.trim()} loading={save.isPending} loadingText="Saving…">
+          {note ? 'Save Changes' : 'Add Note'}
         </Button>
       </DialogFooter>
     </form>

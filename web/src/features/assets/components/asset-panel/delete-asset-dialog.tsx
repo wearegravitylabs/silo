@@ -45,8 +45,14 @@ export function DeleteAssetDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button variant="destructive" size="xs" disabled={isPending} onClick={() => remove(undefined, { onSuccess: onDeleted })}>
-            {isPending ? 'Deleting…' : 'Delete Asset'}
+          <Button
+            variant="destructive"
+            size="xs"
+            loading={isPending}
+            loadingText="Deleting…"
+            onClick={() => remove(undefined, { onSuccess: onDeleted })}
+          >
+            Delete Asset
           </Button>
         </DialogFooter>
       </DialogContent>

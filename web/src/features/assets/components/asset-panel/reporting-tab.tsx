@@ -85,8 +85,14 @@ export function ReportingTab({ asset, portfolioId }: { asset: AssetItem; portfol
           </label>
         </fieldset>
 
-        <Button size="md" onClick={save} disabled={isPending} className={cn('mt-auto w-full', saved && 'bg-success bg-none')}>
-          {isPending ? 'Saving…' : saved ? 'Saved!' : 'Save Changes'}
+        <Button
+          size="md"
+          onClick={save}
+          loading={isPending}
+          loadingText="Saving…"
+          className={cn('mt-auto w-full', saved && 'bg-success bg-none')}
+        >
+          {saved ? 'Saved!' : 'Save Changes'}
         </Button>
       </div>
     </TabBody>

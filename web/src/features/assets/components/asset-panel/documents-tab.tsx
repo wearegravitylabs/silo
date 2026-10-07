@@ -73,9 +73,9 @@ export function DocumentsTab({ asset, portfolioId }: { asset: AssetItem; portfol
         )}
       </TabBody>
       <TabCta>
-        <Button onClick={() => fileInput.current?.click()} disabled={upload.isPending}>
+        <Button onClick={() => fileInput.current?.click()} loading={upload.isPending} loadingText="Uploading…">
           <UploadIcon />
-          {upload.isPending ? 'Uploading…' : 'Upload Document'}
+          Upload Document
         </Button>
       </TabCta>
     </>

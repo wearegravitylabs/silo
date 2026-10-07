@@ -69,8 +69,8 @@ export function StockDetailsStep({
               },
             ]}
           />
-          <Button size="lg" onClick={onSubmit} disabled={!valid || creating} className="h-8 w-full">
-            {creating ? 'Adding…' : `Add $${ticker.ticker}`}
+          <Button size="lg" onClick={onSubmit} disabled={!valid} loading={creating} loadingText="Adding…" className="h-8 w-full">
+            {`Add $${ticker.ticker}`}
           </Button>
           {error && <SubmitError message={error} />}
           <YahooAttribution />

@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage } from '@/lib/api-client'
 import { ALL_COUNTRIES, findCountry, validatePhoneNumber, type Country } from '@/lib/countries'
-import { useOnboard } from '../queries'
+import { useOnboard } from '@/features/account'
 
 const DEFAULT_COUNTRY: Country = findCountry('US') ?? ALL_COUNTRIES[0]
 
-/** Onboarding step 1: name + phone. Calls onDone once the profile is saved. */
-export function ProfileForm({ onDone }: { onDone: () => void }) {
+/** Name + phone. Calls onDone once the profile is saved. */
+export function ProfileStep({ onDone }: { onDone: () => void }) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -38,9 +38,9 @@ export function ProfileForm({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <div className="w-86 animate-fade-in-up">
+    <div>
       <FormHeading
-        className="mb-8 gap-2"
+        className="mb-6 gap-2"
         title="Complete Account Creation"
         subtitle="Provide your basic information to complete your account creation"
       />
@@ -82,8 +82,8 @@ export function ProfileForm({ onDone }: { onDone: () => void }) {
 
         {error && <FieldError message={getErrorMessage(error, 'Something went wrong')} />}
 
-        <Button type="submit" size="lg" disabled={isPending || !canSubmit} className="mt-1 w-full">
-          {isPending ? 'Saving…' : 'Continue'}
+        <Button type="submit" size="lg" disabled={!canSubmit} loading={isPending} loadingText="Saving…" className="mt-2 w-full">
+          Continue
         </Button>
       </form>
     </div>

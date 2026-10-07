@@ -241,8 +241,8 @@ function NewFolderForm({ pending, onCreate, onCancel }: { pending: boolean; onCr
         onKeyDown={(e) => e.key === 'Escape' && onCancel()}
         className="h-7 w-35 rounded-md border border-primary-dark bg-background px-2.5 outline-none"
       />
-      <Button size="xs" type="submit" disabled={pending}>
-        {pending ? '…' : 'Create'}
+      <Button size="xs" type="submit" loading={pending} loadingText="Creating…">
+        Create
       </Button>
       <button type="button" aria-label="Cancel" onClick={onCancel} className="flex p-1">
         <CloseIcon className="size-3.5" />

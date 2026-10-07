@@ -23,3 +23,10 @@ export interface CreatePortfolioInput {
 }
 
 export type UpdatePortfolioInput = Partial<CreatePortfolioInput>
+
+/** What an invite link points at, looked up by the token in the link. */
+export interface Invitation {
+  token: string
+  portfolio: Pick<Portfolio, 'id' | 'name' | 'image_url'>
+  owner: { first_name: string; last_name: string; avatar_url: string | null }
+}

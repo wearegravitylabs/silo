@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { PencilIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -61,25 +63,49 @@ export function AvatarFace({ id, className }: { id: AvatarId; className?: string
   )
 }
 
-/** Large preview + four selectable thumbnails (Figma "Frame 16", 343×136). */
+/**
+ * Portfolio avatar card (Figma 343×136), two states in the same box:
+ * the current avatar with a pencil, or — while editing — a preview, four choices and Apply.
+ * The choice only reaches onChange on Apply.
+ */
 export function AvatarPicker({ selected, onChange }: { selected: AvatarId; onChange: (id: AvatarId) => void }) {
+  const [draft, setDraft] = useState<AvatarId | null>(null) // null = not editing
+
+  if (draft === null) {
+    return (
+      <div className="flex h-34 w-full items-center justify-center rounded-xl border border-border bg-background">
+        <div key="view" className="relative animate-rise">
+          <AvatarFace id={selected} />
+          <button
+            type="button"
+            aria-label="Change avatar"
+            onClick={() => setDraft(selected)}
+            className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full bg-background text-muted-foreground shadow-button transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+          >
+            <PencilIcon className="size-3.5" aria-hidden />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-34 w-full items-center justify-between rounded-xl border border-border bg-background p-4">
-      <AvatarFace id={selected} />
+      <AvatarFace key="edit" id={draft} className="animate-rise" />
 
-      <div className="flex h-26 flex-col items-end justify-between">
+      <div className="flex h-26 animate-rise flex-col items-end justify-between">
         <div className="flex" role="radiogroup" aria-label="Portfolio avatar">
           {AVATAR_IDS.map((id) => (
             <button
               key={id}
               type="button"
               role="radio"
-              aria-checked={id === selected}
+              aria-checked={id === draft}
               aria-label={`${id} avatar`}
-              onClick={() => onChange(id)}
+              onClick={() => setDraft(id)}
               className={cn(
                 'size-11 rounded-full border p-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
-                id === selected ? 'border-primary-dark' : 'border-transparent',
+                id === draft ? 'border-primary-dark' : 'border-transparent',
               )}
             >
               <AvatarFace id={id} className="size-10" />
@@ -87,9 +113,16 @@ export function AvatarPicker({ selected, onChange }: { selected: AvatarId; onCha
           ))}
         </div>
 
-        {/* Placeholder for custom image upload */}
-        <Button variant="secondary" size="xs" disabled title="Coming soon">
-          Edit
+        <Button
+          variant="secondary"
+          size="xs"
+          className="shadow-elevated"
+          onClick={() => {
+            onChange(draft)
+            setDraft(null)
+          }}
+        >
+          Apply
         </Button>
       </div>
     </div>

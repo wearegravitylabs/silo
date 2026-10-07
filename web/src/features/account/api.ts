@@ -1,4 +1,3 @@
-import { api } from '@/lib/api-client'
 import type { OnboardInput, User } from './types'
 
 // TODO: mocked until the app runs against the backend. Real call: api<User>('/users/me')
@@ -18,4 +17,9 @@ const MOCK_USER: User = {
 }
 export const getMe = () => Promise.resolve(MOCK_USER)
 
-export const onboard = (data: OnboardInput) => api<User>('/users/me/onboard', { method: 'PATCH', body: data })
+// TODO: mocked. Real call: api<User>('/users/me/onboard', { method: 'PATCH', body: data })
+export const onboard = async (data: OnboardInput): Promise<User> => {
+  await new Promise((r) => setTimeout(r, 800))
+  Object.assign(MOCK_USER, data, { is_onboarded: true, updated_at: new Date().toISOString() })
+  return { ...MOCK_USER }
+}
