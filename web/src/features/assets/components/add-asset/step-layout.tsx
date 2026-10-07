@@ -29,9 +29,9 @@ export function SummaryList({ title, rows }: { title: string; rows: SummaryRow[]
       <h3 className="font-heading text-xl leading-7 font-bold">{title}</h3>
       <dl className="divide-y divide-line overflow-hidden rounded-2xl bg-accent">
         {rows.map((row) => (
-          <div key={row.label} className="flex h-11.5 items-center justify-between px-4 text-13">
+          <div key={row.label} className="flex h-11.5 items-center justify-between px-4">
             <dt className="text-muted-foreground">{row.label}</dt>
-            <dd className={cn('font-medium tracking-label', row.valueClassName)}>{row.value}</dd>
+            <dd className={cn('font-medium', row.valueClassName)}>{row.value}</dd>
           </div>
         ))}
       </dl>
@@ -41,7 +41,7 @@ export function SummaryList({ title, rows }: { title: string; rows: SummaryRow[]
 
 export function SubmitError({ message }: { message: string }) {
   return (
-    <p role="alert" className="rounded-10 border border-red-300 bg-negative-subtle px-3.5 py-2.5 text-13 text-negative">
+    <p role="alert" className="border border-red-300 bg-negative-subtle px-3.5 py-2.5 text-negative">
       {message}
     </p>
   )

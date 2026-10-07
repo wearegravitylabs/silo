@@ -34,7 +34,7 @@ export function StockSearchStep({
           description="Add publicly traded stocks by ticker symbol. Prices update automatically so you always see current values."
         />
 
-        <label className="flex h-10 items-center gap-2 rounded-10 bg-accent px-3">
+        <label className="flex h-10 items-center gap-2 bg-accent px-3">
           <SearchIcon />
           <input
             autoFocus
@@ -45,7 +45,7 @@ export function StockSearchStep({
             }}
             placeholder="Search by name or ticker..."
             aria-label="Search stocks"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-subtle"
+            className="flex-1 bg-transparent outline-none placeholder:text-subtle"
           />
           {input && (
             <button
@@ -68,7 +68,7 @@ export function StockSearchStep({
               <PlusCircleIcon className="size-5" />
             </span>
             <span className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold">Add manually</span>
+              <span className="font-semibold">Add manually</span>
               <span className="text-xs text-muted-foreground">Enter stock details manually</span>
             </span>
           </button>
@@ -104,11 +104,11 @@ export function StockSearchStep({
                   {t.logo_url ? (
                     <img src={t.logo_url} alt="" className="size-full object-cover" onError={(e) => e.currentTarget.remove()} />
                   ) : (
-                    <span className="text-13 font-bold text-muted-foreground">{t.ticker.slice(0, 2)}</span>
+                    <span className="font-bold text-muted-foreground">{t.ticker.slice(0, 2)}</span>
                   )}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-sm font-semibold">{t.company_name}</span>
+                  <span className="truncate font-semibold">{t.company_name}</span>
                   <span className="text-xs text-muted-foreground">
                     {t.ticker} · {t.exchange}
                   </span>
@@ -125,5 +125,5 @@ export function StockSearchStep({
 }
 
 function Hint({ children }: { children: React.ReactNode }) {
-  return <p className="flex h-15 items-center justify-center text-13 text-subtle">{children}</p>
+  return <p className="flex h-15 items-center justify-center text-subtle">{children}</p>
 }

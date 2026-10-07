@@ -36,7 +36,7 @@ export function DashboardSkeleton() {
             </div>
           </div>
           <div className="p-4">
-            <Skeleton className="h-40 w-full rounded-10" />
+            <Skeleton className="h-40 w-full" />
             <div className="mt-2 flex justify-center gap-1.5">
               {[0, 1, 2, 3, 4].map((i) => (
                 <Skeleton key={i} className="h-6 w-9 rounded-lg" />

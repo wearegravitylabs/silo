@@ -1,2 +1,2 @@
 export { EmailAuthForm } from './components/email-auth-form'
-export { VerifyEmailForm } from './components/verify-email-form'
+export { VerifyEmailForm, type AuthIntent } from './components/verify-email-form'

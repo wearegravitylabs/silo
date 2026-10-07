@@ -51,7 +51,7 @@ export function DashboardOverview({
           <div className="flex items-center gap-2">
             {title}
             {dashboard.data_status === 'insufficient_history' && (
-              <span className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-11 font-medium text-amber-800">
+              <span className="flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-800">
                 <span className="size-1.25 rounded-full bg-amber-500" />
                 No history for this period
               </span>

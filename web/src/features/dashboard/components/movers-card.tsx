@@ -28,7 +28,7 @@ export function MoversCard({
           ))}
         </ul>
       ) : (
-        <p className="flex h-30 items-center justify-center text-13 text-subtle">{emptyMsg}</p>
+        <p className="flex h-30 items-center justify-center text-subtle">{emptyMsg}</p>
       )}
     </Card>
   )
@@ -42,17 +42,17 @@ function MoverRow({ mover, currency }: { mover: DashboardMover; currency: string
         {mover.logo_url ? (
           <img src={mover.logo_url} alt="" className="size-9 rounded-full object-cover" />
         ) : (
-          <span className="flex size-9 items-center justify-center rounded-full bg-accent text-13 font-semibold text-muted-foreground">
+          <span className="flex size-9 items-center justify-center rounded-full bg-accent font-semibold text-muted-foreground">
             {mover.name[0]?.toUpperCase()}
           </span>
         )}
         <div className="flex flex-col gap-0.5">
-          <span className="text-sm leading-5.5 font-medium">{mover.name}</span>
+          <span className="leading-5.5 font-medium">{mover.name}</span>
           {mover.ticker && <span className="text-xs text-muted-foreground">{mover.ticker}</span>}
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5">
-        <span className="text-sm font-medium">{formatCurrency(mover.current_value, currency)}</span>
+        <span className="font-medium">{formatCurrency(mover.current_value, currency)}</span>
         {mover.change_pct != null && (
           <span className={cn('text-xs font-medium', up ? 'text-positive' : 'text-negative')}>
             {up ? '+' : ''}

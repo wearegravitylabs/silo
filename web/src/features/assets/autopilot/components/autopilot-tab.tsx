@@ -90,24 +90,22 @@ function RuleCard({
   return (
     <article className={cn('rounded-xl bg-surface px-3.5 py-3', !rule.is_active && 'opacity-55')}>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-11 font-medium text-subtle">{formatDateRange(rule.start_date, rule.end_date)}</span>
+        <span className="font-medium text-subtle">{formatDateRange(rule.start_date, rule.end_date)}</span>
         <div className="flex items-center gap-1.5">
-          {!rule.is_active && (
-            <span className="rounded-sm bg-accent px-1.5 py-px text-2xs font-semibold text-muted-foreground">Paused</span>
-          )}
+          {!rule.is_active && <span className="rounded-sm bg-accent px-1.5 py-px font-semibold text-muted-foreground">Paused</span>}
           <RuleMenu rule={rule} portfolioId={portfolioId} onEdit={onEdit} onPause={onPause} />
         </div>
       </div>
       <div className="mb-1 flex items-center justify-between">
-        <span className={cn('text-13 font-semibold', tone)}>{rule.action === 'add' ? 'Add' : 'Remove'}</span>
+        <span className={cn('font-semibold', tone)}>{rule.action === 'add' ? 'Add' : 'Remove'}</span>
         <span className="text-xs font-medium text-muted-foreground">{FREQ_LABELS[rule.frequency] ?? rule.frequency}</span>
       </div>
       <div className="flex items-center justify-between">
-        <span className={cn('text-13 font-semibold', tone)}>
+        <span className={cn('font-semibold', tone)}>
           {rule.action === 'add' ? '+' : '−'}
           {amount}
         </span>
-        {rule.next_run_at && <span className="text-11 text-subtle">Next Execution: {formatDate(rule.next_run_at)}</span>}
+        {rule.next_run_at && <span className="text-subtle">Next Execution: {formatDate(rule.next_run_at)}</span>}
       </div>
     </article>
   )

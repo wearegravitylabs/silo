@@ -40,8 +40,8 @@ export function ManualStockStep({
         <div className="flex flex-col gap-4">
           <div className="mb-1 flex flex-col items-center gap-3 text-center">
             <LogoUpload imageUrl={form.imageUrl} onUploaded={(url) => set('imageUrl', url)} />
-            <h2 className="font-heading text-2xl leading-8 font-bold tracking-body">Add {form.name.trim() || '___'} stock</h2>
-            <p className="text-sm leading-5.5 tracking-body text-muted-foreground">Manually track your stock position</p>
+            <h2 className="font-heading text-2xl leading-8 font-bold">Add {form.name.trim() || '___'} stock</h2>
+            <p className="leading-5.5 text-muted-foreground">Manually track your stock position</p>
           </div>
 
           <FormField label="Stock Name" htmlFor="manual-name" required>
@@ -67,7 +67,7 @@ export function ManualStockStep({
             <div className="flex h-10 overflow-hidden rounded-xl border bg-surface focus-within:border-primary">
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  className="flex h-full min-w-23 shrink-0 items-center gap-1 px-3 text-sm tracking-body outline-none"
+                  className="flex h-full min-w-23 shrink-0 items-center gap-1 px-3 outline-none"
                   aria-label="Price currency"
                 >
                   <span className="leading-none">{currencyFlag(form.currency)}</span>
@@ -79,7 +79,7 @@ export function ManualStockStep({
                     <DropdownMenuItem
                       key={c}
                       onSelect={() => set('currency', c)}
-                      className={cn('rounded-md py-1 text-13 font-normal', c === form.currency && 'bg-accent')}
+                      className={cn('rounded-md py-1 font-normal', c === form.currency && 'bg-accent')}
                     >
                       <span className="text-xs">{currencyFlag(c)}</span>
                       {c}
@@ -96,7 +96,7 @@ export function ManualStockStep({
                 value={form.price}
                 onChange={(e) => set('price', e.target.value)}
                 placeholder="0.00"
-                className="flex-1 bg-transparent px-4 text-sm tracking-body outline-none placeholder:text-subtle"
+                className="flex-1 bg-transparent px-4 outline-none placeholder:text-subtle"
               />
             </div>
           </FormField>
@@ -122,7 +122,7 @@ export function ManualStockStep({
               },
             ]}
           />
-          <Button onClick={onSubmit} disabled={!valid || creating} className="w-full rounded-10">
+          <Button onClick={onSubmit} disabled={!valid || creating} className="w-full">
             {creating ? 'Adding…' : `Add ${form.name.trim() || 'Asset'}`}
           </Button>
           {error && <SubmitError message={error} />}

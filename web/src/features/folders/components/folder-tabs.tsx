@@ -116,7 +116,7 @@ export function FolderTabs({
                 aria-selected={active}
                 onClick={() => onSelect(folder.id)}
                 className={cn(
-                  'flex items-center gap-2 py-2.5 pr-1.5 pl-3.5 text-13 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
+                  'flex items-center gap-2 py-2.5 pr-1.5 pl-3.5 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
                   active ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground',
                 )}
               >
@@ -215,7 +215,7 @@ function RenameInput({ initial, onCommit, onCancel }: { initial: string; onCommi
         if (e.key === 'Escape') finish(false)
       }}
       onBlur={() => finish(true)}
-      className="h-6 w-27.5 rounded-[5px] border border-primary-dark bg-background px-2 text-13 outline-none"
+      className="h-6 w-27.5 rounded-[5px] border border-primary-dark bg-background px-2 outline-none"
     />
   )
 }
@@ -239,7 +239,7 @@ function NewFolderForm({ pending, onCreate, onCancel }: { pending: boolean; onCr
         aria-label="New folder name"
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && onCancel()}
-        className="h-7 w-35 rounded-md border border-primary-dark bg-background px-2.5 text-13 outline-none"
+        className="h-7 w-35 rounded-md border border-primary-dark bg-background px-2.5 outline-none"
       />
       <Button size="xs" type="submit" disabled={pending}>
         {pending ? '…' : 'Create'}

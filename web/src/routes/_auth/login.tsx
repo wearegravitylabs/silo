@@ -11,11 +11,11 @@ function LoginPage() {
     <EmailAuthForm
       title="Welcome back"
       subtitle="Sign in to your Silo account to continue tracking your wealth."
-      onSubmit={(email) => navigate({ to: '/verify-email', search: { email } })}
+      onSubmit={(email) => navigate({ to: '/verify-email', search: { email, intent: 'login' } })}
       footer={
-        <p className="mt-5 text-center text-sm tracking-body text-muted-foreground">
+        <p className="mt-5 text-center text-muted-foreground">
           Don&apos;t have an account?{' '}
-          <Link to="/signup" className="font-medium text-foreground hover:underline">
+          <Link to="/sign-up" className="font-medium text-foreground hover:underline">
             Sign up
           </Link>
         </p>

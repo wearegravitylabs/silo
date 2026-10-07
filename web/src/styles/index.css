@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import './colors.css';
+@import './animations.css';
+
+/* ─── Design tokens ────────────────────────────────────────────────────────────
+   Type, radius and shadow. Colours live in colors.css, motion in animations.css. */
+@theme {
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+
+  /* Heading sizes from the design's H5/H6 styles — text-h5/h6 (size only), heading-h5/h6 (full style). */
+  --text-h5: 2rem;
+  --text-h5--line-height: 1.125;
+  --text-h6: 1.5rem;
+  --text-h6--line-height: 1.33;
+
+  /* Elevation */
+  --shadow-panel: 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 4px 2px -1px rgb(17 29 80 / 0.04), 0 0 0 0.5px rgb(17 29 80 / 0.12);
+  --shadow-button: 0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.1);
+  --shadow-elevated:
+    0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 1px 1px -0.5px rgb(17 29 80 / 0.04),
+    0 0 0 1px rgb(17 29 80 / 0.08);
+  --shadow-dropdown:
+    0 8px 8px -1px rgb(17 29 80 / 0.06), 0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04),
+    0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.08);
+  --shadow-popover: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.06);
+  --shadow-sheet: -4px 0 32px rgb(0 0 0 / 0.1);
+}
+
+/* Heading look: every h1–h6 gets it by default; heading-h5/h6 add the design's sizes,
+   so a non-heading element can look like one and a heading can take any size. */
+@utility heading {
+  @apply font-heading font-bold tracking-[-0.0125rem] text-foreground;
+}
+@utility heading-h5 {
+  @apply heading text-h5;
+}
+@utility heading-h6 {
+  @apply heading text-h6;
+}
+
+@layer base {
+  /* 16px until the fluid curve overtakes it at exactly 1536px (5.248 + 0.7% × 1536 = 16), then scales. */
+  html {
+    font-size: max(16px, 5.248px + 0.7vw);
+  }
+
+  body {
+    @apply text-sm leading-[1.57] tracking-[-0.00625rem];
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply heading;
+  }
+
+  label {
+    @apply text-foreground;
+  }
+
+  p {
+    @apply text-muted-foreground;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}

@@ -29,7 +29,7 @@ export function NetWorthCard({
 
       <div className="flex items-end justify-between px-4 pt-4">
         <div className="flex flex-col gap-1">
-          <span className="font-heading text-28 leading-9 font-bold tracking-[-0.3px]">{formatCurrency(nw.total, nw.currency)}</span>
+          <span className="font-heading leading-9 font-bold tracking-[-0.3px]">{formatCurrency(nw.total, nw.currency)}</span>
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Total net worth
             {nw.change_pct != null && (
@@ -50,7 +50,7 @@ export function NetWorthCard({
               <span className={cn('h-10 w-1 shrink-0 rounded-2xl', bar)} />
               <div className="flex flex-col gap-1.5">
                 <dt className="text-xs leading-5 text-muted-foreground">{label}</dt>
-                <dd className="text-sm font-medium tracking-label">{formatCurrency(value, nw.currency)}</dd>
+                <dd className="font-medium">{formatCurrency(value, nw.currency)}</dd>
               </div>
             </div>
           ))}

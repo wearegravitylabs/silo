@@ -39,8 +39,8 @@ export function CountryPhoneInput({
             aria-label="Select country code"
             className="flex h-full w-24 shrink-0 items-center gap-1 px-3 transition-colors hover:bg-ink/3"
           >
-            <span className="text-sm leading-none">{country.flag}</span>
-            <span className="text-sm font-medium">{country.dialCode}</span>
+            <span className="leading-none">{country.flag}</span>
+            <span className="font-medium">{country.dialCode}</span>
             <ChevronDownIcon className={cn('transition-transform duration-200', open && 'rotate-180')} />
           </PopoverTrigger>
 
@@ -53,7 +53,7 @@ export function CountryPhoneInput({
             onChange={(e) => onChange(e.target.value.replace(/[^\d\s\-()]/g, ''))}
             placeholder={placeholder}
             aria-invalid={invalid || undefined}
-            className="h-full flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-subtle"
+            className="h-full flex-1 bg-transparent px-3 outline-none placeholder:text-subtle"
           />
         </div>
       </PopoverAnchor>
@@ -71,7 +71,7 @@ export function CountryPhoneInput({
           }}
           renderItem={(c) => (
             <>
-              <span className="w-4.5 text-sm leading-none">{c.flag}</span>
+              <span className="w-4.5 leading-none">{c.flag}</span>
               <span className="flex-1 truncate">{c.name}</span>
               <span className="shrink-0 text-muted-foreground">{c.dialCode}</span>
             </>

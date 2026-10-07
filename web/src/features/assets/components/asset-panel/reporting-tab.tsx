@@ -57,7 +57,7 @@ export function ReportingTab({ asset, portfolioId }: { asset: AssetItem; portfol
                     {selected && <span className="size-1.5 rounded-full bg-white" />}
                   </span>
                   <span className="flex flex-col gap-1">
-                    <span className="text-sm leading-5.5 font-medium tracking-label">{opt.label}</span>
+                    <span className="leading-5.5 font-medium">{opt.label}</span>
                     <span className="text-xs leading-5 text-muted-foreground">{opt.desc}</span>
                   </span>
                 </button>
@@ -69,7 +69,7 @@ export function ReportingTab({ asset, portfolioId }: { asset: AssetItem; portfol
         <fieldset className="flex flex-col gap-3">
           <Legend title="Ownership Percentage" hint="This is how much of the asset you own" />
           <label className="flex h-10 items-center overflow-hidden rounded-xl bg-accent">
-            <span className="px-3 py-2 text-sm leading-5.5 text-subtle">%</span>
+            <span className="px-3 py-2 leading-5.5 text-subtle">%</span>
             <input
               type="number"
               inputMode="decimal"
@@ -80,7 +80,7 @@ export function ReportingTab({ asset, portfolioId }: { asset: AssetItem; portfol
               onChange={(e) => setOwnership(e.target.value)}
               placeholder="0.00"
               aria-label="Ownership percentage"
-              className="flex-1 bg-transparent py-2 pr-4 text-sm leading-5.5 outline-none"
+              className="flex-1 bg-transparent py-2 pr-4 leading-5.5 outline-none"
             />
           </label>
         </fieldset>
@@ -96,7 +96,7 @@ export function ReportingTab({ asset, portfolioId }: { asset: AssetItem; portfol
 function Legend({ title, hint }: { title: string; hint: string }) {
   return (
     <legend className="mb-3 flex flex-col gap-1.5">
-      <span className="text-sm font-medium tracking-label">{title}</span>
+      <span className="font-medium">{title}</span>
       <span className="text-xs leading-5 text-muted-foreground">{hint}</span>
     </legend>
   )

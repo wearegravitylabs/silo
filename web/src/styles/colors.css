@@ -1,0 +1,78 @@
+/* ─── Colour tokens ────────────────────────────────────────────────────────────
+   Every colour in the app. Components use these through Tailwind utilities
+   (bg-primary, text-muted-foreground…); no hex values belong anywhere else.
+   Names follow shadcn so its primitives fit. */
+@theme {
+  /* Neutrals */
+  --color-background: #ffffff;
+  --color-foreground: #2c2e35;
+  --color-muted-foreground: #6e738c;
+  --color-subtle: #b3b8cb; /* placeholders, meta text, disabled */
+  --color-surface: #f9f9fb; /* page ground, inputs, sub-cards */
+  --color-accent: #eff0f5; /* hover/selected fills, chips */
+  --color-accent-foreground: #2c2e35;
+  --color-line: #e3e5ed; /* stronger divider, inactive dots */
+  --color-border: #eff0f5;
+  --color-input: #eff0f5;
+  --color-ink: #040103; /* overlays: bg-ink/40 */
+
+  /* Brand */
+  --color-primary: #044ffa;
+  --color-primary-dark: #033ab8; /* brand text, active borders, fills */
+  --color-primary-foreground: #ffffff;
+  --color-primary-subtle: #f0f4ff; /* selected rows, tints */
+  --color-brand: #1620ff; /* logo */
+  --color-highlight: #bbe03b; /* lime accent */
+  --color-highlight-light: #e5f7a0;
+  --color-ring: #044ffa;
+  --color-night: #071160; /* auth quote panel */
+  --color-sky: #b3dfff;
+
+  /* Status */
+  --color-destructive: #f03722;
+  --color-destructive-subtle: #fff0ee;
+  --color-positive: #008753; /* gains */
+  --color-positive-subtle: #f0fbf4;
+  --color-negative: #c50f3c; /* losses, debts */
+  --color-negative-subtle: #fef2f2;
+  --color-success: #29af0b;
+  --color-success-light: #c7f6bc;
+  --color-warning: #f07f22;
+  --color-warning-light: #fad7ba;
+  --color-destructive-light: #fac1ba;
+
+  /* Data viz (allocation bars), darkest first */
+  --color-chart-1: #033ab8;
+  --color-chart-2: #6c8eff;
+  --color-chart-3: #b3c4ff;
+  --color-chart-4: #d6dfff;
+  --color-chart-5: #eef2ff;
+
+  /* Folder tab badges, cycled in order */
+  --color-folder-1: #1a56db;
+  --color-folder-2: #7c3aed;
+  --color-folder-3: #059669;
+  --color-folder-4: #d97706;
+  --color-folder-5: #dc2626;
+  --color-folder-6: #0891b2;
+
+  /* shadcn surface slots */
+  --color-card: #ffffff;
+  --color-card-foreground: #2c2e35;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #2c2e35;
+  --color-secondary: #f9f9fb;
+  --color-secondary-foreground: #2c2e35;
+  --color-muted: #f9f9fb;
+}
+
+/* Brand gradients, used by buttons and pills */
+@utility bg-gradient-primary {
+  background-image: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+}
+@utility bg-gradient-secondary {
+  background-image: linear-gradient(180deg, #ffffff 0%, var(--color-surface) 65%, var(--color-accent) 100%);
+}
+@utility bg-gradient-destructive {
+  background-image: linear-gradient(180deg, var(--color-destructive) 0%, #c91f0c 100%);
+}

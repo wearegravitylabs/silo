@@ -17,14 +17,14 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
           {lots.map((lot) => (
             <li key={lot.id} className="flex items-center justify-between bg-background px-4 py-3">
               <div>
-                <p className="text-13 font-semibold">{lot.quantity.toLocaleString()} units acquired</p>
-                <p className="mt-0.5 text-11 text-subtle">{formatDate(lot.acquisition_date)}</p>
+                <p className="font-semibold">{lot.quantity.toLocaleString()} units acquired</p>
+                <p className="mt-0.5 text-subtle">{formatDate(lot.acquisition_date)}</p>
               </div>
               <div className="text-right">
-                <p className="text-13 font-semibold">
+                <p className="font-semibold">
                   {lot.acquisition_price != null ? formatCurrency(lot.acquisition_price, asset.currency) : '—'}
                 </p>
-                <p className="text-11 text-subtle">per unit</p>
+                <p className="text-subtle">per unit</p>
               </div>
             </li>
           ))}

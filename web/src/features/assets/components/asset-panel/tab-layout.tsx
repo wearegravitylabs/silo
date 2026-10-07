@@ -20,7 +20,7 @@ export function TabEmpty({ title, body, icon }: { title: string; body: string; i
   return (
     <div className="flex min-h-70 flex-1 flex-col items-center justify-center gap-1.5 text-center">
       {icon && <div className="mb-1 flex size-11 items-center justify-center rounded-xl bg-accent">{icon}</div>}
-      <span className="text-sm font-medium tracking-label">{title}</span>
+      <span className="font-medium">{title}</span>
       <span className="max-w-55 text-xs leading-5 text-muted-foreground">{body}</span>
     </div>
   )

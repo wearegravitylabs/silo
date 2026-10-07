@@ -25,7 +25,7 @@ export function NotesTab({ asset, portfolioId }: { asset: AssetItem; portfolioId
             {notes.map((note) => (
               <li key={note.id} className="rounded-xl bg-surface">
                 <div className="flex h-6.5 items-center justify-between px-3 py-1">
-                  <span className="text-2xs font-medium tracking-caps text-muted-foreground uppercase">{note.title || 'Note'}</span>
+                  <span className="font-medium text-muted-foreground uppercase">{note.title || 'Note'}</span>
                   <div className="flex items-center gap-3 text-subtle">
                     <button
                       type="button"
@@ -46,14 +46,14 @@ export function NotesTab({ asset, portfolioId }: { asset: AssetItem; portfolioId
                   </div>
                 </div>
                 <div className="flex flex-col gap-1.5 rounded-xl border bg-background p-3">
-                  <span className="text-sm leading-5.5 font-medium tracking-label">{note.title || 'Untitled'}</span>
+                  <span className="leading-5.5 font-medium">{note.title || 'Untitled'}</span>
                   <p className="line-clamp-2 text-xs leading-5 text-muted-foreground">{note.content}</p>
                   {!!note.tags?.items?.length && (
                     <div className="mt-0.5 flex flex-wrap gap-1.5">
                       {note.tags.items.map((tag) => (
                         <span
                           key={tag}
-                          className="inline-flex h-5 items-center rounded-md border-[0.5px] border-line bg-accent px-1 text-xs font-medium tracking-label"
+                          className="inline-flex h-5 items-center rounded-md border-[0.5px] border-line bg-accent px-1 text-xs font-medium"
                         >
                           {tag}
                         </span>
@@ -67,7 +67,7 @@ export function NotesTab({ asset, portfolioId }: { asset: AssetItem; portfolioId
         )}
       </TabBody>
       <TabCta>
-        <Button onClick={() => setCompose({ open: true, note: null })} className="rounded-10">
+        <Button onClick={() => setCompose({ open: true, note: null })}>
           <PlusCircleIcon className="text-white" />
           Add Note
         </Button>

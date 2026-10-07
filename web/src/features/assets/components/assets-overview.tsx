@@ -39,21 +39,21 @@ function StatCard({
   return (
     <Card className="flex-1">
       <div className="px-4 pt-4 pb-3">
-        <h3 className="mb-2 flex items-center gap-2 text-13 font-medium text-muted-foreground">
+        <h3 className="mb-2 flex items-center gap-2 font-medium text-muted-foreground">
           <span className="size-2.5 shrink-0 rounded-full border-[2.5px] border-primary-dark" />
           {title}
         </h3>
         {loading ? (
           <Skeleton className="h-9 w-40 rounded-md" />
         ) : (
-          <span className="font-heading text-32 leading-[1.1] font-bold tracking-[-0.5px]">{main}</span>
+          <span className="font-heading leading-[1.1] font-bold tracking-[-0.5px]">{main}</span>
         )}
       </div>
       <dl className="flex divide-x border-t">
         {split.map(({ label, value, rule }) => (
           <div key={label} className="flex-1 px-4 pt-3">
-            <dt className="mb-1.5 text-11 text-muted-foreground">{label}</dt>
-            <dd className="mb-3 text-15 font-semibold">{loading ? <Skeleton className="h-4 w-20" /> : value}</dd>
+            <dt className="mb-1.5 text-muted-foreground">{label}</dt>
+            <dd className="mb-3 font-semibold">{loading ? <Skeleton className="h-4 w-20" /> : value}</dd>
             <div className={cn('border-b-2 border-primary-dark', rule)} />
           </div>
         ))}

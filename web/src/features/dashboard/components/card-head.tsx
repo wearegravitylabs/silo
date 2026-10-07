@@ -5,7 +5,7 @@ import { ExpandIcon } from './icons'
 export function CardHead({ icon, title, right }: { icon: ReactNode; title: string; right?: ReactNode }) {
   return (
     <div className="flex h-11.5 items-center justify-between border-b px-4 py-3">
-      <h2 className="flex items-center gap-2 text-sm leading-5.5 font-medium tracking-label">
+      <h2 className="flex items-center gap-2 leading-5.5 font-medium">
         {icon}
         {title}
       </h2>

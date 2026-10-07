@@ -42,7 +42,7 @@ export function StockDetailsStep({
             </span>
             <div className="flex flex-col gap-1">
               <h2 className="font-heading text-2xl leading-8 font-bold">Add ${ticker.ticker} stock</h2>
-              <p className="text-sm text-muted-foreground">Add {ticker.company_name} Asset</p>
+              <p className="text-muted-foreground">Add {ticker.company_name} Asset</p>
             </div>
           </div>
           <LotFields lots={lots} onChange={onLotsChange} />
@@ -69,7 +69,7 @@ export function StockDetailsStep({
               },
             ]}
           />
-          <Button size="lg" onClick={onSubmit} disabled={!valid || creating} className="h-8 w-full rounded-10">
+          <Button size="lg" onClick={onSubmit} disabled={!valid || creating} className="h-8 w-full">
             {creating ? 'Adding…' : `Add $${ticker.ticker}`}
           </Button>
           {error && <SubmitError message={error} />}

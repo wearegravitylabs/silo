@@ -13,7 +13,7 @@ import { Route as IndexRouteImport } from './../routes/index'
 import { Route as AuthRouteImport } from './../routes/_auth'
 import { Route as OnboardingRouteRouteImport } from './../routes/onboarding/route'
 import { Route as AuthLoginRouteImport } from './../routes/_auth/login'
-import { Route as AuthSignupRouteImport } from './../routes/_auth/signup'
+import { Route as AuthSignUpRouteImport } from './../routes/_auth/sign-up'
 import { Route as AuthVerifyEmailRouteImport } from './../routes/_auth/verify-email'
 import { Route as OnboardingPortfolioRouteImport } from './../routes/onboarding/portfolio'
 import { Route as OnboardingProfileRouteImport } from './../routes/onboarding/profile'
@@ -40,9 +40,9 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
   path: '/login',
   getParentRoute: () => AuthRoute,
 } as any)
-const AuthSignupRoute = AuthSignupRouteImport.update({
-  id: '/signup',
-  path: '/signup',
+const AuthSignUpRoute = AuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
   getParentRoute: () => AuthRoute,
 } as any)
 const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
@@ -81,7 +81,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/p/$portfolioId': typeof PPortfolioIdRouteRouteWithChildren
   '/login': typeof AuthLoginRoute
-  '/signup': typeof AuthSignupRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
@@ -93,7 +93,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/p/$portfolioId': typeof PPortfolioIdRouteRouteWithChildren
   '/login': typeof AuthLoginRoute
-  '/signup': typeof AuthSignupRoute
+  '/sign-up': typeof AuthSignUpRoute
   '/verify-email': typeof AuthVerifyEmailRoute
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
@@ -107,7 +107,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteWithChildren
   '/p/$portfolioId': typeof PPortfolioIdRouteRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
-  '/_auth/signup': typeof AuthSignupRoute
+  '/_auth/sign-up': typeof AuthSignUpRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
@@ -121,7 +121,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/p/$portfolioId'
     | '/login'
-    | '/signup'
+    | '/sign-up'
     | '/verify-email'
     | '/onboarding/portfolio'
     | '/onboarding/profile'
@@ -133,7 +133,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/p/$portfolioId'
     | '/login'
-    | '/signup'
+    | '/sign-up'
     | '/verify-email'
     | '/onboarding/portfolio'
     | '/onboarding/profile'
@@ -146,7 +146,7 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/p/$portfolioId'
     | '/_auth/login'
-    | '/_auth/signup'
+    | '/_auth/sign-up'
     | '/_auth/verify-email'
     | '/onboarding/portfolio'
     | '/onboarding/profile'
@@ -191,11 +191,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthLoginRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_auth/signup': {
-      id: '/_auth/signup'
-      path: '/signup'
-      fullPath: '/signup'
-      preLoaderRoute: typeof AuthSignupRouteImport
+    '/_auth/sign-up': {
+      id: '/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof AuthSignUpRouteImport
       parentRoute: typeof AuthRoute
     }
     '/_auth/verify-email': {
@@ -259,13 +259,13 @@ const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
 
 interface AuthRouteChildren {
   AuthLoginRoute: typeof AuthLoginRoute
-  AuthSignupRoute: typeof AuthSignupRoute
+  AuthSignUpRoute: typeof AuthSignUpRoute
   AuthVerifyEmailRoute: typeof AuthVerifyEmailRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
   AuthLoginRoute: AuthLoginRoute,
-  AuthSignupRoute: AuthSignupRoute,
+  AuthSignUpRoute: AuthSignUpRoute,
   AuthVerifyEmailRoute: AuthVerifyEmailRoute,
 }
 

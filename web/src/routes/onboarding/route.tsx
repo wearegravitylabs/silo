@@ -18,7 +18,7 @@ function OnboardingLayout() {
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="flex h-18 shrink-0 items-center justify-between px-10">
         <Logo />
-        <Button variant="secondary" size="sm" asChild className="rounded-10 shadow-elevated">
+        <Button variant="secondary" size="sm" asChild className="shadow-elevated">
           <Link to="/login">Log out</Link>
         </Button>
       </header>

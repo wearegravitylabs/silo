@@ -3,6 +3,6 @@
   "singleQuote": true,
   "printWidth": 140,
   "plugins": ["prettier-plugin-tailwindcss"],
-  "tailwindStylesheet": "./src/app/index.css",
+  "tailwindStylesheet": "./src/styles/index.css",
   "tailwindFunctions": ["cn", "cva"]
 }

@@ -5,7 +5,7 @@ export function StepHeading({ title, description }: { title: ReactNode; descript
   return (
     <div className="flex flex-col gap-2">
       <h2 className="font-heading text-2xl leading-8 font-bold">{title}</h2>
-      <p className="text-sm leading-5.5 text-muted-foreground">{description}</p>
+      <p className="leading-5.5 text-muted-foreground">{description}</p>
     </div>
   )
 }

@@ -11,7 +11,7 @@ export function AssetLogo({ asset, className }: { asset: Pick<AssetItem, 'name' 
         // Trusted SVG markup from the Silo API
         <span aria-hidden className="flex size-4.5 items-center justify-center" dangerouslySetInnerHTML={{ __html: asset.icon }} />
       ) : (
-        <span className="text-11 font-bold text-muted-foreground">{(asset.ticker || asset.name).slice(0, 2).toUpperCase()}</span>
+        <span className="font-bold text-muted-foreground">{(asset.ticker || asset.name).slice(0, 2).toUpperCase()}</span>
       )}
     </span>
   )

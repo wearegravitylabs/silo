@@ -15,7 +15,7 @@ export function AssetsSummaryHeader({ portfolioId, currency, onCreate }: { portf
       className="items-center pt-5"
       title={
         <div className="flex items-center gap-3">
-          <h1 className="font-heading text-28 font-bold tracking-[-0.3px]">{formatCurrency(total_assets.value, currency)}</h1>
+          <h1 className="font-heading font-bold tracking-[-0.3px]">{formatCurrency(total_assets.value, currency)}</h1>
           {growth && (
             <ChangeBadge pct={growth.percentage}>
               {formatCurrency(Math.abs(growth.amount), currency)} ({Math.abs(growth.percentage).toFixed(1)}%)

@@ -93,7 +93,7 @@ function CurrencySelect({ value, onChange }: { value: string; onChange: (code: s
       <PopoverTrigger
         disabled={isLoading}
         className={cn(
-          'flex h-10 w-full items-center overflow-hidden rounded-xl border bg-surface text-sm transition-colors',
+          'flex h-10 w-full items-center overflow-hidden rounded-xl border bg-surface transition-colors',
           'focus-visible:border-primary focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60',
           open ? 'border-primary' : 'border-border hover:border-primary/50',
         )}

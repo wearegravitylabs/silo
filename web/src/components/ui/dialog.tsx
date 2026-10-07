@@ -50,7 +50,7 @@ function DialogHeader({ className, children, ...props }: React.ComponentProps<'d
 }
 
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn('text-sm font-medium tracking-label', className)} {...props} />
+  return <DialogPrimitive.Title className={cn('font-medium', className)} {...props} />
 }
 
 function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {

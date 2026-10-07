@@ -19,10 +19,10 @@ export function Topbar({
   return (
     <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between border-b bg-background px-10 py-3">
       {/* Search — placeholder until global search exists */}
-      <div className="flex h-8 w-100 cursor-text items-center gap-2 rounded-10 bg-accent px-3">
+      <div className="flex h-8 w-100 cursor-text items-center gap-2 bg-accent px-3">
         <SearchIcon />
-        <span className="flex-1 text-sm text-muted-foreground">Search</span>
-        <kbd className="rounded-sm bg-line px-1.25 py-px font-sans text-11 font-medium text-subtle">⌘K</kbd>
+        <span className="flex-1 text-muted-foreground">Search</span>
+        <kbd className="rounded-sm bg-line px-1.25 py-px font-sans font-medium text-subtle">⌘K</kbd>
       </div>
 
       <div className="flex items-center gap-6">
