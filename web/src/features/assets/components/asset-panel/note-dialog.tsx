@@ -75,7 +75,7 @@ function NoteForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Note title"
-            className="border-transparent tracking-body"
+            className="border-transparent"
           />
         </FormField>
         <FormField label="Notes" htmlFor="note-content" required>
@@ -84,7 +84,7 @@ function NoteForm({
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="Write your note here…"
-            className="h-30 w-full resize-none rounded-xl border border-transparent bg-surface px-4 py-2.5 text-sm leading-5.5 tracking-body outline-none placeholder:text-subtle focus:border-primary"
+            className="h-30 w-full resize-none rounded-xl border border-transparent bg-surface px-4 py-2.5 leading-5.5 outline-none placeholder:text-subtle focus:border-primary"
           />
         </FormField>
         <FormField label="Tags" htmlFor="note-tags">
@@ -93,7 +93,7 @@ function NoteForm({
             value={tags}
             onChange={(e) => setTags(e.target.value)}
             placeholder="e.g. Finance, Investment"
-            className="border-transparent tracking-body"
+            className="border-transparent"
           />
         </FormField>
       </DialogBody>

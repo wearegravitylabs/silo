@@ -22,7 +22,7 @@ export function FormField({
 }) {
   return (
     <div className={cn('flex flex-col gap-2', className)}>
-      <label htmlFor={htmlFor} className="text-sm font-medium tracking-label">
+      <label htmlFor={htmlFor} className="font-medium">
         {label}
         {required && <span className="ml-0.5 text-destructive">*</span>}
       </label>
@@ -36,8 +36,8 @@ export function FormField({
 export function FormHeading({ title, subtitle, className }: { title: string; subtitle: ReactNode; className?: string }) {
   return (
     <div className={cn('flex flex-col items-center gap-3 text-center', className)}>
-      <h1 className="font-heading text-2xl leading-8 font-bold tracking-body">{title}</h1>
-      <p className="text-sm leading-5.5 tracking-body text-muted-foreground">{subtitle}</p>
+      <h1 className="text-h6">{title}</h1>
+      <p>{subtitle}</p>
     </div>
   )
 }

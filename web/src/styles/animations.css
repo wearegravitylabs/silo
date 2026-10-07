@@ -1,0 +1,105 @@
+/* ─── Motion tokens ────────────────────────────────────────────────────────────
+   Easing curves and entrance/exit animations, used as animate-* utilities. */
+@theme {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-fade-in-up: fade-in-up 0.5s var(--ease-out-expo) both; /* page/content entrance */
+  --animate-rise: rise 0.2s var(--ease-out-expo) both; /* modals, menus, small content */
+  --animate-slide-in-right: slide-in-right 0.22s var(--ease-out-expo) both;
+  --animate-sheet-up: sheet-up 0.3s var(--ease-out-expo) both;
+  --animate-quote-in: quote-in 0.5s var(--ease-out-expo) both;
+  --animate-quote-out: quote-out 0.42s ease-in both;
+  --animate-author-in: author-in 0.5s var(--ease-out-expo) 0.1s both;
+  --animate-dot-pulse: dot-pulse 1.5s ease infinite;
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(32px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  @keyframes quote-in {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  @keyframes quote-out {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+  }
+  @keyframes dot-pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scaleX(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scaleX(1.2);
+    }
+  }
+  @keyframes author-in {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
+
+@layer base {
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

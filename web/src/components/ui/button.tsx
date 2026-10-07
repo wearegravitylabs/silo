@@ -1,11 +1,12 @@
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
+import { Loader2Icon } from 'lucide-react'
 import { Slot } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
   [
-    'inline-flex shrink-0 items-center justify-center gap-1.5 font-semibold tracking-label whitespace-nowrap',
+    'inline-flex shrink-0 items-center justify-center gap-1.5 font-semibold whitespace-nowrap',
     'transition-[opacity,transform,background-color,color] duration-150 outline-none select-none',
     'focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-1',
     'disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
@@ -23,9 +24,9 @@ const buttonVariants = cva(
       },
       size: {
         xs: 'h-7 rounded-md px-2.5 text-xs',
-        sm: 'h-8 rounded-lg px-3 text-13',
-        md: 'h-10 rounded-10 px-4 text-13',
-        lg: 'h-10 rounded-xl px-4 text-sm',
+        sm: 'h-8 rounded-lg px-3',
+        md: 'h-10 px-4',
+        lg: 'h-10 rounded-xl px-4',
         'icon-xs': 'size-6 rounded-md',
         'icon-sm': 'size-7 rounded-lg',
       },
@@ -34,12 +35,28 @@ const buttonVariants = cva(
   },
 )
 
-type ButtonProps = React.ComponentProps<'button'> & VariantProps<typeof buttonVariants> & { asChild?: boolean }
+type ButtonProps = React.ComponentProps<'button'> & VariantProps<typeof buttonVariants> & { asChild?: boolean; loading?: boolean }
 
-function Button({ className, variant, size, asChild = false, type = 'button', ...props }: ButtonProps) {
+/** `loading` shows a spinner and blocks clicks but keeps the variant's colours (unlike `disabled`). */
+function Button({ className, variant, size, asChild = false, loading = false, type = 'button', children, ...props }: ButtonProps) {
   const Comp = asChild ? Slot.Root : 'button'
   return (
-    <Comp data-slot="button" type={asChild ? undefined : type} className={cn(buttonVariants({ variant, size }), className)} {...props} />
+    <Comp
+      data-slot="button"
+      type={asChild ? undefined : type}
+      aria-busy={loading || undefined}
+      className={cn(buttonVariants({ variant, size }), loading && 'pointer-events-none', className)}
+      {...props}
+    >
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {loading && <Loader2Icon className="size-4 animate-spin" aria-hidden />}
+          {children}
+        </>
+      )}
+    </Comp>
   )
 }
 

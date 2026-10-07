@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { EmailAuthForm } from '@/features/auth'
 
-export const Route = createFileRoute('/_auth/signup')({
+const SIMULATED_DELAY_MS = 1500
+
+export const Route = createFileRoute('/_auth/sign-up')({
   component: SignupPage,
 })
 
@@ -11,11 +13,14 @@ function SignupPage() {
     <EmailAuthForm
       title="Get Started"
       subtitle="Welcome to Silo, your personal silo of wealth — isolated, safe, controlled by you"
-      onSubmit={(email) => navigate({ to: '/verify-email', search: { email } })}
+      onSubmit={async (email) => {
+        await new Promise((r) => setTimeout(r, SIMULATED_DELAY_MS)) // stand-in for the sign-up request
+        await navigate({ to: '/verify-email', search: { email, intent: 'sign-up' } })
+      }}
       footer={
-        <div className="mt-5 flex flex-col gap-3 text-center text-sm tracking-body text-muted-foreground">
-          <p className="leading-5.5">
-            By signing up, you agree to our{' '}
+        <div className="mt-4 flex flex-col gap-3 text-center">
+          <p>
+            By signing up, you agree to our <br />
             <a href="#" className="font-medium text-foreground hover:underline">
               Terms of service
             </a>{' '}

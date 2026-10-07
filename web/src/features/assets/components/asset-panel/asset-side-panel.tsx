@@ -109,7 +109,7 @@ export function AssetSidePanel({
         <div className="shrink-0 px-6 pt-5 pb-4">
           <div className="mb-4 flex flex-col gap-4">
             <AssetLogo asset={asset} className="size-10 bg-background p-2" />
-            <h2 className="font-heading text-2xl leading-8 font-bold tracking-body">{asset.name}</h2>
+            <h2 className="font-heading text-2xl leading-8 font-bold">{asset.name}</h2>
           </div>
           <dl className="flex flex-col gap-3">
             <Property label="Asset Type">{ASSET_TYPE_LABELS[asset.asset_type] ?? asset.asset_type}</Property>
@@ -146,18 +146,18 @@ export function AssetSidePanel({
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
               className={cn(
-                'group -mb-px flex h-10 items-center gap-1.5 border-b-2 py-2 text-sm font-medium whitespace-nowrap transition-colors',
+                'group -mb-px flex h-10 items-center gap-1.5 border-b-2 py-2 font-medium whitespace-nowrap transition-colors',
                 tab === t.id ? 'border-primary-dark text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
               {t.label}
               {t.id === 'autopilot' && ruleCount > 0 && (
-                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-subtle px-1 text-2xs font-bold text-white group-aria-selected:bg-primary-dark">
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-subtle px-1 font-bold text-white group-aria-selected:bg-primary-dark">
                   {ruleCount}
                 </span>
               )}
               {t.id === 'note' && !!notes?.length && (
-                <span className="inline-flex h-5 min-w-4.5 items-center justify-center rounded-md border-[0.5px] border-line bg-accent px-1 text-xs tracking-label text-foreground">
+                <span className="inline-flex h-5 min-w-4.5 items-center justify-center rounded-md border-[0.5px] border-line bg-accent px-1 text-xs text-foreground">
                   {notes.length}
                 </span>
               )}
@@ -196,9 +196,9 @@ export function AssetSidePanel({
 
 function Property({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex items-center gap-4 text-sm leading-5.5">
-      <dt className="w-35 shrink-0 tracking-body text-muted-foreground">{label}</dt>
-      <dd className="font-medium tracking-label">{children}</dd>
+    <div className="flex items-center gap-4 leading-5.5">
+      <dt className="w-35 shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="font-medium">{children}</dd>
     </div>
   )
 }

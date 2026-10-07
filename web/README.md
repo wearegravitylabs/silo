@@ -29,4 +29,4 @@ Then replace the hand-written `features/*/types.ts` with the generated types.
 
 `app/` (entry, providers, router) → `routes/` (file-based pages; `-components/` are route-private) →
 `features/` (one folder per domain, imported only via its `index.ts`) → shared `components/`, `lib/`, `stores/`, `hooks/`.
-Design tokens live in `src/app/index.css`; use their Tailwind utilities, never raw colours.
+Design tokens live in `src/styles/` (colours in `colors.css`, motion in `animations.css`); use their Tailwind utilities, never raw colours.

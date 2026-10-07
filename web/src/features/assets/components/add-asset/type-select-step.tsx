@@ -23,8 +23,8 @@ export function TypeSelectStep({ selected, onSelect }: { selected: string | null
               )}
             >
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-subtle">{type.icon}</span>
-              <span className="flex-1 text-sm font-medium">{type.label}</span>
-              {!type.enabled && <span className="shrink-0 rounded-sm bg-accent px-1.5 py-0.5 text-2xs font-medium text-subtle">soon</span>}
+              <span className="flex-1 font-medium">{type.label}</span>
+              {!type.enabled && <span className="shrink-0 rounded-sm bg-accent px-1.5 py-0.5 font-medium text-subtle">soon</span>}
             </button>
           ))}
         </div>

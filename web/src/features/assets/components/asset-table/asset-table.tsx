@@ -64,7 +64,7 @@ export function AssetTable({
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search..."
             aria-label="Search assets"
-            className="flex-1 bg-transparent text-13 outline-none placeholder:text-subtle"
+            className="flex-1 bg-transparent outline-none placeholder:text-subtle"
           />
           {search && (
             <button type="button" aria-label="Clear search" onClick={() => setSearch('')} className="flex">
@@ -86,7 +86,7 @@ export function AssetTable({
               <col className="w-12" />
             </colgroup>
             <thead className="sticky top-0 z-1 bg-card">
-              <tr className="h-10 border-b text-left text-11 font-medium tracking-[0.5px] text-muted-foreground uppercase">
+              <tr className="h-10 border-b text-left font-medium tracking-[0.5px] text-muted-foreground uppercase">
                 <th className="pl-4">
                   <input type="checkbox" aria-label="Select all assets" className="cursor-pointer align-middle" />
                 </th>
@@ -131,8 +131,8 @@ export function AssetTable({
                 </svg>
               </div>
               <div className="flex flex-col gap-1 text-center">
-                <p className="font-heading text-15 font-bold">No assets found</p>
-                <p className="text-13 text-muted-foreground">
+                <p className="font-heading font-bold">No assets found</p>
+                <p className="text-muted-foreground">
                   {assets.length === 0 ? 'Add your first asset to get started' : 'Try adjusting your filters'}
                 </p>
               </div>
@@ -152,7 +152,7 @@ export function AssetTable({
 
 function AssetRow({ asset, onOpen }: { asset: AssetItem; onOpen: () => void }) {
   return (
-    <tr className="h-15 text-13">
+    <tr className="h-15">
       <td className="pl-4">
         <input type="checkbox" aria-label={`Select ${asset.name}`} className="cursor-pointer align-middle" />
       </td>
@@ -161,7 +161,7 @@ function AssetRow({ asset, onOpen }: { asset: AssetItem; onOpen: () => void }) {
           <AssetLogo asset={asset} />
           <div className="flex min-w-0 flex-col gap-px">
             <span className="truncate font-semibold">{asset.name}</span>
-            {asset.ticker && <span className="text-11 text-subtle">{asset.ticker}</span>}
+            {asset.ticker && <span className="text-subtle">{asset.ticker}</span>}
           </div>
         </div>
       </td>
@@ -172,7 +172,7 @@ function AssetRow({ asset, onOpen }: { asset: AssetItem; onOpen: () => void }) {
       <td className="text-right">
         <div className="font-semibold">{formatCurrency(asset.owned_value_converted, asset.converted_currency)}</div>
         {asset.total_quantity != null && asset.ticker && (
-          <div className="text-11 text-subtle">
+          <div className="text-subtle">
             {asset.total_quantity.toLocaleString()} {asset.ticker}
           </div>
         )}

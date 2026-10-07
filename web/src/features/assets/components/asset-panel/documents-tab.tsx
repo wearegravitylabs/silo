@@ -39,13 +39,13 @@ export function DocumentsTab({ asset, portfolioId }: { asset: AssetItem; portfol
         ) : (
           <ul className="flex flex-col gap-2.5">
             {documents.map((doc) => (
-              <li key={doc.id} className="flex items-center gap-2.5 rounded-10 bg-surface px-3.5 py-3">
+              <li key={doc.id} className="flex items-center gap-2.5 bg-surface px-3.5 py-3">
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent">
                   <FileIcon />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold">{doc.file_name}</p>
-                  <p className="mt-px text-11 text-subtle">
+                  <p className="mt-px text-subtle">
                     {formatFileSize(doc.file_size)} · {formatDate(doc.uploaded_at)}
                   </p>
                 </div>
@@ -73,7 +73,7 @@ export function DocumentsTab({ asset, portfolioId }: { asset: AssetItem; portfol
         )}
       </TabBody>
       <TabCta>
-        <Button onClick={() => fileInput.current?.click()} disabled={upload.isPending} className="rounded-10">
+        <Button onClick={() => fileInput.current?.click()} disabled={upload.isPending}>
           <UploadIcon />
           {upload.isPending ? 'Uploading…' : 'Upload Document'}
         </Button>

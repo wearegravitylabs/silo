@@ -43,7 +43,7 @@ export function FilterMenu({
             onSelect={() => onChange(o.value)}
             aria-checked={o.value === value}
             role="menuitemradio"
-            className={cn('rounded-md px-2.5 py-1.5 text-13 font-normal', o.value === value && 'bg-accent')}
+            className={cn('rounded-md px-2.5 py-1.5 font-normal', o.value === value && 'bg-accent')}
           >
             {o.label}
           </DropdownMenuItem>

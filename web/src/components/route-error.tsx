@@ -47,7 +47,7 @@ export function StateMessage({
     <div className="flex flex-1 animate-fade-in-up flex-col items-center justify-center gap-3 px-6 py-20 text-center">
       <div className={cn('flex size-11 items-center justify-center rounded-xl bg-accent', iconClassName)}>{icon}</div>
       <div className="flex max-w-80 flex-col gap-1">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className="font-semibold">{title}</h2>
         <p className="text-xs leading-5 text-muted-foreground">{body}</p>
       </div>
       {action}

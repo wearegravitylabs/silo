@@ -38,7 +38,7 @@ export function AppShellSkeleton() {
 
       <MainPanel scrollable={!pathname.endsWith('/assets')}>
         <div className="flex h-14 shrink-0 items-center justify-between border-b px-10" aria-hidden>
-          <Skeleton className="h-8 w-100 rounded-10" />
+          <Skeleton className="h-8 w-100" />
           <div className="flex items-center gap-3">
             <Skeleton className="h-3 w-28" />
             <Skeleton className="h-7 w-17 rounded-md" />

@@ -16,32 +16,39 @@ export function EmailAuthForm({
   title: string
   subtitle: string
   footer: ReactNode
-  onSubmit: (email: string) => void
+  onSubmit: (email: string) => void | Promise<void>
 }) {
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
+  const [pending, setPending] = useState(false)
   const emailError = touched && !EMAIL_RE.test(email) ? 'Enter a valid email address' : undefined
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setTouched(true)
-    if (EMAIL_RE.test(email)) onSubmit(email)
+    if (pending || !EMAIL_RE.test(email)) return
+    setPending(true)
+    try {
+      await onSubmit(email)
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
-    <>
+    <div>
       <div className="mb-6 flex flex-col items-center gap-6">
         <Logo />
         <FormHeading title={title} subtitle={subtitle} />
       </div>
 
       {/* Social sign-in: Silo Cloud only */}
-      <div className="mb-5 flex flex-col gap-3">
+      <div className="mb-4 flex flex-col gap-3">
         <SocialButton icon={<GoogleIcon />} label="Continue with Google" />
         <SocialButton icon={<AppleIcon />} label="Continue with Apple ID" />
       </div>
 
-      <div className="mb-5 flex items-center gap-2 text-sm text-muted-foreground" role="separator">
+      <div className="mb-5 flex items-center gap-2 text-muted-foreground" role="separator">
         <span className="h-px flex-1 bg-line" />
         or
         <span className="h-px flex-1 bg-line" />
@@ -56,23 +63,24 @@ export function EmailAuthForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onBlur={() => setTouched(true)}
+            readOnly={pending}
             placeholder="john.doe@yahoo.com"
             aria-invalid={!!emailError || undefined}
           />
         </FormField>
-        <Button type="submit" size="lg" className="w-full">
+        <Button type="submit" size="lg" loading={pending} className="w-full">
           Continue with Email
         </Button>
       </form>
 
       {footer}
-    </>
+    </div>
   )
 }
 
 function SocialButton({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <Button variant="secondary" size="lg" disabled title="Available in Silo Cloud" className="w-full gap-2 shadow-elevated">
+    <Button variant="secondary" size="lg" title="Available in Silo Cloud" className="w-full gap-2 font-semibold shadow-elevated">
       {icon}
       {label}
     </Button>
@@ -105,8 +113,12 @@ function GoogleIcon() {
 
 function AppleIcon() {
   return (
-    <svg viewBox="0 0 814 1000" fill="currentColor" aria-hidden="true" className="size-4">
-      <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76 0-103.7 40.8-165.9 40.8s-105-54.3-155.5-127.4C46.7 790.7 0 663 0 541.8c0-207.5 135.4-317.3 268.5-317.3 71 0 130.1 46.4 173.4 46.4 42.6 0 109.5-49.8 190.8-49.8zM520 188.9c-7.4-41.1 15.4-81.9 37.9-107.8C584.2 47.8 629.7 20 672.6 20c2.3 0 4.7 0 6.9.2-2.5 41.1-19.4 81.7-45 111.3-23.3 27.4-66.6 56.4-114.5 57.4z" />
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M15 8C15 11.864 11.8675 15 8 15C4.1325 15 1 11.864 1 8C1 4.1325 4.1325 1 8 1C11.8675 1 15 4.1325 15 8Z" fill="#283544" />
+      <path
+        d="M11.2811 6.22869C11.2429 6.25098 10.3335 6.72124 10.3335 7.76393C10.3764 8.95305 11.4811 9.37006 11.5 9.37006C11.4811 9.39235 11.3332 9.93814 10.8953 10.5103C10.5478 11.0031 10.1621 11.5 9.57639 11.5C9.01925 11.5 8.81925 11.1715 8.17639 11.1715C7.48601 11.1715 7.29067 11.5 6.7621 11.5C6.17638 11.5 5.7621 10.9765 5.39564 10.4883C4.91955 9.8493 4.51489 8.84655 4.5006 7.88374C4.49098 7.37353 4.59594 6.87202 4.86241 6.44603C5.23849 5.85132 5.90992 5.44762 6.64316 5.43431C7.20496 5.41665 7.70496 5.79373 8.04782 5.79373C8.37639 5.79373 8.99068 5.43431 9.68571 5.43431C9.98571 5.4346 10.7857 5.51881 11.2811 6.22869ZM8.0003 5.33244C7.9003 4.86652 8.17639 4.40059 8.43353 4.10339C8.7621 3.74396 9.28105 3.5 9.72857 3.5C9.75714 3.96592 9.57608 4.42288 9.25248 4.75568C8.96211 5.11511 8.4621 5.38569 8.0003 5.33244Z"
+        fill="white"
+      />
     </svg>
   )
 }

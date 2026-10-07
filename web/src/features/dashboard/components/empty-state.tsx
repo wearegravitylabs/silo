@@ -9,7 +9,7 @@ export function EmptyState({ portfolioName, onAddAsset }: { portfolioName: strin
       </div>
       <div className="flex max-w-90 flex-col items-center gap-2 text-center">
         <h2 className="font-heading text-xl leading-7 font-bold">{portfolioName} is empty</h2>
-        <p className="text-sm leading-5.5 text-muted-foreground">
+        <p className="leading-5.5 text-muted-foreground">
           Add your first asset or debt to start tracking your net worth, allocation, and financial health over time.
         </p>
       </div>

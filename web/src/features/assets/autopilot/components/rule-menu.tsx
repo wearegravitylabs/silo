@@ -17,7 +17,7 @@ export function RuleMenu({
   onPause: () => void
 }) {
   const { remove, resume } = useRuleMutations(portfolioId)
-  const item = 'gap-2 rounded-md px-3 py-2 text-13 font-normal [&_svg]:size-3 [&_svg]:text-current'
+  const item = 'gap-2 rounded-md px-3 py-2  font-normal [&_svg]:size-3 [&_svg]:text-current'
 
   return (
     <DropdownMenu>

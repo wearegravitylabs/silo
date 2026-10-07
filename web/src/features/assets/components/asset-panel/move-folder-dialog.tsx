@@ -52,7 +52,7 @@ export function MoveFolderDialog({
                 <span className="flex flex-1 items-center gap-4">
                   <FolderGlyph className={FOLDER_FILLS[i % FOLDER_FILLS.length]} />
                   <span className="flex flex-col gap-1.5">
-                    <span className="text-sm leading-5.5 font-medium tracking-label">{folder.name}</span>
+                    <span className="leading-5.5 font-medium">{folder.name}</span>
                     <span className="text-xs leading-5 text-muted-foreground">
                       {count} {count === 1 ? 'asset' : 'assets'}
                     </span>

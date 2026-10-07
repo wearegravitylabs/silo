@@ -78,7 +78,7 @@ function RuleFormBody({ asset, portfolioId, onDone }: { asset: AssetItem; portfo
 
       <DialogBody className="flex flex-col gap-4.5">
         <FormField label="Action" required>
-          <div role="radiogroup" aria-label="Action" className="flex gap-0.5 rounded-10 bg-surface p-0.75">
+          <div role="radiogroup" aria-label="Action" className="flex gap-0.5 bg-surface p-0.75">
             {(['add', 'remove'] as const).map((action) => (
               <button
                 key={action}
@@ -87,7 +87,7 @@ function RuleFormBody({ asset, portfolioId, onDone }: { asset: AssetItem; portfo
                 aria-checked={form.action === action}
                 onClick={() => set({ action })}
                 className={cn(
-                  'h-8.5 flex-1 rounded-lg text-13 font-semibold text-muted-foreground transition-all',
+                  'h-8.5 flex-1 rounded-lg font-semibold text-muted-foreground transition-all',
                   form.action === action && 'bg-background shadow-[0_1px_4px_rgb(0_0_0/0.08)]',
                   form.action === action && (action === 'add' ? 'text-positive' : 'text-destructive'),
                 )}
@@ -130,7 +130,7 @@ function RuleFormBody({ asset, portfolioId, onDone }: { asset: AssetItem; portfo
               id="rule-frequency"
               value={form.frequency}
               onChange={(e) => set({ frequency: e.target.value })}
-              className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-border bg-surface px-4 pr-9 text-sm outline-none focus:border-primary"
+              className="h-10 w-full cursor-pointer appearance-none rounded-xl border border-border bg-surface px-4 pr-9 outline-none focus:border-primary"
             >
               {Object.entries(FREQ_LABELS).map(([v, l]) => (
                 <option key={v} value={v}>

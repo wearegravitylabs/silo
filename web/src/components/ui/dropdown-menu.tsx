@@ -17,7 +17,7 @@ function DropdownMenuContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 flex min-w-36 flex-col gap-0.5 rounded-10 bg-popover p-0.5 text-popover-foreground shadow-dropdown outline-none',
+          'z-50 flex min-w-36 flex-col gap-0.5 bg-popover p-0.5 text-popover-foreground shadow-dropdown outline-none',
           'origin-(--radix-dropdown-menu-content-transform-origin) data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
           className,
         )}
@@ -36,7 +36,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-variant={variant}
       className={cn(
-        'flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.25 text-sm leading-5.5 font-medium tracking-label outline-none select-none',
+        'flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.25 leading-5.5 font-medium outline-none select-none',
         'text-foreground focus:bg-accent data-disabled:pointer-events-none data-disabled:opacity-50',
         'data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive-subtle',
         '[&_svg]:shrink-0 [&_svg]:text-muted-foreground data-[variant=destructive]:[&_svg]:text-destructive',

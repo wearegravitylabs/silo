@@ -12,7 +12,7 @@ export function LineChart({ points }: { points: DashboardChartPoint[] }) {
 
   if (points.length < 2) {
     return (
-      <div className="flex h-45 items-center justify-center rounded-10 border bg-surface">
+      <div className="flex h-45 items-center justify-center border bg-surface">
         <span className="text-xs text-subtle">Not enough history for this period — try a shorter range</span>
       </div>
     )
@@ -30,7 +30,7 @@ export function LineChart({ points }: { points: DashboardChartPoint[] }) {
   const area = `${line} L${xy.at(-1)![0]},${H - PAD.b} L${xy[0][0]},${H - PAD.b} Z`
 
   return (
-    <div className={cn('overflow-hidden rounded-10 border', up ? 'text-primary-dark' : 'text-destructive')}>
+    <div className={cn('overflow-hidden border', up ? 'text-primary-dark' : 'text-destructive')}>
       <svg
         width="100%"
         height={H}

@@ -34,9 +34,9 @@ export function CurrencySelector({ portfolioId, currentCode }: { portfolioId: st
           }}
           renderItem={(c) => (
             <>
-              <span className="text-13 leading-none">{currencyFlag(c.code)}</span>
+              <span className="leading-none">{currencyFlag(c.code)}</span>
               <span className="min-w-9 font-medium">{c.code}</span>
-              <span className="truncate text-11 text-muted-foreground">{c.name}</span>
+              <span className="truncate text-muted-foreground">{c.name}</span>
             </>
           )}
         />

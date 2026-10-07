@@ -78,44 +78,16 @@ export function QuotePanel() {
   }, [advance])
 
   return (
-    <aside className="relative hidden w-120 shrink-0 items-center justify-center overflow-hidden bg-night lg:flex">
-      {/* Light beams */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        {[18, 32, 46, 60, 74].map((left) => (
-          <div
-            key={left}
-            className="absolute top-0 h-full w-0.5 bg-linear-to-b from-[rgb(180_210_255/0.7)] via-[rgb(120_170_255/0.35)] via-45% to-transparent to-80% blur-[2px]"
-            style={{ left: `${left}%` }}
-          />
-        ))}
-        {[25, 53].map((left) => (
-          <div
-            key={left}
-            className="absolute top-0 h-3/4 w-15 -translate-x-1/2 bg-linear-to-b from-[rgb(100_150_255/0.18)] to-transparent blur-[18px]"
-            style={{ left: `${left}%` }}
-          />
-        ))}
-        <div className="absolute top-0 left-1/2 h-45 w-75 -translate-x-1/2 bg-radial-[ellipse_at_50%_0%] from-[rgb(100_150_255/0.28)] to-transparent to-70%" />
-      </div>
-
-      <figure className="relative z-10 flex w-92 flex-col">
+    <aside className="relative hidden w-120 shrink-0 items-center justify-center overflow-hidden bg-night bg-[url(/auth/backdrop.png)] bg-cover bg-center lg:flex">
+      <figure className="flex w-92 flex-col">
         <div className="min-h-45">
-          <blockquote
-            key={`q-${idx}`}
-            className={cn(
-              'font-heading text-32 leading-9 font-bold tracking-[-0.2px] text-white',
-              phase === 'in' ? 'animate-quote-in' : 'animate-quote-out',
-            )}
-          >
+          <blockquote key={`q-${idx}`} className={cn('heading-h5 text-white', phase === 'in' ? 'animate-quote-in' : 'animate-quote-out')}>
             {QUOTES[idx].text}
           </blockquote>
         </div>
         <figcaption
           key={`a-${idx}`}
-          className={cn(
-            'mt-6 text-sm leading-5.5 font-medium tracking-label text-sky',
-            phase === 'in' ? 'animate-author-in' : 'animate-quote-out',
-          )}
+          className={cn('mt-6 leading-5.5 font-medium text-sky', phase === 'in' ? 'animate-author-in' : 'animate-quote-out')}
         >
           {QUOTES[idx].author}
         </figcaption>

@@ -64,7 +64,7 @@ export function Sidebar({ portfolioId }: { portfolioId: string }) {
           <div className="mx-3 mb-3 flex items-start gap-2 rounded-xl bg-background p-2 shadow-panel">
             <InfoIcon className="mt-0.75" />
             <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-sm leading-5.5 font-medium">Open source &amp; private</span>
+              <span className="leading-5.5 font-medium">Open source &amp; private</span>
               <span className="text-xs leading-5 text-muted-foreground">Your data is never shared. Fully open source.</span>
               <a
                 href="https://github.com/wearegravitylabs/silo"
@@ -108,7 +108,7 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
         <AvatarFace id={avatarIdFromImageUrl(portfolio.image_url)} className="size-6" />
         {!collapsed && (
           <>
-            <span className="max-w-29 truncate text-sm font-medium">{portfolio.name}</span>
+            <span className="max-w-29 truncate font-medium">{portfolio.name}</span>
             <ChevronDownIcon />
           </>
         )}
@@ -136,7 +136,7 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
 
 const navItem = (collapsed: boolean) =>
   cn(
-    'flex h-8 items-center rounded-lg text-sm leading-5.5 font-medium tracking-label transition-colors',
+    'flex h-8 items-center rounded-lg leading-5.5 font-medium transition-colors',
     'text-muted-foreground hover:bg-accent/60 data-[status=active]:bg-accent data-[status=active]:[&_svg]:text-foreground',
     'focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
     collapsed ? 'w-10 justify-center p-1.25' : 'w-61 gap-1 px-2 py-1.25',

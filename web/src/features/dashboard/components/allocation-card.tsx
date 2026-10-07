@@ -43,14 +43,14 @@ function AllocationSection({ items, label, currency }: { items: DashboardAllocIt
         {items.length > 0
           ? items.map((item, i) => (
               <li key={item.label} className="flex h-10 items-center justify-between py-2">
-                <span className="flex items-center gap-2 text-13">
+                <span className="flex items-center gap-2">
                   <span className={cn('h-3 w-1 shrink-0 rounded-sm', swatch(i))} />
                   {item.label}
-                  {item.count != null && <span className="text-11 text-subtle">{item.count}</span>}
+                  {item.count != null && <span className="text-subtle">{item.count}</span>}
                 </span>
                 <span className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground">{item.pct.toFixed(1)}%</span>
-                  <span className="text-13 font-medium">{formatCurrency(item.value, currency)}</span>
+                  <span className="font-medium">{formatCurrency(item.value, currency)}</span>
                 </span>
               </li>
             ))

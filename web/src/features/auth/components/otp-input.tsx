@@ -62,7 +62,7 @@ export function OtpInput({ value, onChange, length = 6, hasError = false, classN
           onChange={(e) => handleChange(i, e.target.value)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
-          placeholder="·"
+          placeholder="0"
           aria-label={`Digit ${i + 1} of ${length}`}
           aria-invalid={hasError || undefined}
           className={cn(

@@ -16,7 +16,7 @@ export function LotFields({ lots, onChange }: { lots: Lot[]; onChange: (lots: Lo
         <fieldset key={i} className="flex flex-col gap-3">
           {i > 0 && (
             <legend className="flex w-full items-center justify-between pt-1">
-              <span className="text-xs font-medium tracking-label text-muted-foreground">Lot {i + 1}</span>
+              <span className="text-xs font-medium text-muted-foreground">Lot {i + 1}</span>
               <button
                 type="button"
                 aria-label={`Remove lot ${i + 1}`}
