@@ -3,15 +3,16 @@ import type { OnboardInput, User } from './types'
 // TODO: mocked until the app runs against the backend. Real call: api<User>('/users/me')
 const MOCK_USER: User = {
   id: 'demo-user',
-  email: 'demo@silo.app',
-  first_name: 'Demo',
-  last_name: 'User',
+  email: 'john.doe@yahoo.com',
+  first_name: 'John',
+  last_name: 'Doe',
   phone_number: null,
   phone_country_code: null,
   avatar_url: null,
   is_email_verified: true,
   is_onboarded: true,
   portfolio_count: 1,
+  trial_days_left: null, // set to e.g. 14 to see the sidebar's "Free trial ending soon" card
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
 }

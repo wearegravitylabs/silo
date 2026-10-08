@@ -1,72 +1,80 @@
+import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { formatCurrency } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { PERIODS, type DashboardChartPoint, type DashboardNetWorth, type DashboardPeriod } from '../types'
 import { CardHead } from './card-head'
-import { CoinIcon } from './icons'
+import { NetWorthIcon } from './icons'
 import { LineChart } from './line-chart'
+
+/** Series colour per currency; anything else is neutral grey. */
+const CURRENCY_BAR: Record<string, string> = {
+  NGN: 'bg-currency-ngn',
+  USD: 'bg-currency-usd',
+  EUR: 'bg-currency-eur',
+  GBP: 'bg-currency-gbp',
+}
 
 export function NetWorthCard({
   nw,
   chartPoints,
   period,
   onPeriod,
+  className,
 }: {
   nw: DashboardNetWorth
   chartPoints: DashboardChartPoint[]
   period: DashboardPeriod
   onPeriod: (p: DashboardPeriod) => void
+  className?: string
 }) {
-  const up = (nw.change_pct ?? 0) >= 0
-  const split = [
-    { label: 'Assets', value: nw.assets, bar: 'bg-positive' },
-    { label: 'Liabilities', value: nw.debts, bar: 'bg-negative' },
-  ]
+  const up = (nw.change_amount ?? 0) >= 0
+  const description = PERIODS.find((p) => p.label === period)?.description
 
   return (
-    <Card>
-      <CardHead icon={<CoinIcon />} title="Net Worth" />
+    <Card className={cn('flex flex-col', className)}>
+      <CardHead icon={<NetWorthIcon />} title="Total Net Worth" bordered={false} />
 
-      <div className="flex items-end justify-between px-4 pt-4">
-        <div className="flex flex-col gap-1">
-          <span className="font-heading leading-9 font-bold tracking-[-0.3px]">{formatCurrency(nw.total, nw.currency)}</span>
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Total net worth
-            {nw.change_pct != null && (
-              <>
-                <span className="text-subtle">·</span>
-                <span className={cn('font-medium', up ? 'text-positive' : 'text-negative')}>
-                  {up ? '+' : ''}
-                  {nw.change_pct.toFixed(2)}% this period
-                </span>
-              </>
-            )}
-          </p>
+      <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5 px-4 pt-3">
+        <div className="flex flex-col gap-2">
+          <span className="font-heading text-[1.75rem] leading-9 font-bold tracking-[-0.0125rem] text-foreground">
+            {formatMoney(nw.total, nw.currency)}
+          </span>
+          {nw.change_amount != null && (
+            <p className="flex items-center gap-1.5 text-xs leading-5">
+              <span className={cn('flex items-center gap-1 font-medium', up ? 'text-positive' : 'text-negative')}>
+                {up ? <ArrowUpIcon className="size-3.5" aria-hidden /> : <ArrowDownIcon className="size-3.5" aria-hidden />}
+                {formatMoney(Math.abs(nw.change_amount), nw.currency, { spaced: false })}
+                {nw.change_pct != null && ` (${Math.abs(Math.round(nw.change_pct))}%)`}
+              </span>
+              {description}
+            </p>
+          )}
         </div>
 
-        <dl className="flex gap-8">
-          {split.map(({ label, value, bar }) => (
-            <div key={label} className="flex items-center gap-2">
-              <span className={cn('h-10 w-1 shrink-0 rounded-2xl', bar)} />
-              <div className="flex flex-col gap-1.5">
-                <dt className="text-xs leading-5 text-muted-foreground">{label}</dt>
-                <dd className="font-medium">{formatCurrency(value, nw.currency)}</dd>
+        <dl className="flex flex-wrap gap-x-6 gap-y-3">
+          {nw.by_currency.map(({ currency, value }) => (
+            <div key={currency} className="flex items-stretch gap-2.5">
+              <span className={cn('w-0.75 shrink-0 rounded-full', CURRENCY_BAR[currency] ?? 'bg-currency-other')} />
+              <div className="flex flex-col gap-1.5 py-0.5">
+                <dt className="text-xs leading-4 text-muted-foreground">Assets in {currency}</dt>
+                <dd className="font-medium text-foreground">{formatMoney(value, currency)}</dd>
               </div>
             </div>
           ))}
         </dl>
       </div>
 
-      <div className="p-4">
+      <div className="flex flex-1 flex-col justify-end px-4 pt-6 pb-4">
         <LineChart points={chartPoints} />
-        <div className="mt-2 flex items-center justify-center gap-0.5" role="group" aria-label="Chart period">
+        <div className="mt-3 flex items-center justify-center gap-1" role="group" aria-label="Chart period">
           {PERIODS.map(({ label }) => (
             <button
               key={label}
               type="button"
               aria-pressed={label === period}
               onClick={() => onPeriod(label)}
-              className="h-6 rounded-lg px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:font-semibold aria-pressed:text-foreground"
+              className="h-6 min-w-8 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:font-semibold aria-pressed:text-foreground"
             >
               {label}
             </button>

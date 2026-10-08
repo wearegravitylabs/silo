@@ -5,6 +5,7 @@
   --animate-fade-in-up: fade-in-up 0.5s var(--ease-out-expo) both; /* page/content entrance */
   --animate-rise: rise 0.2s var(--ease-out-expo) both; /* modals, menus, small content */
   --animate-slide-in-right: slide-in-right 0.22s var(--ease-out-expo) both;
+  --animate-drawer-in: drawer-in 0.3s var(--ease-out-expo) both; /* mobile sidebar */
   --animate-sheet-up: sheet-up 0.3s var(--ease-out-expo) both;
   --animate-quote-in: quote-in 0.5s var(--ease-out-expo) both;
   --animate-quote-out: quote-out 0.42s ease-in both;
@@ -37,6 +38,14 @@
     }
     to {
       transform: translateY(0);
+    }
+  }
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
     }
   }
   @keyframes slide-in-right {

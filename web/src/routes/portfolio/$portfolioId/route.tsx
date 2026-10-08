@@ -5,7 +5,7 @@ import { AppShellSkeleton } from './-components/app-shell-skeleton'
 import { Sidebar } from './-components/sidebar'
 
 /** Signed-in shell for one portfolio: sidebar + the section page. */
-export const Route = createFileRoute('/p/$portfolioId')({
+export const Route = createFileRoute('/portfolio/$portfolioId')({
   loader: async ({ context: { queryClient }, params }) => {
     const [portfolios] = await Promise.all([queryClient.ensureQueryData(portfoliosQuery), queryClient.ensureQueryData(meQuery)])
     if (!portfolios.some((p) => p.id === params.portfolioId)) throw notFound()

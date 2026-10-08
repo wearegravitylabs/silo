@@ -1,53 +1,78 @@
-import { useId } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { DashboardChartPoint } from '../types'
 
-const W = 800
-const H = 160
-const PAD = { t: 12, r: 8, b: 20, l: 8 }
+const H = 200
+const PAD = { t: 16, r: 4, b: 24, l: 4 } // room for the glow below the line
 
-/** Area line chart; blue when the period ends up, red when down. */
+/** Smooth net-worth line with a soft glow beneath it; brand blue when the period ends up, red when down. */
 export function LineChart({ points }: { points: DashboardChartPoint[] }) {
-  const gradientId = useId()
+  const glowId = useId()
+  const ref = useRef<HTMLDivElement>(null)
+  const width = useWidth(ref)
 
-  if (points.length < 2) {
-    return (
-      <div className="flex h-45 items-center justify-center border bg-surface">
-        <span className="text-xs text-subtle">Not enough history for this period — try a shorter range</span>
-      </div>
-    )
-  }
+  // No history yet: keep the space, draw nothing (the design leaves it blank).
+  // The measured wrapper always renders, so the width is known whenever data arrives.
+  if (points.length < 2) return <div ref={ref} className="h-50 w-full" aria-hidden />
 
   const values = points.map((p) => p.value)
   const min = Math.min(...values)
   const range = Math.max(...values) - min || 1
   const up = values.at(-1)! >= values[0]
-  const cw = W - PAD.l - PAD.r
+  const cw = Math.max(width - PAD.l - PAD.r, 0)
   const ch = H - PAD.t - PAD.b
-  const xy = points.map((p, i) => [PAD.l + (i / (points.length - 1)) * cw, PAD.t + ch - ((p.value - min) / range) * ch])
-
-  const line = xy.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
-  const area = `${line} L${xy.at(-1)![0]},${H - PAD.b} L${xy[0][0]},${H - PAD.b} Z`
+  const xy = points.map((p, i): [number, number] => [PAD.l + (i / (points.length - 1)) * cw, PAD.t + ch - ((p.value - min) / range) * ch])
+  const line = smoothPath(xy)
 
   return (
-    <div className={cn('overflow-hidden border', up ? 'text-primary-dark' : 'text-destructive')}>
-      <svg
-        width="100%"
-        height={H}
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Net worth trend, ${up ? 'up' : 'down'} over the period`}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="currentColor" stopOpacity="0.1" />
-            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={area} fill={`url(#${gradientId})`} />
-        <path d={line} stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
+    <div ref={ref} className={cn('h-50 w-full', up ? 'text-primary-dark' : 'text-destructive')}>
+      {width > 0 && (
+        <svg width={width} height={H} role="img" aria-label={`Net worth trend, ${up ? 'up' : 'down'} over the period`}>
+          <defs>
+            <filter id={glowId} x="-5%" y="-20%" width="110%" height="160%">
+              <feGaussianBlur stdDeviation="6" />
+            </filter>
+          </defs>
+          <path
+            d={line}
+            stroke="currentColor"
+            strokeWidth="4"
+            fill="none"
+            opacity="0.25"
+            transform="translate(0 8)"
+            filter={`url(#${glowId})`}
+          />
+          <path d={line} stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
     </div>
   )
+}
+
+/** Catmull-Rom spline through the points, as cubic Béziers. */
+function smoothPath(pts: [number, number][]) {
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i - 1] ?? pts[i]
+    const [x1, y1] = pts[i]
+    const [x2, y2] = pts[i + 1]
+    const [x3, y3] = pts[i + 2] ?? pts[i + 1]
+    const c1 = [x1 + (x2 - x0) / 6, y1 + (y2 - y0) / 6]
+    const c2 = [x2 - (x3 - x1) / 6, y2 - (y3 - y1) / 6]
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`
+  }
+  return d
+}
+
+/** Live width of an element, so the chart draws in real pixels (crisp 1.5px stroke, round glow). */
+function useWidth(ref: React.RefObject<HTMLElement | null>) {
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return width
 }

@@ -24,7 +24,7 @@ interface AssetsSearch {
   create?: boolean
 }
 
-export const Route = createFileRoute('/p/$portfolioId/assets')({
+export const Route = createFileRoute('/portfolio/$portfolioId/assets')({
   validateSearch: (search: Record<string, unknown>): AssetsSearch => ({
     ...(typeof search.folder === 'string' && { folder: search.folder }),
     ...(search.create === true && { create: true }),
@@ -52,7 +52,7 @@ function AssetsShell({ children }: { children: React.ReactNode }) {
   const { portfolioId } = Route.useParams()
   return (
     <MainPanel>
-      <Topbar portfolioId={portfolioId} actionLabel="Share" />
+      <Topbar portfolioId={portfolioId} />
       {children}
     </MainPanel>
   )

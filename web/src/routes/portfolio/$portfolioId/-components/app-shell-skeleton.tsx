@@ -16,7 +16,7 @@ export function AppShellSkeleton() {
 
   return (
     <div className="flex min-h-dvh bg-surface">
-      <aside className={cn('flex h-dvh shrink-0 flex-col justify-between', collapsed ? 'w-16' : 'w-67')} aria-hidden>
+      <aside className={cn('hidden h-dvh shrink-0 flex-col justify-between lg:flex', collapsed ? 'w-16' : 'w-67')} aria-hidden>
         <div className="flex flex-col gap-3">
           <div className={cn('flex h-14 items-center gap-2', collapsed ? 'justify-center' : 'px-3.5')}>
             <Skeleton className="size-6 rounded-full" />
@@ -37,13 +37,16 @@ export function AppShellSkeleton() {
       </aside>
 
       <MainPanel scrollable={!pathname.endsWith('/assets')}>
-        <div className="flex h-14 shrink-0 items-center justify-between border-b px-10" aria-hidden>
-          <Skeleton className="h-8 w-100" />
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-7 w-17 rounded-md" />
-            <Skeleton className="size-5 rounded-full" />
-            <Skeleton className="h-7 w-13.5 rounded-md" />
+        <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-4 md:px-10" aria-hidden>
+          <Skeleton className="hidden h-8 w-72 rounded-lg md:block lg:w-100" />
+          <Skeleton className="size-8 rounded-lg md:hidden" />
+          <div className="flex items-center gap-3 md:gap-6">
+            <Skeleton className="hidden h-3 w-32 md:block" />
+            <div className="flex items-center gap-2 md:gap-3">
+              <Skeleton className="h-7 w-16 rounded-md" />
+              <Skeleton className="size-7 rounded-full" />
+              <Skeleton className="h-8 w-15 rounded-lg" />
+            </div>
           </div>
         </div>
         {pathname.endsWith('/assets') ? <AssetsSkeleton /> : <DashboardSkeleton />}

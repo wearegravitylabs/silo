@@ -9,9 +9,9 @@ const MOCK_PORTFOLIOS: Portfolio[] = [
   {
     id: 'demo',
     user_id: 'demo-user',
-    name: 'Personal',
+    name: 'Retirement portfolio',
     description: '',
-    base_currency: 'USD',
+    base_currency: 'NGN',
     image_url: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',

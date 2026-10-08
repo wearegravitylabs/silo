@@ -19,5 +19,7 @@ function InvitePage() {
   const { portfolio } = Route.useSearch()
   const navigate = Route.useNavigate()
   const portfolioId = portfolio ?? PREVIEW_PORTFOLIO
-  return <InviteStep portfolioId={portfolioId} onDone={() => navigate({ to: '/p/$portfolioId/dashboard', params: { portfolioId } })} />
+  return (
+    <InviteStep portfolioId={portfolioId} onDone={() => navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId } })} />
+  )
 }

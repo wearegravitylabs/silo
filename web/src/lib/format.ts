@@ -6,6 +6,23 @@ export function formatCurrency(value: number, currency = 'USD') {
   }).format(value)
 }
 
+/**
+ * "₦ 1,000,000.00": narrow symbol, 2 decimals by default. `spaced` puts a space after the symbol
+ * (headline values) — off gives "₦10,000.00" (inline change amounts). `decimals: 0` gives "₦ 5,000".
+ */
+export function formatMoney(value: number, currency = 'USD', { spaced = true, decimals = 2 } = {}) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  })
+    .formatToParts(value)
+    .map((p) => (p.type === 'currency' && spaced ? `${p.value} ` : p.value))
+    .join('')
+}
+
 /** Flag emoji for an ISO 4217 code; most codes start with the ISO 3166-1 country code. */
 export function currencyFlag(code: string): string {
   const cc = code.slice(0, 2).toUpperCase()

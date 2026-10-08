@@ -9,9 +9,9 @@ export function QuickActionsMenu({ onAddAsset }: { onAddAsset: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="xs" className="gap-1">
+        <Button variant="secondary" size="xs" className="gap-1 shadow-elevated">
           Quick Actions
-          <ChevronDownIcon />
+          <ChevronDownIcon className="text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-65">

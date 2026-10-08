@@ -1,6 +1,6 @@
 // Small UI icons shared across features. Feature-specific icons live in that feature.
 // Size with size-*, colour with text-* (all strokes/fills use currentColor).
-import type { SVGProps } from 'react'
+import { useId, type SVGProps } from 'react'
 import { cn } from '@/lib/utils'
 
 export type IconProps = SVGProps<SVGSVGElement>
@@ -124,6 +124,23 @@ export function AlertTriangleIcon({ className, ...props }: IconProps) {
         strokeLinejoin="round"
       />
       <path d="M12 9v4M12 17h.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  )
+}
+
+/** Silo AI mark: a blue→red sparkle with a small orange one. Keeps its own colours. */
+export function AiSparkleIcon({ className, ...props }: IconProps) {
+  const id = useId()
+  return (
+    <Svg viewBox="0 0 16 16" className={cn('size-4', className)} {...props}>
+      <defs>
+        <linearGradient id={id} x1="2" y1="14" x2="12" y2="3" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="var(--color-ai-blue)" />
+          <stop offset="1" stopColor="var(--color-ai)" />
+        </linearGradient>
+      </defs>
+      <path d="M6.5 3.5 7.9 7.6 12 9l-4.1 1.4-1.4 4.1-1.4-4.1L1 9l4.1-1.4 1.4-4.1Z" fill={`url(#${id})`} />
+      <path d="M12.5 1 13.2 2.8 15 3.5l-1.8.7-.7 1.8-.7-1.8L10 3.5l1.8-.7.7-1.8Z" fill="var(--color-warning)" />
     </Svg>
   )
 }

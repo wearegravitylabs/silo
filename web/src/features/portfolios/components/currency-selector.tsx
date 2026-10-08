@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import { CurrencyFlag } from '@/components/currency-flag'
 import { ChevronDownIcon } from '@/components/icons'
 import { SearchList } from '@/components/search-list'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { currencyFlag } from '@/lib/format'
 import { useCurrencies, useUpdatePortfolio } from '../queries'
 
 /** Header dropdown that changes the portfolio's base currency. */
@@ -15,10 +15,16 @@ export function CurrencySelector({ portfolioId, currentCode }: { portfolioId: st
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="secondary" size="xs" disabled={isPending} className="gap-1 px-2 font-medium" aria-label="Base currency">
-          <span className="leading-none">{currencyFlag(currentCode)}</span>
+        <Button
+          variant="ghost"
+          size="xs"
+          loading={isPending}
+          className="gap-1.5 px-1.5 text-sm font-medium text-foreground"
+          aria-label={`Base currency: ${currentCode}`}
+        >
+          {!isPending && <CurrencyFlag code={currentCode} />}
           {currentCode}
-          <ChevronDownIcon />
+          <ChevronDownIcon className="text-muted-foreground" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-65">
@@ -34,7 +40,7 @@ export function CurrencySelector({ portfolioId, currentCode }: { portfolioId: st
           }}
           renderItem={(c) => (
             <>
-              <span className="leading-none">{currencyFlag(c.code)}</span>
+              <CurrencyFlag code={c.code} />
               <span className="min-w-9 font-medium">{c.code}</span>
               <span className="truncate text-muted-foreground">{c.name}</span>
             </>
