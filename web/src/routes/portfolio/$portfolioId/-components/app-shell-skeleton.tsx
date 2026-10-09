@@ -36,7 +36,7 @@ export function AppShellSkeleton() {
         </div>
       </aside>
 
-      <MainPanel scrollable={!pathname.endsWith('/assets')}>
+      <MainPanel>
         <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-4 md:px-10" aria-hidden>
           <Skeleton className="hidden h-8 w-72 rounded-lg md:block lg:w-100" />
           <Skeleton className="size-8 rounded-lg md:hidden" />
@@ -49,7 +49,9 @@ export function AppShellSkeleton() {
             </div>
           </div>
         </div>
-        {pathname.endsWith('/assets') ? <AssetsSkeleton /> : <DashboardSkeleton />}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {pathname.endsWith('/assets') ? <AssetsSkeleton /> : <DashboardSkeleton />}
+        </div>
       </MainPanel>
     </div>
   )

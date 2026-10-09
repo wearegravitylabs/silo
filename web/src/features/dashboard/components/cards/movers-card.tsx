@@ -6,9 +6,9 @@ import { Card } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { MOVER_WINDOWS, type DashboardMover, type MoverWindow } from '../types'
-import { CardHead } from './card-head'
-import { PlaceholderRow } from './placeholder-row'
+import { MOVER_WINDOWS, type DashboardMover, type MoverWindow } from '../../types'
+import { CardHead } from '../shared/card-head'
+import { PlaceholderRow } from '../shared/placeholder-row'
 
 const ROWS = 3
 
@@ -59,7 +59,7 @@ function MoverRow({ mover }: { mover: DashboardMover }) {
   return (
     <li className="flex items-center justify-between gap-3 py-4">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background shadow-button">
+        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background shadow-small">
           {mover.logo_url ? (
             <img src={mover.logo_url} alt="" className="size-6 object-contain" />
           ) : (

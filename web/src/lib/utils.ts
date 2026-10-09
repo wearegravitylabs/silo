@@ -7,7 +7,7 @@ const twMerge = extendTailwindMerge({
   extend: {
     theme: {
       text: ['h5', 'h6'],
-      shadow: ['panel', 'button', 'elevated', 'dropdown', 'popover', 'sheet'],
+      shadow: ['panel', 'small', 'elevated', 'dropdown', 'popover', 'sheet'],
     },
   },
 })

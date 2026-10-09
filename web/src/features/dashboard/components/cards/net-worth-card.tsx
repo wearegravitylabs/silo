@@ -2,10 +2,10 @@ import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { PERIODS, type DashboardChartPoint, type DashboardNetWorth, type DashboardPeriod } from '../types'
-import { CardHead } from './card-head'
-import { NetWorthIcon } from './icons'
-import { LineChart } from './line-chart'
+import { PERIODS, type DashboardChartPoint, type DashboardNetWorth, type DashboardPeriod } from '../../types'
+import { CardHead } from '../shared/card-head'
+import { NetWorthIcon } from '../shared/icons'
+import { LineChart } from '../shared/line-chart'
 
 /** Series colour per currency; anything else is neutral grey. */
 const CURRENCY_BAR: Record<string, string> = {
@@ -65,8 +65,9 @@ export function NetWorthCard({
         </dl>
       </div>
 
-      <div className="flex flex-1 flex-col justify-end px-4 pt-6 pb-4">
-        <LineChart points={chartPoints} />
+      {/* The chart takes whatever height the card leaves: 200px when stacked, the rest of the 404px row when side by side. */}
+      <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-4">
+        <LineChart points={chartPoints} className="h-50 @4xl:h-auto @4xl:min-h-0 @4xl:flex-1" />
         <div className="mt-3 flex items-center justify-center gap-1" role="group" aria-label="Chart period">
           {PERIODS.map(({ label }) => (
             <button

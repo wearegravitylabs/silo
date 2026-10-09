@@ -15,6 +15,7 @@ import { Route as OnboardingRouteRouteImport } from './../routes/onboarding/rout
 import { Route as AuthLoginRouteImport } from './../routes/_auth/login'
 import { Route as AuthSignUpRouteImport } from './../routes/_auth/sign-up'
 import { Route as AuthVerifyEmailRouteImport } from './../routes/_auth/verify-email'
+import { Route as DevSiloAiRouteImport } from './../routes/dev/silo-ai'
 import { Route as InviteTokenRouteImport } from './../routes/invite.$token'
 import { Route as OnboardingIndexRouteImport } from './../routes/onboarding/index'
 import { Route as OnboardingInviteRouteImport } from './../routes/onboarding/invite'
@@ -54,6 +55,11 @@ const AuthVerifyEmailRoute = AuthVerifyEmailRouteImport.update({
   id: '/verify-email',
   path: '/verify-email',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const DevSiloAiRoute = DevSiloAiRouteImport.update({
+  id: '/dev/silo-ai',
+  path: '/dev/silo-ai',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -116,6 +122,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/dev/silo-ai': typeof DevSiloAiRoute
   '/invite/$token': typeof InviteTokenRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/join': typeof OnboardingJoinRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
   '/verify-email': typeof AuthVerifyEmailRoute
+  '/dev/silo-ai': typeof DevSiloAiRoute
   '/invite/$token': typeof InviteTokenRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/join': typeof OnboardingJoinRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
   '/_auth/verify-email': typeof AuthVerifyEmailRoute
+  '/dev/silo-ai': typeof DevSiloAiRoute
   '/invite/$token': typeof InviteTokenRoute
   '/onboarding/invite': typeof OnboardingInviteRoute
   '/onboarding/join': typeof OnboardingJoinRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/verify-email'
+    | '/dev/silo-ai'
     | '/invite/$token'
     | '/onboarding/invite'
     | '/onboarding/join'
@@ -186,6 +196,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/verify-email'
+    | '/dev/silo-ai'
     | '/invite/$token'
     | '/onboarding/invite'
     | '/onboarding/join'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/sign-up'
     | '/_auth/verify-email'
+    | '/dev/silo-ai'
     | '/invite/$token'
     | '/onboarding/invite'
     | '/onboarding/join'
@@ -220,6 +232,7 @@ export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   PortfolioPortfolioIdRouteRoute: typeof PortfolioPortfolioIdRouteRouteWithChildren
+  DevSiloAiRoute: typeof DevSiloAiRoute
   InviteTokenRoute: typeof InviteTokenRoute
 }
 
@@ -266,6 +279,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/verify-email'
       preLoaderRoute: typeof AuthVerifyEmailRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/dev/silo-ai': {
+      id: '/dev/silo-ai'
+      path: '/dev/silo-ai'
+      fullPath: '/dev/silo-ai'
+      preLoaderRoute: typeof DevSiloAiRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -399,6 +419,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   PortfolioPortfolioIdRouteRoute: PortfolioPortfolioIdRouteRouteWithChildren,
+  DevSiloAiRoute: DevSiloAiRoute,
   InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport

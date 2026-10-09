@@ -14,8 +14,6 @@ import {
 import { foldersQuery, FolderTabs, useFolders } from '@/features/folders'
 import { usePortfolio } from '@/features/portfolios'
 import { AssetsSkeleton } from './-components/assets-skeleton'
-import { MainPanel } from './-components/main-panel'
-import { Topbar } from './-components/topbar'
 
 interface AssetsSearch {
   /** Selected folder tab; defaults to the first folder */
@@ -48,14 +46,9 @@ export const Route = createFileRoute('/portfolio/$portfolioId/assets')({
   component: AssetsPage,
 })
 
+/** Assets fill the shell's content area and manage their own scrolling; the side panel positions against it. */
 function AssetsShell({ children }: { children: React.ReactNode }) {
-  const { portfolioId } = Route.useParams()
-  return (
-    <MainPanel>
-      <Topbar portfolioId={portfolioId} />
-      {children}
-    </MainPanel>
-  )
+  return <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
 }
 
 /** Folder tabs (folders feature) drive which assets (assets feature) are shown. */

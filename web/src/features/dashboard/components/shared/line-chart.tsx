@@ -1,33 +1,41 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
-import type { DashboardChartPoint } from '../types'
+import type { DashboardChartPoint } from '../../types'
 
-const H = 200
 const PAD = { t: 16, r: 4, b: 24, l: 4 } // room for the glow below the line
 
-/** Smooth net-worth line with a soft glow beneath it; brand blue when the period ends up, red when down. */
-export function LineChart({ points }: { points: DashboardChartPoint[] }) {
+/**
+ * Smooth net-worth line with a soft glow beneath it; brand blue when the period ends up, red when down.
+ * Fills its box: size it with className (e.g. h-50, or flex-1 inside a fixed-height card).
+ */
+export function LineChart({ points, className }: { points: DashboardChartPoint[]; className?: string }) {
   const glowId = useId()
   const ref = useRef<HTMLDivElement>(null)
-  const width = useWidth(ref)
+  const { width, height } = useSize(ref)
 
   // No history yet: keep the space, draw nothing (the design leaves it blank).
-  // The measured wrapper always renders, so the width is known whenever data arrives.
-  if (points.length < 2) return <div ref={ref} className="h-50 w-full" aria-hidden />
+  // The measured wrapper always renders, so the size is known whenever data arrives.
+  if (points.length < 2) return <div ref={ref} className={cn('w-full', className)} aria-hidden />
 
   const values = points.map((p) => p.value)
   const min = Math.min(...values)
   const range = Math.max(...values) - min || 1
   const up = values.at(-1)! >= values[0]
   const cw = Math.max(width - PAD.l - PAD.r, 0)
-  const ch = H - PAD.t - PAD.b
+  const ch = Math.max(height - PAD.t - PAD.b, 0)
   const xy = points.map((p, i): [number, number] => [PAD.l + (i / (points.length - 1)) * cw, PAD.t + ch - ((p.value - min) / range) * ch])
   const line = smoothPath(xy)
 
   return (
-    <div ref={ref} className={cn('h-50 w-full', up ? 'text-primary-dark' : 'text-destructive')}>
-      {width > 0 && (
-        <svg width={width} height={H} role="img" aria-label={`Net worth trend, ${up ? 'up' : 'down'} over the period`}>
+    <div ref={ref} className={cn('w-full', up ? 'text-primary-dark' : 'text-destructive', className)}>
+      {width > 0 && height > 0 && (
+        <svg
+          width={width}
+          height={height}
+          className="block"
+          role="img"
+          aria-label={`Net worth trend, ${up ? 'up' : 'down'} over the period`}
+        >
           <defs>
             <filter id={glowId} x="-5%" y="-20%" width="110%" height="160%">
               <feGaussianBlur stdDeviation="6" />
@@ -64,15 +72,15 @@ function smoothPath(pts: [number, number][]) {
   return d
 }
 
-/** Live width of an element, so the chart draws in real pixels (crisp 1.5px stroke, round glow). */
-function useWidth(ref: React.RefObject<HTMLElement | null>) {
-  const [width, setWidth] = useState(0)
+/** Live size of an element, so the chart draws in real pixels (crisp 1.5px stroke, round glow). */
+function useSize(ref: React.RefObject<HTMLElement | null>) {
+  const [size, setSize] = useState({ width: 0, height: 0 })
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const ro = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    const ro = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }))
     ro.observe(el)
     return () => ro.disconnect()
   }, [ref])
-  return width
+  return size
 }

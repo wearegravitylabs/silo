@@ -4,9 +4,9 @@ import { CurrencyFlag } from '@/components/currency-flag'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import type { DashboardAllocItem, DashboardResponse } from '../types'
-import { CardHead } from './card-head'
-import { PieIcon } from './icons'
+import type { DashboardAllocItem, DashboardResponse } from '../../types'
+import { CardHead } from '../shared/card-head'
+import { PieIcon } from '../shared/icons'
 
 const ROWS = 4 // each column always shows 4 rows; missing ones are grey placeholders
 
@@ -45,7 +45,7 @@ export function AllocationCard({ portfolioId, allocation }: { portfolioId: strin
           )
         }
       />
-      <div className="grid lg:grid-cols-3">
+      <div className="grid @3xl:grid-cols-3">
         <Breakdown title="By Type" items={allocation.by_type} color={(item) => TYPE_COLOR[item.key] ?? 'bg-type-other'} />
         <Breakdown
           title="By Currency"
@@ -76,7 +76,7 @@ function Breakdown({
 
   return (
     // Columns are divided by a left border on desktop and a top border when stacked.
-    <section className="flex min-w-0 flex-col gap-2 border-border px-4 pt-3 not-first:border-t not-first:pt-4 lg:not-first:border-t-0 lg:not-first:border-l lg:not-first:pt-3">
+    <section className="flex min-w-0 flex-col gap-2 border-border px-4 pt-3 not-first:border-t not-first:pt-4 @3xl:not-first:border-t-0 @3xl:not-first:border-l @3xl:not-first:pt-3">
       <h3 className="font-sans text-xs leading-5 font-normal text-muted-foreground">{title}</h3>
       <span className="font-medium text-foreground">{items.length}</span>
 

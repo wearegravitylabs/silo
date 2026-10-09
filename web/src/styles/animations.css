@@ -11,6 +11,8 @@
   --animate-quote-out: quote-out 0.42s ease-in both;
   --animate-author-in: author-in 0.5s var(--ease-out-expo) 0.1s both;
   --animate-dot-pulse: dot-pulse 1.5s ease infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite; /* loading bars and "Thinking…" text sweep */
+  --animate-caret: caret-blink 1s steps(1) infinite; /* streaming text cursor */
 
   @keyframes fade-in-up {
     from {
@@ -89,6 +91,19 @@
       transform: scaleX(1.2);
     }
   }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
   @keyframes author-in {
     from {
       opacity: 0;
@@ -111,4 +126,22 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Loading bar: a light band sweeping across the grey (pair with animate-shimmer) */
+@utility bg-shimmer {
+  background-image: linear-gradient(90deg, var(--color-accent) 30%, var(--color-surface) 50%, var(--color-accent) 70%);
+  background-size: 200% 100%;
+}
+/* Same sweep through text: muted → dark → muted (pair with animate-shimmer) */
+@utility text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 65%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
 }

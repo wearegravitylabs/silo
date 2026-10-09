@@ -2,14 +2,16 @@ import { UserAvatar } from '@/features/account'
 import { CurrencySelector, usePortfolio } from '@/features/portfolios'
 import { AiSparkleIcon, RefreshIcon, SearchIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
+import { useSiloAiPanel } from '@/stores/silo-ai-store'
 import { SidebarMenuButton } from './sidebar'
 
-/** Sticky header: menu (mobile), search (placeholder), last sync, currency, user, Share. */
-export function Topbar({ portfolioId, lastSyncedAt }: { portfolioId: string; lastSyncedAt?: string | null }) {
+/** App header (pinned by the shell): menu (mobile), search (placeholder) with Silo AI, last sync, currency, user, Share. */
+export function Topbar({ portfolioId }: { portfolioId: string }) {
   const portfolio = usePortfolio(portfolioId)
+  const toggleAi = useSiloAiPanel((s) => s.toggle)
 
   return (
-    <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center justify-between gap-4 bg-background px-4 md:px-10">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 bg-background px-4 md:px-10">
       <div className="flex min-w-0 items-center gap-2">
         <SidebarMenuButton />
 
@@ -18,7 +20,14 @@ export function Topbar({ portfolioId, lastSyncedAt }: { portfolioId: string; las
           <SearchIcon className="size-4 text-muted-foreground" />
           <span className="flex-1 text-muted-foreground">Search</span>
           <kbd className="font-sans text-xs tracking-widest text-subtle">⌘K</kbd>
-          <AiSparkleIcon className="ml-1 size-3.5" />
+          <button
+            type="button"
+            onClick={toggleAi}
+            aria-label="Ask Silo AI"
+            className="-mr-1 flex size-6 items-center justify-center rounded-md transition-colors hover:bg-background"
+          >
+            <AiSparkleIcon className="size-3.5" />
+          </button>
         </div>
         <button
           type="button"
@@ -32,7 +41,7 @@ export function Topbar({ portfolioId, lastSyncedAt }: { portfolioId: string; las
       <div className="flex shrink-0 items-center gap-3 md:gap-6">
         <p className="hidden items-center gap-1.5 text-xs text-muted-foreground md:flex">
           <RefreshIcon className="size-3.5" />
-          Last updated: {lastUpdatedLabel(lastSyncedAt)}
+          Last updated: just now
         </p>
         <div className="flex items-center gap-2 md:gap-3">
           <CurrencySelector portfolioId={portfolio.id} currentCode={portfolio.base_currency} />
@@ -45,10 +54,4 @@ export function Topbar({ portfolioId, lastSyncedAt }: { portfolioId: string; las
       </div>
     </header>
   )
-}
-
-/** "just now" within a minute, otherwise the local time ("10:42"). */
-function lastUpdatedLabel(iso?: string | null) {
-  if (!iso || Date.now() - new Date(iso).getTime() < 60_000) return 'just now'
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }

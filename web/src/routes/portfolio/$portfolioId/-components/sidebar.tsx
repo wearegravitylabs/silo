@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { useSiloAiPanel } from '@/stores/silo-ai-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
 
 /** App navigation: portfolio switcher, sections, Silo AI, what's new, user. Desktop: sticky column that collapses
@@ -42,7 +43,7 @@ export function Sidebar({ portfolioId }: { portfolioId: string }) {
     <>
       <aside
         className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 overflow-hidden bg-surface transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] lg:flex',
+          'sticky top-0 hidden h-dvh shrink-0 overflow-hidden bg-surface transition-[width] duration-200 ease-in-out lg:flex',
           collapsed ? 'w-16' : 'w-67',
         )}
       >
@@ -146,7 +147,7 @@ function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioI
 
       <div className="flex flex-col gap-3">
         <div className="px-2">
-          <NavPlaceholder icon={<AiSparkleIcon />} label="Ask Silo AI" collapsed={collapsed} />
+          <AskSiloAiButton collapsed={collapsed} />
         </div>
 
         {!collapsed && <SidebarCard />}
@@ -290,6 +291,29 @@ function NavLink({
       {icon}
       {!collapsed && <span className="pl-1 text-foreground">{label}</span>}
     </Link>
+  )
+}
+
+/** Opens/closes the Silo AI panel; looks like a nav item, highlighted while the panel is open. */
+function AskSiloAiButton({ collapsed }: { collapsed: boolean }) {
+  const { open, toggle, setOpen } = useSiloAiPanel()
+  const setMobileOpen = useSidebarStore((s) => s.setMobileOpen)
+  return (
+    <button
+      type="button"
+      aria-pressed={open}
+      title={collapsed ? 'Ask Silo AI' : undefined}
+      onClick={() => {
+        // From the mobile drawer: close the drawer and open the AI sheet in its place.
+        setMobileOpen(false)
+        if (open) toggle()
+        else setOpen(true)
+      }}
+      className={cn(navItem(collapsed), 'aria-pressed:bg-accent')}
+    >
+      <AiSparkleIcon />
+      {!collapsed && <span className="pl-1 text-foreground">Ask Silo AI</span>}
+    </button>
   )
 }
 

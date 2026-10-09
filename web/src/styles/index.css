@@ -19,7 +19,8 @@
 
   /* Elevation */
   --shadow-panel: 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 4px 2px -1px rgb(17 29 80 / 0.04), 0 0 0 0.5px rgb(17 29 80 / 0.12);
-  --shadow-button: 0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.1);
+  /* Figma "Button/shadow-small": 1px ring + 1px drop. Buttons, cards, small raised controls. */
+  --shadow-small: 0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.1);
   --shadow-elevated:
     0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 1px 1px -0.5px rgb(17 29 80 / 0.04),
     0 0 0 1px rgb(17 29 80 / 0.08);

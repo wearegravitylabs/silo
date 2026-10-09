@@ -75,6 +75,8 @@
   --color-ai-from: #f3a6e4;
   --color-ai-to: #fbcf9e;
   --color-ai-tint: #fffafd;
+  --color-ai-soft: #fde6dc; /* AI avatar disc */
+  --color-ai-input: #f6f5f9; /* composer fill */
 
   /* shadcn surface slots */
   --color-card: #ffffff;

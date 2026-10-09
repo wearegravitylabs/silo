@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 /** Loading state for the dashboard: same grid and card geometry as the real page. */
 export function DashboardSkeleton() {
   return (
-    <div className="flex flex-1 flex-col pb-10" role="status" aria-label="Loading dashboard">
+    <div className="@container flex flex-1 flex-col pb-10" role="status" aria-label="Loading dashboard">
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 px-4 pt-7 pb-5 md:px-10">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-3 w-36" />
@@ -15,9 +15,9 @@ export function DashboardSkeleton() {
       </div>
 
       <div className="flex flex-col gap-4 px-4 md:px-10">
-        <div className="flex flex-col gap-4 xl:flex-row">
+        <div className="flex flex-col gap-4 @4xl:h-101 @4xl:flex-row">
           {/* Net worth */}
-          <Card className="min-w-0 xl:flex-1">
+          <Card className="flex min-w-0 flex-col @4xl:flex-1">
             <CardHeadSkeleton bordered={false} />
             <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5 px-4 pt-3">
               <div className="flex flex-col gap-2">
@@ -36,8 +36,8 @@ export function DashboardSkeleton() {
                 ))}
               </div>
             </div>
-            <div className="px-4 pt-6 pb-4">
-              <Skeleton className="h-50 w-full rounded-xl" />
+            <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-4">
+              <Skeleton className="h-50 w-full rounded-xl @4xl:h-auto @4xl:min-h-0 @4xl:flex-1" />
               <div className="mt-3 flex justify-center gap-1">
                 {[0, 1, 2, 3, 4, 5].map((i) => (
                   <Skeleton key={i} className="h-6 w-8 rounded-md" />
@@ -47,7 +47,7 @@ export function DashboardSkeleton() {
           </Card>
 
           {/* AI insights */}
-          <div className="flex h-104 shrink-0 flex-col gap-3 rounded-2xl border border-border p-4 xl:h-auto xl:w-79">
+          <div className="flex h-101 shrink-0 flex-col gap-3 rounded-2xl border border-border p-4 @4xl:h-auto @4xl:w-79">
             <div className="flex items-center gap-2">
               <Skeleton className="size-4 rounded-full" />
               <Skeleton className="h-3.5 w-20" />
@@ -60,11 +60,11 @@ export function DashboardSkeleton() {
         {/* Allocation */}
         <Card>
           <CardHeadSkeleton bordered={false} />
-          <div className="grid lg:grid-cols-3">
+          <div className="grid @3xl:grid-cols-3">
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="flex flex-col gap-2 border-border px-4 pt-3 not-first:border-t not-first:pt-4 lg:not-first:border-t-0 lg:not-first:border-l lg:not-first:pt-3"
+                className="flex flex-col gap-2 border-border px-4 pt-3 not-first:border-t not-first:pt-4 @3xl:not-first:border-t-0 @3xl:not-first:border-l @3xl:not-first:pt-3"
               >
                 <Skeleton className="h-3 w-16" />
                 <Skeleton className="h-4 w-4" />
@@ -78,7 +78,7 @@ export function DashboardSkeleton() {
         </Card>
 
         {/* Movers */}
-        <div className="flex flex-col gap-4 md:flex-row">
+        <div className="flex flex-col gap-4 @2xl:flex-row">
           {[0, 1].map((i) => (
             <Card key={i} className="min-w-0 flex-1">
               <CardHeadSkeleton bordered={false} action />
@@ -99,7 +99,7 @@ export function DashboardSkeleton() {
               <Skeleton className="h-3.5 w-20" />
             </div>
           </div>
-          <div className="grid gap-4 px-4 pt-6 pb-4 md:grid-cols-2">
+          <div className="grid gap-4 px-4 pt-6 pb-4 @2xl:grid-cols-2">
             {[3, 1].map((rows, i) => (
               <div key={i} className="flex flex-col border-l border-border">
                 <div className="flex flex-col gap-2 px-3">

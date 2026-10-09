@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { DashboardDebt, DashboardResponse } from '../types'
-import { CardHead } from './card-head'
-import { PlaceholderRow } from './placeholder-row'
+import type { DashboardDebt, DashboardResponse } from '../../types'
+import { CardHead } from '../shared/card-head'
+import { PlaceholderRow } from '../shared/placeholder-row'
 
 const DEBT_ICON: Record<string, typeof HouseIcon> = {
   student_loan: GraduationCapIcon,
@@ -55,7 +55,7 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
         </div>
       </div>
 
-      <div className="grid gap-4 px-4 pt-6 pb-4 md:grid-cols-2">
+      <div className="grid gap-4 px-4 pt-6 pb-4 @2xl:grid-cols-2">
         <DebtColumn
           edge="solid"
           stats={

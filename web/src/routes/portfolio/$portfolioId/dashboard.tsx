@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMe } from '@/features/account'
-import { DashboardOverview, useDashboard, type DashboardPeriod } from '@/features/dashboard'
+import { DashboardOverview, type DashboardPeriod } from '@/features/dashboard'
 import { usePortfolio } from '@/features/portfolios'
-import { MainPanel } from './-components/main-panel'
-import { Topbar } from './-components/topbar'
+import { useSiloAiPanel } from '@/stores/silo-ai-store'
 
 export const Route = createFileRoute('/portfolio/$portfolioId/dashboard')({
   component: DashboardPage,
@@ -15,12 +14,11 @@ function DashboardPage() {
   const navigate = Route.useNavigate()
   const portfolio = usePortfolio(portfolioId)
   const { data: me } = useMe()
+  const openAi = useSiloAiPanel((s) => s.setOpen)
   const [period, setPeriod] = useState<DashboardPeriod>('1M')
-  const { data: dashboard } = useDashboard(portfolioId, period)
 
   return (
-    <MainPanel scrollable>
-      <Topbar portfolioId={portfolioId} lastSyncedAt={dashboard?.last_synced_at} />
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <DashboardOverview
         portfolioId={portfolioId}
         portfolioName={portfolio.name}
@@ -28,7 +26,8 @@ function DashboardPage() {
         period={period}
         onPeriodChange={setPeriod}
         onAddAsset={() => navigate({ to: '/portfolio/$portfolioId/assets', params: { portfolioId }, search: { create: true } })}
+        onTalkToAi={() => openAi(true)}
       />
-    </MainPanel>
+    </div>
   )
 }

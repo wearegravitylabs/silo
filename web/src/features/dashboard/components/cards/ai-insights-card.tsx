@@ -2,10 +2,18 @@ import { useState, type ReactNode } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { AiSparkleIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
-import type { DashboardInsight } from '../types'
+import type { DashboardInsight } from '../../types'
 
 /** Silo AI insights beside the net worth card: gradient frame, pager, fading text, "Talk to Silo AI". */
-export function AiInsightsCard({ insights, className }: { insights: DashboardInsight[]; className?: string }) {
+export function AiInsightsCard({
+  insights,
+  onTalkToAi,
+  className,
+}: {
+  insights: DashboardInsight[]
+  onTalkToAi: () => void
+  className?: string
+}) {
   const [index, setIndex] = useState(0)
   const insight = insights[Math.min(index, insights.length - 1)]
   const go = (step: number) => setIndex((i) => (i + step + insights.length) % insights.length)
@@ -41,7 +49,7 @@ export function AiInsightsCard({ insights, className }: { insights: DashboardIns
           >
             <h3 className="border-b border-border pb-3 font-sans leading-5.5 font-medium">{insight.title}</h3>
             {/* Longer text fades out at the bottom; the card border stays crisp */}
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden [mask-image:linear-gradient(to_bottom,black_65%,transparent)] pt-3 pb-4 leading-5.5">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden mask-[linear-gradient(to_bottom,black_65%,transparent)] pt-3 pb-4 leading-5.5">
               {insight.sections.map((s) => (
                 <p key={s.lead}>
                   <span className="text-foreground">{s.lead}:</span> <Highlighted text={s.text} />
@@ -56,10 +64,10 @@ export function AiInsightsCard({ insights, className }: { insights: DashboardIns
         )}
 
         <div className="shrink-0 p-4 pt-3">
-          {/* Placeholder until the Silo AI chat exists */}
           <button
             type="button"
-            className="flex h-8 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-medium text-ai shadow-button transition-colors hover:bg-surface"
+            onClick={onTalkToAi}
+            className="flex h-8 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 text-xs font-medium text-ai shadow-small transition-colors hover:bg-surface"
           >
             <AiSparkleIcon className="size-3.5" />
             Talk to Silo AI
@@ -77,7 +85,7 @@ function PagerButton({ label, onClick, children }: { label: string; onClick: () 
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="flex size-5 items-center justify-center rounded-md border border-border bg-background shadow-button transition-colors hover:text-foreground"
+      className="flex size-5 items-center justify-center rounded-md border border-border bg-background shadow-small transition-colors hover:text-foreground"
     >
       {children}
     </button>
