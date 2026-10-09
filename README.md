@@ -69,7 +69,9 @@ make lint
 make migrate-up
 ```
 
-See [docs/self-hosting.md](docs/self-hosting.md) for full self-hosting guide.
+See [docs/self-hosting.md](docs/self-hosting.md) to run Silo locally with Docker
+Compose, and [docs/deployment.md](docs/deployment.md) to deploy it to production —
+managed platforms, object storage, environment reference and a security checklist.
 
 ## Architecture
 

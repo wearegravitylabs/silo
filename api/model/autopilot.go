@@ -31,8 +31,8 @@ type AutopilotRule struct {
 	Action      AutopilotAction     `gorm:"not null;default:'add'"                           json:"action"`
 
 	// Value specification — exactly one of the three should be set:
-	Amount     float64  `gorm:"type:numeric(28,10)"  json:"amount"`      // fixed dollar/currency amount
-	Percentage float64  `gorm:"type:numeric(8,4)"    json:"percentage"`  // % of current value
+	Amount     float64  `gorm:"type:numeric(28,10)"  json:"amount"`          // fixed dollar/currency amount
+	Percentage float64  `gorm:"type:numeric(8,4)"    json:"percentage"`      // % of current value
 	Units      *float64 `gorm:"type:numeric(28,10)"  json:"units,omitempty"` // fixed qty for ticker DCA (e.g. 1 TSLA)
 
 	Frequency PaymentFrequency `json:"frequency"`

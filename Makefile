@@ -1,4 +1,6 @@
-GO := /opt/homebrew/Cellar/go/1.22.5/libexec/bin/go
+# Resolved from PATH so the toolchain isn't pinned to one machine's install.
+# Override for a specific version: make GO=/path/to/go test
+GO ?= go
 API_DIR := api
 
 .PHONY: dev test lint build migrate-up migrate-down mock genkey web-dev web-build web-typecheck docker-up docker-down

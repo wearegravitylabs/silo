@@ -3,6 +3,7 @@ package app
 
 import (
 	"context"
+	"strings"
 
 	"github.com/rs/zerolog"
 
@@ -12,11 +13,14 @@ import (
 	"github.com/wearegravitylabs/silo/api/store"
 	"github.com/wearegravitylabs/silo/api/thirdparty/ai"
 	"github.com/wearegravitylabs/silo/api/thirdparty/ai/claude"
+	"github.com/wearegravitylabs/silo/api/thirdparty/exchangerate"
 	"github.com/wearegravitylabs/silo/api/thirdparty/market"
 	"github.com/wearegravitylabs/silo/api/thirdparty/market/coingecko"
 	"github.com/wearegravitylabs/silo/api/thirdparty/market/yahoo"
 	"github.com/wearegravitylabs/silo/api/thirdparty/messaging/email"
 	resendProvider "github.com/wearegravitylabs/silo/api/thirdparty/messaging/resend"
+	"github.com/wearegravitylabs/silo/api/thirdparty/stocks"
+	ngnStocks "github.com/wearegravitylabs/silo/api/thirdparty/stocks/ngnmarket"
 	"github.com/wearegravitylabs/silo/api/thirdparty/storage"
 )
 
@@ -26,29 +30,35 @@ type Dependency struct {
 	Env    *environment.Env
 
 	// Store layer
-	UserStore            store.UserDatabase
-	PortfolioStore       store.PortfolioDatabase
-	AssetStore           store.AssetDatabase
-	AssetLotStore        store.AssetLotDatabase
-	AssetCashFlowStore   store.AssetCashFlowDatabase
-	AssetValueHistStore  store.AssetValueHistoryDatabase
-	AssetDocumentStore   store.DocumentDatabase
-	AssetNoteStore       store.NoteDatabase
-	VaultStore           store.VaultDatabase
-	DebtStore            store.DebtDatabase
-	AutopilotStore       store.AutopilotDatabase
-	ProjectionStore      store.ProjectionDatabase
-	SnapshotStore        store.SnapshotDatabase
-	RefreshTokenStore    store.RefreshTokenDatabase
-	FolderStore          store.FolderDatabase
+	UserStore           store.UserDatabase
+	PortfolioStore      store.PortfolioDatabase
+	AssetStore          store.AssetDatabase
+	AssetLotStore       store.AssetLotDatabase
+	AssetCashFlowStore  store.AssetCashFlowDatabase
+	AssetValueHistStore store.AssetValueHistoryDatabase
+	AssetDocumentStore  store.DocumentDatabase
+	AssetNoteStore      store.NoteDatabase
+	VaultStore          store.VaultDatabase
+	DebtStore           store.DebtDatabase
+	AutopilotStore      store.AutopilotDatabase
+	ProjectionStore     store.ProjectionDatabase
+	SnapshotStore       store.SnapshotDatabase
+	RefreshTokenStore   store.RefreshTokenDatabase
+	FolderStore         store.FolderDatabase
+	ExchangeRateStore   store.ExchangeRateDatabase
 
 	// Storage bucket names (read from env, used by services that handle file I/O)
 	StoragePublicBucket  string
 	StoragePrivateBucket string
 
 	// Third-party services
-	StockMarket     market.MarketDataProvider // Yahoo Finance
-	CryptoMarket    market.MarketDataProvider // CoinGecko
+	StockMarket          market.MarketDataProvider // Yahoo Finance
+	CryptoMarket         market.MarketDataProvider // CoinGecko
+	ExchangeRateProvider exchangerate.Provider     // exchangerate-api.com
+	// Stocks serves NGX + US equities (NGN Market). Nil when NGNMARKET_API_KEY is
+	// unset: stock browsing is then unavailable and stock_ticker assets fall back
+	// to the legacy Yahoo path in StockMarket.
+	Stocks          stocks.Provider
 	AIProvider      ai.AIProvider
 	ObjectStorage   storage.ObjectStorage
 	EmailingService email.EmailingService
@@ -70,36 +80,57 @@ func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependenc
 		emailSvc = email.New() // NoOpEmailer — logs to stdout
 	}
 
+	// Wire the stock data provider only when a key is configured. Assigning to
+	// the interface variable only on success keeps it a true nil otherwise.
+	var stockProvider stocks.Provider
+	if key := env.Get(modelEnv.NGNMarketAPIKey); key != "" {
+		rpm := env.GetInt(modelEnv.NGNMarketRequestsPerMinute)
+		if rpm == 0 {
+			rpm = 30 // the Free plan's per-minute cap
+		}
+		history := strings.EqualFold(strings.TrimSpace(env.Get(modelEnv.NGNMarketHistoryEnabled)), "true")
+		if p, err := ngnStocks.New(key, env.Get(modelEnv.NGNMarketBaseURL), rpm, history); err != nil {
+			log.Error().Err(err).Msg("NGN Market stock provider disabled")
+		} else {
+			stockProvider = p
+		}
+	} else {
+		log.Warn().Msg("NGNMARKET_API_KEY not set: stock browsing and live stock prices are disabled")
+	}
+
 	return Dependency{
 		Logger: log,
 		Env:    env,
 
 		// Store layer
-		UserStore:            store.NewUserStore(s),
-		PortfolioStore:       store.NewPortfolioStore(s),
-		AssetStore:           store.NewAssetStore(s),
-		AssetLotStore:        store.NewAssetLotStore(s),
-		AssetCashFlowStore:   store.NewAssetCashFlowStore(s),
-		AssetValueHistStore:  store.NewAssetValueHistoryStore(s),
-		AssetDocumentStore:   store.NewAssetDocumentStore(s),
-		AssetNoteStore:       store.NewAssetNoteStore(s),
-		VaultStore:           store.NewVaultStore(s),
-		DebtStore:            store.NewDebtStore(s),
-		AutopilotStore:       store.NewAutopilotStore(s),
-		ProjectionStore:      store.NewProjectionStore(s),
-		SnapshotStore:        store.NewSnapshotStore(s),
-		RefreshTokenStore:    store.NewRefreshTokenStore(s),
-		FolderStore:          store.NewFolderStore(s),
+		UserStore:           store.NewUserStore(s),
+		PortfolioStore:      store.NewPortfolioStore(s),
+		AssetStore:          store.NewAssetStore(s),
+		AssetLotStore:       store.NewAssetLotStore(s),
+		AssetCashFlowStore:  store.NewAssetCashFlowStore(s),
+		AssetValueHistStore: store.NewAssetValueHistoryStore(s),
+		AssetDocumentStore:  store.NewAssetDocumentStore(s),
+		AssetNoteStore:      store.NewAssetNoteStore(s),
+		VaultStore:          store.NewVaultStore(s),
+		DebtStore:           store.NewDebtStore(s),
+		AutopilotStore:      store.NewAutopilotStore(s),
+		ProjectionStore:     store.NewProjectionStore(s),
+		SnapshotStore:       store.NewSnapshotStore(s),
+		RefreshTokenStore:   store.NewRefreshTokenStore(s),
+		FolderStore:         store.NewFolderStore(s),
+		ExchangeRateStore:   store.NewExchangeRateStore(s),
 
 		StoragePublicBucket:  env.GetWithDefault(modelEnv.StorageBucket, "silo"),
 		StoragePrivateBucket: env.GetWithDefault(modelEnv.StoragePrivateBucket, env.GetWithDefault(modelEnv.StorageBucket, "silo")+"-docs"),
 
 		// Third-party
-		StockMarket:     yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),
-		CryptoMarket:    coingecko.New(env.Get(modelEnv.CoinGeckoAPIKey), env.Get(modelEnv.CoinGeckoBaseURL)),
-		AIProvider:      claude.New(env.Get(modelEnv.AnthropicAPIKey), env.Get(modelEnv.ClaudeModel)),
-		ObjectStorage:   mustStorage(ctx, env),
-		EmailingService: emailSvc,
+		StockMarket:          yahoo.New(env.Get(modelEnv.YahooFinanceBaseURL)),
+		CryptoMarket:         coingecko.New(env.Get(modelEnv.CoinGeckoAPIKey), env.Get(modelEnv.CoinGeckoBaseURL)),
+		ExchangeRateProvider: exchangerate.New(env.Get(modelEnv.ExchangeRateAPIKey), env.Get(modelEnv.ExchangeRateBaseURL)),
+		Stocks:               stockProvider,
+		AIProvider:           claude.New(env.Get(modelEnv.AnthropicAPIKey), env.Get(modelEnv.ClaudeModel)),
+		ObjectStorage:        mustStorage(ctx, env),
+		EmailingService:      emailSvc,
 	}
 }
 

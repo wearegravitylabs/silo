@@ -36,20 +36,26 @@ const (
 	ExchangeRateAPIKey  = "EXCHANGERATE_API_KEY"
 	ExchangeRateBaseURL = "EXCHANGERATE_BASE_URL"
 
+	// Stocks (NGN Market: NGX + US equities). Key from https://ngnmarket.com/developer.
+	NGNMarketAPIKey            = "NGNMARKET_API_KEY"
+	NGNMarketBaseURL           = "NGNMARKET_BASE_URL"            // default https://api.ngnmarket.com/v1
+	NGNMarketRequestsPerMinute = "NGNMARKET_REQUESTS_PER_MINUTE" // plan's per-minute cap, default 30 (Free)
+	NGNMarketHistoryEnabled    = "NGNMARKET_HISTORY_ENABLED"     // "true" only on Hobby+ plans; default false
+
 	// AI (Anthropic Claude)
 	AnthropicAPIKey = "ANTHROPIC_API_KEY"
-	ClaudeModel     = "CLAUDE_MODEL" // e.g. "claude-sonnet-4-6"
+	ClaudeModel     = "CLAUDE_MODEL" // e.g. "claude-opus-5-5"; empty uses the provider default
 
 	// Object storage — provider-agnostic (S3 / Cloudflare R2 / MinIO)
-	StorageProvider       = "STORAGE_PROVIDER"       // s3 | r2 | minio
-	StorageEndpoint       = "STORAGE_ENDPOINT"       // empty for AWS S3
+	StorageProvider       = "STORAGE_PROVIDER" // s3 | r2 | minio
+	StorageEndpoint       = "STORAGE_ENDPOINT" // empty for AWS S3
 	StorageAccessKey      = "STORAGE_ACCESS_KEY"
 	StorageSecretKey      = "STORAGE_SECRET_KEY"
 	StorageBucket         = "STORAGE_BUCKET"
 	StorageRegion         = "STORAGE_REGION"
-	StoragePublicURL      = "STORAGE_PUBLIC_URL"     // base URL for public downloads
+	StoragePublicURL      = "STORAGE_PUBLIC_URL" // base URL for public downloads
 	StorageForcePathStyle = "STORAGE_FORCE_PATH_STYLE"
-	StorageMaxUploadBytes  = "STORAGE_MAX_UPLOAD_BYTES"  // default 52428800 (50 MB)
+	StorageMaxUploadBytes = "STORAGE_MAX_UPLOAD_BYTES" // default 52428800 (50 MB)
 	// StoragePrivateBucket holds documents that require presigned URLs for access.
 	// No public-read policy is applied — objects are only accessible via signed requests.
 	StoragePrivateBucket = "STORAGE_PRIVATE_BUCKET" // default: {STORAGE_BUCKET}-docs

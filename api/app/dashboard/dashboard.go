@@ -54,10 +54,10 @@ func (s *service) Get(ctx context.Context, portfolioID, callerID uuid.UUID, peri
 
 	// ── Parallel fetch: assets + debts ─────────────────────────────────────────
 	var (
-		assets []model.Asset
-		debts  []model.Debt
-		mu     sync.Mutex
-		wg     sync.WaitGroup
+		assets   []model.Asset
+		debts    []model.Debt
+		mu       sync.Mutex
+		wg       sync.WaitGroup
 		fetchErr error
 	)
 
@@ -274,9 +274,9 @@ func buildDebts(debts []model.Debt) []model.DashboardDebt {
 
 func buildTopMovers(ctx context.Context, s *service, assets []model.Asset, from, now time.Time) (gainers, losers []model.DashboardMover) {
 	type mover struct {
-		asset      model.Asset
-		changeAmt  float64
-		changePct  float64
+		asset     model.Asset
+		changeAmt float64
+		changePct float64
 	}
 
 	var movers []mover

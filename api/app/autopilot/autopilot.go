@@ -13,6 +13,7 @@ import (
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
+	"github.com/wearegravitylabs/silo/api/thirdparty/stocks"
 )
 
 //go:generate mockgen -source autopilot.go -destination ../mock/autopilot/mock_autopilot.go -package autopilot Autopilot
@@ -181,9 +182,23 @@ func (s *service) executeAssetRule(ctx context.Context, rule model.AutopilotRule
 	isTicker := asset.AssetType == model.AssetTypeStockTicker ||
 		asset.AssetType == model.AssetTypeCryptoTicker
 
-	if isTicker {
-		// Ticker assets: buy more units (DCA). action=add only makes sense here.
+	// Stock DCA runs through the market data provider (NGN Market) when one is
+	// configured.
+	if asset.AssetType == model.AssetTypeStockTicker && s.dp.Stocks != nil {
 		return s.executeBuyTicker(ctx, asset, rule, now)
+	}
+
+	if isTicker {
+		// Crypto DCA is still deferred until its market data provider is chosen,
+		// and stocks are skipped when no stock provider is configured. Skip rather
+		// than call a provider that may change. The rule stays active and its
+		// schedule still advances below, so this is a no-op per tick until then.
+		log := siloLogger.FromCtx(ctx)
+		log.Warn().
+			Str("asset_id", asset.ID.String()).
+			Str("asset_type", string(asset.AssetType)).
+			Msg("skipping autopilot ticker execution — market data provider not finalized")
+		return nil
 	}
 
 	// Manual assets: adjust current_price.
@@ -220,7 +235,7 @@ func (s *service) executeBuyTicker(ctx context.Context, asset model.Asset, rule 
 
 	switch asset.AssetType {
 	case model.AssetTypeStockTicker:
-		quote, err := s.dp.StockMarket.GetStockQuote(ctx, strings.ToUpper(asset.Ticker))
+		quote, err := s.dp.Stocks.Quote(ctx, stocks.CountryOrDefault(asset.Country), asset.Ticker)
 		if err != nil {
 			return err
 		}

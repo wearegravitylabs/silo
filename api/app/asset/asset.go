@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ import (
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 	"github.com/wearegravitylabs/silo/api/pkg/physicalsubtype"
 	"github.com/wearegravitylabs/silo/api/thirdparty/market"
+	"github.com/wearegravitylabs/silo/api/thirdparty/stocks"
 )
 
 //go:generate mockgen -source asset.go -destination ../mock/asset/mock_asset.go -package asset Asset
@@ -53,8 +55,10 @@ type Asset interface {
 	ListLots(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetLot, error)
 	// DeleteLot removes a lot and updates the asset's total quantity.
 	DeleteLot(ctx context.Context, assetID, callerID, lotID uuid.UUID) error
-	// RefreshPrices fetches live prices for all ticker-based assets in the portfolio.
-	RefreshPrices(ctx context.Context, portfolioID uuid.UUID) error
+	// RefreshAllPrices updates the current price of every stock_ticker asset in
+	// every portfolio from the market data provider and records a value-history
+	// point for each. Run daily by the scheduler; a no-op without a provider.
+	RefreshAllPrices(ctx context.Context) error
 
 	// ── Cash flows ────────────────────────────────────────────────────────────
 
@@ -69,7 +73,6 @@ type Asset interface {
 
 	// ListValueHistory returns per-asset value snapshots within the time range.
 	ListValueHistory(ctx context.Context, assetID, callerID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
-
 }
 
 type service struct{ dp app.Dependency }
@@ -155,6 +158,33 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		return model.Asset{}, siloErrors.ErrInvalidAssetType
 	}
 
+	if err := validateLotPrices(req.AssetType, req.Lots); err != nil {
+		return model.Asset{}, err
+	}
+
+	// Stocks priced by the market data provider: fix the market (country) and
+	// price every lot up front, so a lookup failure leaves nothing half-created.
+	var (
+		country   stocks.Country
+		lotDates  []*time.Time
+		useStocks = req.AssetType == model.AssetTypeStockTicker && s.dp.Stocks != nil
+	)
+	if useStocks {
+		country = stocks.CountryUS
+		if strings.TrimSpace(req.Country) != "" {
+			c, ok := stocks.ParseCountry(req.Country)
+			if !ok {
+				return model.Asset{}, siloErrors.ErrInvalidCountry
+			}
+			country = c
+		}
+		priced, dates, err := s.priceStockLots(ctx, country, req.Ticker, req.Lots)
+		if err != nil {
+			return model.Asset{}, err
+		}
+		req.Lots, lotDates = priced, dates
+	}
+
 	folder, err := s.dp.FolderStore.GetFolderByID(ctx, req.FolderID)
 	if err != nil {
 		return model.Asset{}, siloErrors.ErrFolderNotFound
@@ -198,7 +228,7 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 
 	switch {
 	case req.AssetType == model.AssetTypeStockTicker || req.AssetType == model.AssetTypeStockManual:
-		id, err := s.upsertStockAsset(ctx, portfolioID, callerID, req, assetCurrency, investability, ownershipPct, classCode)
+		id, err := s.upsertStockAsset(ctx, portfolioID, callerID, req, assetCurrency, investability, ownershipPct, classCode, country)
 		if err != nil {
 			return model.Asset{}, err
 		}
@@ -234,21 +264,29 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 	// so parallel execution cuts wall-clock time from N×(fetch) to 1×(slowest fetch).
 	// syncQuantity must run after ALL lots are written, hence the WaitGroup barrier.
 	var wg sync.WaitGroup
-	for _, lotReq := range req.Lots {
+	for i, lotReq := range req.Lots {
+		var priceDate *time.Time
+		if lotDates != nil {
+			priceDate = lotDates[i]
+		}
 		wg.Add(1)
-		go func(lr model.CreateLotRequest) {
+		go func(lr model.CreateLotRequest, pd *time.Time) {
 			defer wg.Done()
-			if _, err := s.addLotInternal(ctx, assetID, req.AssetType, req.Ticker, lr); err != nil {
+			if _, err := s.addLotInternal(ctx, assetID, req.AssetType, req.Ticker, lr, pd); err != nil {
 				log.Error().Err(err).Msg("failed to add lot during asset creation")
 				// Non-fatal — other lots still succeed.
 			}
-		}(lotReq)
+		}(lotReq, priceDate)
 	}
 	wg.Wait()
 
 	// Sync total quantity from lots.
 	if err := s.syncQuantity(ctx, assetID); err != nil {
 		log.Error().Err(err).Msg("failed to sync quantity after lot creation")
+	}
+
+	if useStocks {
+		s.recordStockHistory(ctx, assetID)
 	}
 
 	// For manual assets (real estate, physical, etc.) set current_price so that
@@ -323,6 +361,7 @@ func (s *service) upsertStockAsset(
 	investability model.Investability,
 	ownershipPct float64,
 	classCode string,
+	country stocks.Country, // empty => legacy Yahoo path (no market data provider configured)
 ) (uuid.UUID, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "asset.upsertStockAsset").
@@ -331,7 +370,11 @@ func (s *service) upsertStockAsset(
 
 	// For ticker-based stocks, check if the ticker already exists in this portfolio.
 	if req.AssetType == model.AssetTypeStockTicker && req.Ticker != "" {
-		existing, err := s.dp.AssetStore.GetByTicker(ctx, portfolioID, strings.ToUpper(req.Ticker))
+		ticker := strings.ToUpper(req.Ticker)
+		if country != "" {
+			ticker = stocks.NormalizeSymbol(country, req.Ticker)
+		}
+		existing, err := s.dp.AssetStore.GetByTicker(ctx, portfolioID, ticker)
 		if err == nil {
 			// Ticker already exists — return its ID so lots are appended.
 			return existing.ID, nil
@@ -341,24 +384,41 @@ func (s *service) upsertStockAsset(
 			return uuid.Nil, err
 		}
 
-		// New ticker — fetch quote from Yahoo Finance.
-		quote, err := s.dp.StockMarket.GetStockQuote(ctx, strings.ToUpper(req.Ticker))
-		if err != nil {
-			return uuid.Nil, siloErrors.ErrInvalidTicker
+		// New ticker — fetch its quote. The market data provider also fixes the
+		// asset's currency: an NGX stock is priced in NGN whatever the portfolio's
+		// base currency is (conversion to the base currency happens on read).
+		var (
+			name, logoURL, assetCountry string
+			price                       float64
+			priceCurrency               = assetCurrency
+		)
+		if country != "" {
+			q, err := s.dp.Stocks.Quote(ctx, country, ticker)
+			if err != nil {
+				return uuid.Nil, app.MapMarketError(err)
+			}
+			name, logoURL, price, priceCurrency, assetCountry = q.Name, q.LogoURL, q.Price, q.Currency, string(country)
+		} else {
+			q, err := s.dp.StockMarket.GetStockQuote(ctx, ticker)
+			if err != nil {
+				return uuid.Nil, siloErrors.ErrInvalidTicker
+			}
+			name, logoURL, price = q.CompanyName, q.LogoURL, q.Price
 		}
 
 		a := model.Asset{
 			PortfolioID:   portfolioID,
 			FolderID:      req.FolderID,
-			Name:          helpers.Coalesce(req.Name, quote.CompanyName),
+			Name:          helpers.Coalesce(req.Name, name),
 			AssetType:     req.AssetType,
 			AssetClass:    classCode,
-			Ticker:        strings.ToUpper(req.Ticker),
-			CurrentPrice:  quote.Price,
-			Currency:      assetCurrency,
+			Ticker:        ticker,
+			Country:       assetCountry,
+			CurrentPrice:  price,
+			Currency:      priceCurrency,
 			OwnershipPct:  ownershipPct,
 			Investability: investability,
-			LogoURL:       quote.LogoURL,
+			LogoURL:       logoURL,
 			Location:      req.Location,
 			Metadata:      req.Metadata,
 		}
@@ -401,33 +461,147 @@ func (s *service) AddLot(ctx context.Context, assetID, callerID uuid.UUID, req m
 		return model.AssetLot{}, err
 	}
 
-	lot, err := s.addLotInternal(ctx, assetID, asset.AssetType, asset.Ticker, req)
+	if err := validateLotPrices(asset.AssetType, []model.CreateLotRequest{req}); err != nil {
+		return model.AssetLot{}, err
+	}
+
+	// Stocks priced by the market data provider: look up the price paid when the
+	// caller didn't give one (failing with a clear error code if we can't).
+	viaProvider := asset.AssetType == model.AssetTypeStockTicker && s.dp.Stocks != nil
+	var priceDate *time.Time
+	if viaProvider {
+		price, used, err := s.stockLotPrice(ctx, stocks.CountryOrDefault(asset.Country), asset.Ticker, req)
+		if err != nil {
+			return model.AssetLot{}, err
+		}
+		if price != nil {
+			req.AcquisitionPrice, priceDate = price, used
+		}
+	}
+
+	lot, err := s.addLotInternal(ctx, assetID, asset.AssetType, asset.Ticker, req, priceDate)
 	if err != nil {
 		return model.AssetLot{}, err
 	}
 
 	_ = s.syncQuantity(ctx, assetID)
+	if viaProvider {
+		s.recordStockHistory(ctx, assetID)
+	}
 	return lot, nil
 }
 
-// addLotInternal inserts a single lot, fetching historical price from Yahoo when needed.
+// stockLotPrice returns the price to record for a stock lot, or nil when the
+// caller already supplied one. The lookup uses the closing price on the purchase
+// date (or the trading day before it); a purchase made today uses the live quote.
+// The second value is the trading day the price came from.
+func (s *service) stockLotPrice(ctx context.Context, country stocks.Country, ticker string, lot model.CreateLotRequest) (*float64, *time.Time, error) {
+	if lot.AcquisitionPrice != nil && *lot.AcquisitionPrice > 0 {
+		return nil, nil, nil
+	}
+	price, used, err := s.dp.Stocks.PriceOn(ctx, country, ticker, lot.AcquisitionDate.Time())
+	switch {
+	case err == nil && price > 0:
+		return &price, &used, nil
+	case err == nil, errors.Is(err, stocks.ErrHistoryUnavailable):
+		// No usable price (e.g. the plan has no history): the user has to supply it.
+		return nil, nil, siloErrors.ErrAcquisitionPriceRequired
+	default:
+		return nil, nil, app.MapMarketError(err)
+	}
+}
+
+// priceStockLots fills in the price of every lot that lacks one, returning a new
+// slice (the input is untouched) and, per lot, the trading day its price came from.
+func (s *service) priceStockLots(ctx context.Context, country stocks.Country, ticker string, lots []model.CreateLotRequest) ([]model.CreateLotRequest, []*time.Time, error) {
+	out := make([]model.CreateLotRequest, len(lots))
+	copy(out, lots)
+	dates := make([]*time.Time, len(lots))
+	for i := range out {
+		price, used, err := s.stockLotPrice(ctx, country, stocks.NormalizeSymbol(country, ticker), out[i])
+		if err != nil {
+			return nil, nil, err
+		}
+		if price != nil {
+			out[i].AcquisitionPrice, dates[i] = price, used
+		}
+	}
+	return out, dates, nil
+}
+
+// recordStockHistory writes the sparse value-history points that make an asset's
+// chart: one per purchase date (cumulative quantity held that day x the price
+// paid) plus one for today at the current price. Days that already have a point
+// are left alone, so it is safe to call after every lot is added. There is
+// deliberately no day-by-day backfill: the daily price job fills in from today.
+func (s *service) recordStockHistory(ctx context.Context, assetID uuid.UUID) {
+	log := siloLogger.FromCtx(ctx)
+	asset, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+	if err != nil {
+		log.Error().Err(err).Msg("stock history: load asset")
+		return
+	}
+	lots, err := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
+	if err != nil || len(lots) == 0 {
+		return
+	}
+	sort.Slice(lots, func(i, j int) bool { return lots[i].AcquisitionDate.Before(lots[j].AcquisitionDate) })
+
+	now := time.Now().UTC()
+	existing, _ := s.dp.AssetValueHistStore.ListByAsset(ctx, assetID, lots[0].AcquisitionDate.AddDate(0, 0, -1), now.Add(time.Hour))
+	seen := make(map[string]bool, len(existing))
+	for _, e := range existing {
+		seen[e.RecordedAt.UTC().Format(dateKey)] = true
+	}
+
+	add := func(at time.Time, value float64) {
+		day := at.UTC().Format(dateKey)
+		if seen[day] {
+			return
+		}
+		seen[day] = true
+		_, _ = s.dp.AssetValueHistStore.Create(ctx, model.AssetValueHistory{
+			AssetID: assetID, Value: round2(value), Currency: asset.Currency,
+			Source: model.SourceTicker, RecordedAt: at,
+		})
+	}
+
+	var held float64
+	for _, l := range lots {
+		held += l.Quantity
+		if l.AcquisitionPrice != nil && *l.AcquisitionPrice > 0 {
+			add(l.AcquisitionDate, held*(*l.AcquisitionPrice))
+		}
+	}
+	if asset.CurrentPrice > 0 {
+		add(now, asset.CurrentPrice*asset.Quantity)
+	}
+}
+
+const dateKey = "2006-01-02"
+
+// addLotInternal inserts a single lot. priceDate is the trading day the lot's
+// price was looked up from (nil when the caller supplied the price).
 func (s *service) addLotInternal(
 	ctx context.Context,
 	assetID uuid.UUID,
 	assetType model.AssetType,
 	ticker string,
 	req model.CreateLotRequest,
+	priceDate *time.Time,
 ) (model.AssetLot, error) {
 	lot := model.AssetLot{
 		AssetID:          assetID,
 		Quantity:         req.Quantity,
 		AcquisitionDate:  req.AcquisitionDate.Time(),
 		AcquisitionPrice: req.AcquisitionPrice,
+		PriceDateUsed:    priceDate,
 		Notes:            req.Notes,
 	}
 
-	// For ticker-based assets, fetch the historical close price unless caller supplied one.
-	if (assetType == model.AssetTypeStockTicker) && lot.AcquisitionPrice == nil && ticker != "" {
+	// Legacy path (no market data provider): fetch the historical close from
+	// Yahoo unless the caller supplied a price.
+	if (assetType == model.AssetTypeStockTicker) && s.dp.Stocks == nil && lot.AcquisitionPrice == nil && ticker != "" {
 		price, dateUsed, err := s.dp.StockMarket.GetHistoricalPrice(ctx, strings.ToUpper(ticker), req.AcquisitionDate.Time())
 		if err == nil {
 			lot.AcquisitionPrice = &price
@@ -463,6 +637,21 @@ func (s *service) syncQuantity(ctx context.Context, assetID uuid.UUID) error {
 		return err
 	}
 	asset.Quantity = total
+
+	// Average cost per unit across every lot that has a price, so the average
+	// price paid stays correct as lots are added or removed.
+	if lots, lerr := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID); lerr == nil {
+		var qty, cost float64
+		for _, l := range lots {
+			if l.AcquisitionPrice != nil && *l.AcquisitionPrice > 0 {
+				qty += l.Quantity
+				cost += l.Quantity * *l.AcquisitionPrice
+			}
+		}
+		if qty > 0 {
+			asset.PurchasePrice = cost / qty
+		}
+	}
 	_, err = s.dp.AssetStore.UpdateAsset(ctx, asset)
 	return err
 }
@@ -554,7 +743,14 @@ func (s *service) fetchRateMap(ctx context.Context, from []currency.Code, to cur
 		wg.Add(1)
 		go func(fromCur currency.Code) {
 			defer wg.Done()
-			rate, err := s.dp.StockMarket.GetExchangeRate(ctx, fromCur, to)
+			// Prefer the daily-cached rate (app/exchangerate) — no external call
+			// on the request path. Fall back to a live lookup if the cache has
+			// nothing for this pair yet (e.g. before the first refresh), then to
+			// 1.0 if even that fails, same as the old behavior.
+			rate, err := s.dp.ExchangeRateStore.GetRate(ctx, fromCur, to)
+			if err != nil {
+				rate, err = s.dp.StockMarket.GetExchangeRate(ctx, fromCur, to)
+			}
 			if err != nil {
 				log.Warn().Err(err).
 					Str("from", fromCur).Str("to", to).
@@ -577,6 +773,8 @@ func enrichWithFX(a *model.Asset, baseCurrency currency.Code, rateMap map[string
 		rate = 1.0 // fallback: show in native currency
 	}
 	a.OwnedValueConverted = a.OwnedValue * rate
+	a.TotalCashInConverted = round2(a.TotalCashIn * rate)
+	a.TotalCashOutConverted = round2(a.TotalCashOut * rate)
 	a.ConvertedCurrency = baseCurrency
 	a.ExchangeRate = rate
 }
@@ -772,10 +970,84 @@ func (s *service) Delete(ctx context.Context, id, callerID uuid.UUID) error {
 	return s.dp.AssetStore.SoftDeleteAsset(ctx, id)
 }
 
-// RefreshPrices fetches live prices for all ticker-based assets in a portfolio.
-func (s *service) RefreshPrices(ctx context.Context, portfolioID uuid.UUID) error {
-	// TODO: batch-call market providers, update current_price for each ticker asset
-	panic("not implemented")
+// RefreshAllPrices is the daily price job for stock_ticker assets: one current
+// quote per distinct symbol, written to current_price, plus one value-history
+// point (source=cron) per asset. Manual assets never come through here — they
+// have no external price source, so their history is written on edit only.
+//
+// It is built to be cheap and to degrade gracefully:
+//   - NGX assets are priced from a single cached call for the whole exchange.
+//   - Symbols are de-duplicated across portfolios, so a stock held in many
+//     portfolios costs one lookup.
+//   - A symbol the provider no longer lists is skipped; the rest carry on.
+//   - On a rate-limit, quota or outage error that market is abandoned for this
+//     run (every further call would fail too) and the error is returned after
+//     the other market has been tried, so the scheduler logs it.
+func (s *service) RefreshAllPrices(ctx context.Context) error {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.RefreshAllPrices").
+		Logger()
+
+	if s.dp.Stocks == nil {
+		log.Info().Msg("no market data provider configured, skipping price refresh")
+		return nil
+	}
+
+	all, err := s.dp.AssetStore.ListAssetsWithTickers(ctx)
+	if err != nil {
+		return err
+	}
+
+	byCountry := map[stocks.Country][]model.Asset{}
+	for _, a := range all {
+		if a.AssetType == model.AssetTypeStockTicker {
+			c := stocks.CountryOrDefault(a.Country)
+			byCountry[c] = append(byCountry[c], a)
+		}
+	}
+
+	var firstErr error
+	var updated, missing int
+	for country, group := range byCountry {
+		symbols := make([]string, 0, len(group))
+		seen := map[string]bool{}
+		for _, a := range group {
+			if !seen[a.Ticker] {
+				seen[a.Ticker] = true
+				symbols = append(symbols, a.Ticker)
+			}
+		}
+
+		quotes, qerr := s.dp.Stocks.Quotes(ctx, country, symbols)
+		if qerr != nil {
+			log.Error().Err(qerr).Str("country", string(country)).Int("quoted", len(quotes)).Int("wanted", len(symbols)).
+				Msg("price lookup failed part-way, keeping what was fetched")
+			if firstErr == nil {
+				firstErr = qerr
+			}
+		}
+
+		now := time.Now().UTC()
+		for _, a := range group {
+			q, ok := quotes[a.Ticker]
+			if !ok || q.Price <= 0 {
+				missing++
+				continue
+			}
+			a.CurrentPrice = q.Price
+			a.LastPriceSync = &now
+			a.UpdatedAt = now
+			if _, uerr := s.dp.AssetStore.UpdateAsset(ctx, a); uerr != nil {
+				log.Error().Err(uerr).Str("asset_id", a.ID.String()).Msg("failed to save refreshed price")
+				continue
+			}
+			s.recordValueHistory(ctx, a, model.SourceCron)
+			updated++
+		}
+	}
+
+	log.Info().Int("updated", updated).Int("without_price", missing).Msg("stock prices refreshed")
+	return firstErr
 }
 
 // ─── Crypto upsert ────────────────────────────────────────────────────────────
@@ -965,4 +1237,27 @@ func validAssetType(t model.AssetType) bool {
 		return true
 	}
 	return false
+}
+
+// requiresAcquisitionPrice reports whether lots for this asset type must carry an
+// explicit acquisition_price. Only stock_ticker fetches a historical price
+// automatically when the caller omits one (see addLotInternal) — every other
+// type, ticker or not, has no such fallback, so an omitted price would silently
+// leave the lot (and the asset's seeded current_price) at zero.
+func requiresAcquisitionPrice(t model.AssetType) bool {
+	return t != model.AssetTypeStockTicker
+}
+
+// validateLotPrices returns ErrAcquisitionPriceRequired if any lot omits acquisition_price
+// for an asset type that has no automatic price-fetch fallback.
+func validateLotPrices(assetType model.AssetType, lots []model.CreateLotRequest) error {
+	if !requiresAcquisitionPrice(assetType) {
+		return nil
+	}
+	for _, lot := range lots {
+		if lot.AcquisitionPrice == nil || *lot.AcquisitionPrice <= 0 {
+			return siloErrors.ErrAcquisitionPriceRequired
+		}
+	}
+	return nil
 }

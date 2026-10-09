@@ -148,8 +148,17 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrUnsupportedFileType.Code,
 		siloErrors.ErrInvalidTicker.Code,
 		siloErrors.ErrInvalidCurrency.Code,
-		siloErrors.ErrFolderRequired.Code:
+		siloErrors.ErrFolderRequired.Code,
+		siloErrors.ErrAcquisitionPriceRequired.Code,
+		siloErrors.ErrInvalidCountry.Code:
 		return http.StatusBadRequest
+
+	case siloErrors.ErrMarketRateLimited.Code:
+		return http.StatusTooManyRequests
+
+	case siloErrors.ErrMarketQuotaExceeded.Code,
+		siloErrors.ErrMarketUnavailable.Code:
+		return http.StatusServiceUnavailable
 
 	case siloErrors.ErrLastOwner.Code,
 		siloErrors.ErrInviteeNotFound.Code:

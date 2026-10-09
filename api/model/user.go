@@ -8,21 +8,21 @@ import (
 
 // User represents a Silo user authenticated via magic-link OTP.
 type User struct {
-	ID              uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	Email           string     `gorm:"uniqueIndex;not null"                            json:"email"`
-	FirstName       string     `json:"first_name"`
-	LastName        string     `json:"last_name"`
-	PhoneNumber     *string    `json:"phone_number"`
-	PhoneCountryCode *string   `json:"phone_country_code"` // dial code, e.g. "+234"
-	AvatarURL       *string    `json:"avatar_url"`
-	IsEmailVerified bool       `gorm:"default:false"  json:"is_email_verified"`
-	IsOnboarded     bool       `gorm:"default:false"  json:"is_onboarded"`
-	PortfolioCount  int        `gorm:"default:0"      json:"portfolio_count"`
-	OTPCode         string     `json:"-"`
-	OTPExpiry       *time.Time `json:"-"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	DeletedAt       *time.Time `gorm:"index" json:"-"`
+	ID               uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	Email            string     `gorm:"uniqueIndex;not null"                            json:"email"`
+	FirstName        string     `json:"first_name"`
+	LastName         string     `json:"last_name"`
+	PhoneNumber      *string    `json:"phone_number"`
+	PhoneCountryCode *string    `json:"phone_country_code"` // dial code, e.g. "+234"
+	AvatarURL        *string    `json:"avatar_url"`
+	IsEmailVerified  bool       `gorm:"default:false"  json:"is_email_verified"`
+	IsOnboarded      bool       `gorm:"default:false"  json:"is_onboarded"`
+	PortfolioCount   int        `gorm:"default:0"      json:"portfolio_count"`
+	OTPCode          string     `json:"-"`
+	OTPExpiry        *time.Time `json:"-"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
+	DeletedAt        *time.Time `gorm:"index" json:"-"`
 }
 
 // ─── Auth request / response types ───────────────────────────────────────────

@@ -51,16 +51,55 @@ func New(env *environment.Env, portfolioStore store.PortfolioDatabase, userStore
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 // CORSMiddleware returns a configured CORS handler.
+//
+// CORS_ALLOWED_ORIGINS is a comma-separated list, e.g.
+// "https://app.example.com,https://staging.example.com". Whitespace around each
+// entry is trimmed.
+//
+// The special value "*" allows any origin, which browsers only honour when
+// credentials are disabled — so AllowCredentials is turned off in that case.
+// Silo authenticates with a Bearer header rather than cookies, so this still
+// works, but prefer an explicit list in production.
 func (m *Middleware) CORSMiddleware() gin.HandlerFunc {
-	allowedOrigins := m.env.GetWithDefault(modelEnv.CORSAllowedOrigins, "http://localhost:3000")
-	return cors.New(cors.Config{
-		AllowOrigins:     []string{allowedOrigins},
+	origins := splitOrigins(m.env.GetWithDefault(modelEnv.CORSAllowedOrigins, "http://localhost:3000"))
+
+	config := cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
-	})
+	}
+
+	if len(origins) == 1 && origins[0] == "*" {
+		config.AllowAllOrigins = true
+		config.AllowCredentials = false
+	} else {
+		config.AllowOrigins = origins
+	}
+
+	return cors.New(config)
+}
+
+// splitOrigins parses a comma-separated origin list, trimming whitespace and
+// dropping empty entries. It falls back to the local dev origin when the result
+// is empty, so an empty or comma-only value can't produce a config that allows
+// nothing at all.
+func splitOrigins(raw string) []string {
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			origins = append(origins, trimmed)
+		}
+	}
+
+	if len(origins) == 0 {
+		return []string{"http://localhost:3000"}
+	}
+
+	return origins
 }
 
 // LoggerMiddleware logs each request with method, path, status, latency, and request ID.

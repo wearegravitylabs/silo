@@ -1,0 +1,223 @@
+# Render Blueprint for Silo
+#
+#   Render dashboard → New → Blueprint → point at this repo.
+#
+# Creates three resources:
+#   silo-api       web service (Docker)  — the Go API
+#   silo-web       static site           — the React frontend
+#   silo-postgres  managed PostgreSQL
+#
+# After the first deploy, see docs/deployment.md for the post-deploy checklist.
+# Values marked `sync: false` are not stored in this file — fill them in the
+# Render dashboard under each service's Environment tab.
+
+services:
+  # ─── API ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: silo-api
+    runtime: docker
+    plan: free
+    region: oregon
+    # The Dockerfile does `COPY api/go.mod ...`, so the build context must be
+    # the repo root — not ./api.
+    dockerfilePath: ./docker/api/Dockerfile
+    dockerContext: .
+    # Liveness route registered in api/api/handler.go.
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    # Optional: attach your own domain. Recommended — it gives the API a stable
+    # hostname, so silo-web's /api/* rewrite target can never drift.
+    # domains:
+    #   - api.example.com
+    envVars:
+      # ── Database ────────────────────────────────────────────────────────
+      # Silo builds its DSN from discrete PG_* vars and does NOT read
+      # DATABASE_URL, so each part is mapped individually here.
+      - key: PG_ADDRESS
+        fromDatabase:
+          name: silo-postgres
+          property: host
+      - key: PG_PORT
+        fromDatabase:
+          name: silo-postgres
+          property: port
+      - key: PG_USER
+        fromDatabase:
+          name: silo-postgres
+          property: user
+      - key: PG_PASSWORD
+        fromDatabase:
+          name: silo-postgres
+          property: password
+      - key: PG_DATABASE
+        fromDatabase:
+          name: silo-postgres
+          property: database
+      - key: PG_SSL_MODE
+        value: require
+
+      # ── Server ──────────────────────────────────────────────────────────
+      - key: SERVER_PORT
+        value: "8080"
+      - key: APP_ENV
+        value: production
+      # Public URL of the frontend (silo-web). Used to build magic-link URLs
+      # in sign-in emails. Set this to the static site's URL after it deploys.
+      - key: APP_BASE_URL
+        sync: false
+      # Comma-separated list of allowed browser origins, e.g.
+      # "https://silo-web.onrender.com". Only needed if the frontend calls the
+      # API cross-origin; the /api/* rewrite below keeps everything same-origin.
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+      # ── Auth ────────────────────────────────────────────────────────────
+      # Safe to auto-generate: used as raw bytes in pkg/jwt.
+      - key: JWT_SIGNING_SECRET
+        generateValue: true
+      # NOT auto-generated. This must be exactly 64 hex characters — it is
+      # hex-decoded into a 256-bit AES key (pkg/crypto). Render's generated
+      # values aren't hex, so a generated one fails at decode time.
+      #   Run `make genkey` and paste the ENCRYPTION_KEY it prints.
+      #   Set it once and back it up — rotating it makes previously encrypted
+      #   values unreadable.
+      - key: ENCRYPTION_KEY
+        sync: false
+      - key: JWT_ACCESS_TOKEN_EXPIRY
+        value: 15m
+      - key: JWT_REFRESH_TOKEN_EXPIRY
+        value: 30d
+      - key: OTP_EXPIRY
+        value: 10m
+
+      # ── Email (Resend) ──────────────────────────────────────────────────
+      # Required in practice: magic link is the only OSS sign-in method, so
+      # without working email nobody can log in.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_FROM_NAME
+        value: Silo
+      - key: SUPPORT_EMAIL
+        sync: false
+
+      # ── Object storage ──────────────────────────────────────────────────
+      # Cloudflare R2 recommended — see docs/deployment.md#object-storage.
+      # If STORAGE_PROVIDER is left empty, a no-op stub is used: uploads
+      # appear to succeed but nothing is stored.
+      - key: STORAGE_PROVIDER
+        value: r2
+      - key: STORAGE_ENDPOINT
+        sync: false
+      - key: STORAGE_REGION
+        value: auto
+      - key: STORAGE_ACCESS_KEY
+        sync: false
+      - key: STORAGE_SECRET_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: silo
+      # Documents and vault files. No public-read policy; served via presigned
+      # URLs. Defaults to "{STORAGE_BUCKET}-docs" if unset.
+      - key: STORAGE_PRIVATE_BUCKET
+        value: silo-docs
+      # Browser-facing base URL for public objects. Must be publicly reachable.
+      - key: STORAGE_PUBLIC_URL
+        sync: false
+      - key: STORAGE_MAX_UPLOAD_BYTES
+        value: "52428800"
+
+      # ── Market data ─────────────────────────────────────────────────────
+      # Free key from exchangerate-api.com, no card required. Without it the
+      # daily FX job fails and currency conversion falls back to a rate of 1.0.
+      - key: EXCHANGERATE_API_KEY
+        sync: false
+      - key: EXCHANGERATE_BASE_URL
+        value: https://v6.exchangerate-api.com/v6
+      - key: YAHOO_FINANCE_BASE_URL
+        value: https://query1.finance.yahoo.com
+      - key: COINGECKO_BASE_URL
+        value: https://api.coingecko.com/api/v3
+      # Optional — raises CoinGecko rate limits. Free tier works without it.
+      - key: COINGECKO_API_KEY
+        sync: false
+
+      # ── AI (optional) ───────────────────────────────────────────────────
+      # Leave unset to disable AI insights. Everything else still works.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CLAUDE_MODEL
+        value: claude-sonnet-4-6
+
+      # ── Feature flags ───────────────────────────────────────────────────
+      # Must be false. When true, a fixed OTP is accepted as valid.
+      - key: IS_SANDBOX_MODE
+        value: "false"
+
+  # ─── Web ──────────────────────────────────────────────────────────────────
+  - type: web
+    name: silo-web
+    runtime: static
+    buildCommand: cd web && npm ci && npm run build
+    staticPublishPath: ./web/dist
+    autoDeployTrigger: commit
+    # Optional: attach your own domain. Doing this is what makes the rewrite
+    # destination below stable — see the note there.
+    # domains:
+    #   - app.example.com
+
+    # Optional alternative to the /api/* rewrite below.
+    #
+    # Setting this makes the frontend call the API directly instead of going
+    # through the proxy, and `fromService` fills in silo-api's real hostname
+    # automatically — no hardcoded URL. The frontend accepts a bare hostname
+    # and assumes https (see web/src/lib/api.ts).
+    #
+    # The trade-off: calls become cross-origin, so every request pays a CORS
+    # preflight AND you must set CORS_ALLOWED_ORIGINS on silo-api to this
+    # site's origin by hand. That's the same amount of manual work as just
+    # correcting the rewrite below, for worse performance — so the rewrite is
+    # the default. Use this only where a proxy isn't available.
+    #
+    # envVars:
+    #   - key: VITE_API_URL
+    #     fromService:
+    #       name: silo-api
+    #       type: web
+    #       property: host
+
+    routes:
+      # Proxy API calls to silo-api so the frontend stays same-origin.
+      # web/src/lib/api.ts uses a relative baseURL of "/api/v1", so without
+      # this rule every API call 404s against the static host.
+      #
+      # ⚠️  This destination must be a literal. Render's route rules take a
+      # fixed path or URL — they don't interpolate env vars and can't use
+      # `fromService`. So confirm it after the first deploy: Render only
+      # assigns <name>.onrender.com when that subdomain is free globally,
+      # otherwise it appends a suffix.
+      #
+      # To stop caring about this permanently, put the API on a domain you
+      # control (uncomment `domains:` on silo-api) and point this at that
+      # instead — then the hostname is yours and can never drift.
+      - type: rewrite
+        source: /api/*
+        destination: https://silo-api.onrender.com/api/*
+
+      # SPA fallback — must come last. Without it, refreshing a deep link
+      # like /dashboard returns 404 instead of loading the app.
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+databases:
+  # ─── PostgreSQL ───────────────────────────────────────────────────────────
+  # ⚠️  The free plan is DELETED after 30 days. Move to a paid plan before
+  # storing anything you care about. Migrations run automatically on API boot.
+  - name: silo-postgres
+    plan: free
+    region: oregon
+    databaseName: silo
+    user: silo
+    postgresMajorVersion: "16"

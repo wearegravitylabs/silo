@@ -35,7 +35,7 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, no
 	g := r.Group("/portfolios/:portfolioID/assets")
 
 	member := g.Group("", mid.RequirePortfolioMember())
-	member.GET("/overview", h.overview)   // must come before /:id to avoid conflict
+	member.GET("/overview", h.overview) // must come before /:id to avoid conflict
 	member.GET("/ticker/search", h.tickerSearch)
 	member.GET("/ticker/preview", h.tickerPreview)
 	member.GET("", h.list)

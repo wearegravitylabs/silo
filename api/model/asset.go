@@ -90,8 +90,21 @@ type Asset struct {
 	// Subtype is used for physical assets (e.g. "vehicle", "watch", "jewelry").
 	// Empty for all other asset types.
 	Subtype PhysicalSubtypeCode `json:"subtype"`
+	// Country is the market a stock_ticker is listed in: "NG" (Nigerian Exchange)
+	// or "US". Empty for other asset types, and for stocks created before country
+	// support, which were US-priced. Decides which market the price cron queries
+	// and which currency the price is quoted in.
+	Country string `json:"country"`
 	// LogoURL is the company logo for assets
 	LogoURL string `json:"logo_url"`
+
+	// TotalCashIn / TotalCashOut are running totals kept in sync by
+	// store.AssetCashFlowStore whenever asset_cash_flows is written to (see
+	// CreateCashFlow/DeleteCashFlow) — never written to directly elsewhere.
+	// Purely informational: unlike CurrentPrice, these never affect TotalValue
+	// or OwnedValue. In the asset's own currency.
+	TotalCashIn  float64 `gorm:"type:numeric(28,10);not null;default:0" json:"total_cash_in"`
+	TotalCashOut float64 `gorm:"type:numeric(28,10);not null;default:0" json:"total_cash_out"`
 
 	Location      string     `json:"location"`
 	Metadata      JSONB      `gorm:"type:jsonb"                                       json:"metadata,omitempty"`
@@ -117,6 +130,10 @@ type Asset struct {
 	// OwnedValueConverted is OwnedValue converted to the portfolio's base_currency.
 	// Equals OwnedValue when asset.currency == portfolio.base_currency.
 	OwnedValueConverted float64 `gorm:"-" json:"owned_value_converted"`
+	// TotalCashInConverted / TotalCashOutConverted are TotalCashIn / TotalCashOut
+	// converted to the portfolio's base_currency, same FX rate as OwnedValueConverted.
+	TotalCashInConverted  float64 `gorm:"-" json:"total_cash_in_converted"`
+	TotalCashOutConverted float64 `gorm:"-" json:"total_cash_out_converted"`
 	// ConvertedCurrency is always the portfolio's base_currency.
 	ConvertedCurrency currency.Code `gorm:"-" json:"converted_currency"`
 	// ExchangeRate is: 1 unit of asset.currency = ExchangeRate units of ConvertedCurrency.
@@ -134,6 +151,10 @@ type CreateAssetRequest struct {
 	// For stock_ticker / crypto_ticker: provide ticker only.
 	// Name, logo, and current price are fetched automatically.
 	Ticker string `json:"ticker"`
+
+	// Country is the market a stock_ticker is listed in: "NG" or "US" (default "US").
+	// Browse tickers per country with GET /stocks?country=. Ignored for other types.
+	Country string `json:"country"`
 
 	// For manual types: provide name (and optionally image_url).
 	Name     string  `json:"name"`
@@ -156,8 +177,8 @@ type CreateAssetRequest struct {
 	CurrentPrice *float64 `json:"current_price"`
 
 	// Lots records one or more purchase tranches.
-	// For ticker types, acquisition_price is optional — fetched from Yahoo Finance.
-	// For manual types, acquisition_price is required.
+	// For stock_ticker, acquisition_price is optional — fetched from Yahoo Finance.
+	// Every other type (including crypto_ticker) requires an explicit acquisition_price.
 	Lots []CreateLotRequest `json:"lots" binding:"required,min=1"`
 }
 

@@ -9,8 +9,8 @@ import (
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
-	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
+	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 )
 

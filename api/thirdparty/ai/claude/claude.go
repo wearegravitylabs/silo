@@ -15,10 +15,10 @@ type Client struct {
 }
 
 // New returns a Claude AI provider.
-// model should be a valid Claude model ID, e.g. "claude-sonnet-4-6".
+// model should be a valid Claude model ID, e.g. "claude-opus-5-5".
 func New(apiKey, model string) ai.AIProvider {
 	if model == "" {
-		model = "claude-sonnet-4-6"
+		model = "claude-opus-5-5"
 	}
 	return &Client{apiKey: apiKey, model: model}
 }

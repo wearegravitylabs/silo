@@ -9,8 +9,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/wearegravitylabs/silo/api/pkg/environment"
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
+	"github.com/wearegravitylabs/silo/api/pkg/environment"
 )
 
 func main() {

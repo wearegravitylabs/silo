@@ -112,11 +112,11 @@ func (c *Client) GetCryptoPrice(ctx context.Context, coinID, currency string) (m
 	currency = strings.ToLower(currency)
 
 	params := url.Values{
-		"ids":                   {coinID},
-		"vs_currencies":         {currency},
-		"include_24hr_change":   {"true"},
-		"include_market_cap":    {"false"},
-		"include_24hr_vol":      {"false"},
+		"ids":                 {coinID},
+		"vs_currencies":       {currency},
+		"include_24hr_change": {"true"},
+		"include_market_cap":  {"false"},
+		"include_24hr_vol":    {"false"},
 	}
 	body, err := c.get(ctx, "/simple/price", params)
 	if err != nil {
@@ -157,8 +157,8 @@ func (c *Client) GetStockQuote(ctx context.Context, ticker string) (market.Quote
 func (c *Client) GetHistoricalPrice(ctx context.Context, coinID string, date time.Time) (float64, time.Time, error) {
 	formatted := date.UTC().Format("02-01-2006") // CoinGecko expects DD-MM-YYYY
 	params := url.Values{
-		"date":          {formatted},
-		"localization":  {"false"},
+		"date":         {formatted},
+		"localization": {"false"},
 	}
 	body, err := c.get(ctx, fmt.Sprintf("/coins/%s/history", url.PathEscape(coinID)), params)
 	if err != nil {

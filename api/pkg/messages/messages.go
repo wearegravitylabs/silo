@@ -88,6 +88,14 @@ const (
 	ErrInvalidPhysicalSubtype = "That's not a valid physical asset subtype."
 	// ErrTickerNotFound is shown when a stock or crypto ticker cannot be resolved.
 	ErrTickerNotFound = "We couldn't find that ticker symbol. Please double-check and try again."
+	// ErrAcquisitionPriceRequired is shown when a lot for a non-ticker asset type omits acquisition_price.
+	ErrAcquisitionPriceRequired = "Please enter the price you paid for this purchase. We couldn't work it out automatically."
+
+	// Market data (stocks) errors.
+	ErrMarketRateLimited   = "Market data is busy right now. Please try again in a minute."
+	ErrMarketQuotaExceeded = "Market data limit reached for now. Please try again later or enter the price manually."
+	ErrMarketUnavailable   = "Market data is temporarily unavailable. Please try again later or enter the price manually."
+	ErrInvalidCountry      = "That market isn't supported. Use NG or US."
 )
 
 // ─── Debts ────────────────────────────────────────────────────────────────────

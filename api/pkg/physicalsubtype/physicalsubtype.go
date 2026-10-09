@@ -22,7 +22,7 @@ var registry = []PhysicalSubtype{
 	{
 		Code: "vehicle",
 		Name: "Vehicle",
-		Icon: ``,  // paste SVG here
+		Icon: ``, // paste SVG here
 	},
 	{
 		Code: "gold_precious_metals",

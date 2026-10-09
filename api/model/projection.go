@@ -100,9 +100,9 @@ type ChartRequest struct {
 
 // ChartPoint is a single data point on the projected net-worth chart.
 type ChartPoint struct {
-	Label    string  `json:"label"`     // "Jan 2026" (monthly) or "2031" (yearly)
-	Month    int     `json:"month"`     // months from now; 0 = current state
-	Year     int     `json:"year"`      // calendar year
+	Label    string  `json:"label"` // "Jan 2026" (monthly) or "2031" (yearly)
+	Month    int     `json:"month"` // months from now; 0 = current state
+	Year     int     `json:"year"`  // calendar year
 	NetWorth float64 `json:"net_worth"`
 	Assets   float64 `json:"assets"`
 	Debts    float64 `json:"debts"`
@@ -111,7 +111,7 @@ type ChartPoint struct {
 // ChartResult is the response for POST /chart.
 type ChartResult struct {
 	ScenarioID  uuid.UUID    `json:"scenario_id"`
-	Granularity string       `json:"granularity"`  // "monthly" | "yearly"
+	Granularity string       `json:"granularity"` // "monthly" | "yearly"
 	YearsAhead  int          `json:"years_ahead"`
 	Currency    string       `json:"currency"`
 	Points      []ChartPoint `json:"points"` // includes month 0 (current state)

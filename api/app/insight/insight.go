@@ -13,15 +13,15 @@ import (
 
 // InsightResponse is the AI-generated portfolio summary.
 type InsightResponse struct {
-	Summary    string   `json:"summary"`
-	Highlights []string `json:"highlights"`
-	GeneratedAt string  `json:"generated_at"`
+	Summary     string   `json:"summary"`
+	Highlights  []string `json:"highlights"`
+	GeneratedAt string   `json:"generated_at"`
 }
 
 // FastForwardRequest defines the parameters for a future projection.
 type FastForwardRequest struct {
-	YearsAhead   int     `json:"years_ahead"`
-	GrowthRatePct float64 `json:"growth_rate_pct"`
+	YearsAhead          int     `json:"years_ahead"`
+	GrowthRatePct       float64 `json:"growth_rate_pct"`
 	MonthlyContribution float64 `json:"monthly_contribution"`
 }
 

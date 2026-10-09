@@ -33,8 +33,10 @@ type CreateLotRequest struct {
 	Quantity float64 `json:"quantity" binding:"required,gt=0"`
 	// AcquisitionDate is when the purchase was made. Accepts "YYYY-MM-DD" or RFC 3339.
 	AcquisitionDate DateOnly `json:"acquisition_date" binding:"required"`
-	// AcquisitionPrice is required for manual asset types.
-	// For ticker-based types it is optional — fetched from provider like Yahoo Finance.
+	// AcquisitionPrice is required for every asset type except stock_ticker, which
+	// fetches a historical close price automatically when omitted. Enforced in
+	// app/asset.validateLotPrices, not via a struct binding tag, since the rule
+	// depends on the sibling asset_type field.
 	AcquisitionPrice *float64 `json:"acquisition_price"`
 	Notes            string   `json:"notes"`
 }

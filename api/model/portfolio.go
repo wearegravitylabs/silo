@@ -28,15 +28,15 @@ const (
 
 // Portfolio is the top-level container for a user's financial life.
 type Portfolio struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	UserID       uuid.UUID  `gorm:"type:uuid;not null;index"                         json:"user_id"`
-	Name         string     `gorm:"not null"                                         json:"name"`
-	Description  string     `json:"description"`
-	BaseCurrency currency.Code     `gorm:"not null;default:'USD'"                           json:"base_currency"`
-	ImageURL     *string    `json:"image_url"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	DeletedAt    *time.Time `gorm:"index"                                            json:"-"`
+	ID           uuid.UUID     `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	UserID       uuid.UUID     `gorm:"type:uuid;not null;index"                         json:"user_id"`
+	Name         string        `gorm:"not null"                                         json:"name"`
+	Description  string        `json:"description"`
+	BaseCurrency currency.Code `gorm:"not null;default:'USD'"                           json:"base_currency"`
+	ImageURL     *string       `json:"image_url"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+	DeletedAt    *time.Time    `gorm:"index"                                            json:"-"`
 
 	// Members is populated on explicit Preload only.
 	Members []PortfolioMember `gorm:"foreignKey:PortfolioID" json:"members,omitempty"`
@@ -62,10 +62,10 @@ type PortfolioMember struct {
 
 // CreatePortfolioRequest is the payload for POST /portfolios.
 type CreatePortfolioRequest struct {
-	Name         string  `json:"name"          binding:"required,min=1,max=255"`
-	Description  string  `json:"description"`
-	BaseCurrency currency.Code  `json:"base_currency" binding:"required"`
-	ImageURL     *string `json:"image_url"`
+	Name         string        `json:"name"          binding:"required,min=1,max=255"`
+	Description  string        `json:"description"`
+	BaseCurrency currency.Code `json:"base_currency" binding:"required"`
+	ImageURL     *string       `json:"image_url"`
 }
 
 // UpdatePortfolioRequest is the payload for PATCH /portfolios/:id.

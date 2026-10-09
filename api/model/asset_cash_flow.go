@@ -25,7 +25,7 @@ const (
 	CategoryRentalIncome CashFlowCategory = "rental_income"
 	CategoryDividend     CashFlowCategory = "dividend"
 	CategoryInterest     CashFlowCategory = "interest"
-	CategoryDistribution CashFlowCategory = "distribution"  // VC payout / fund distribution
+	CategoryDistribution CashFlowCategory = "distribution" // VC payout / fund distribution
 	CategorySaleProceeds CashFlowCategory = "sale_proceeds"
 	CategoryOtherIncome  CashFlowCategory = "other_income"
 )

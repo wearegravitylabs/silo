@@ -141,6 +141,31 @@ var (
 	ErrInvalidTicker = &TranslatableError{Code: "INVALID_TICKER", Key: "ERR_INVALID_TICKER",
 		Message: messages.ErrTickerNotFound, Public: true}
 
+	// ErrAcquisitionPriceRequired is shown when a lot for a non-ticker asset type omits acquisition_price.
+	ErrAcquisitionPriceRequired = &TranslatableError{Code: "ACQUISITION_PRICE_REQUIRED", Key: "ERR_ACQUISITION_PRICE_REQUIRED",
+		Message: messages.ErrAcquisitionPriceRequired, Public: true}
+
+	// ─── Market data ──────────────────────────────────────────────────────────
+	// These tell the frontend how to react when the stock data provider fails:
+	// RATE_LIMITED -> retry shortly; QUOTA_EXCEEDED / UNAVAILABLE -> let the user
+	// enter prices manually and try again later.
+
+	// ErrMarketRateLimited is returned when the provider's per-minute limit is hit (HTTP 429).
+	ErrMarketRateLimited = &TranslatableError{Code: "MARKET_RATE_LIMITED", Key: "ERR_MARKET_RATE_LIMITED",
+		Message: messages.ErrMarketRateLimited, Public: true}
+
+	// ErrMarketQuotaExceeded is returned when the provider's monthly quota is spent (HTTP 503).
+	ErrMarketQuotaExceeded = &TranslatableError{Code: "MARKET_QUOTA_EXCEEDED", Key: "ERR_MARKET_QUOTA_EXCEEDED",
+		Message: messages.ErrMarketQuotaExceeded, Public: true}
+
+	// ErrMarketUnavailable is returned when the provider is down, misconfigured or not set up (HTTP 503).
+	ErrMarketUnavailable = &TranslatableError{Code: "MARKET_UNAVAILABLE", Key: "ERR_MARKET_UNAVAILABLE",
+		Message: messages.ErrMarketUnavailable, Public: true}
+
+	// ErrInvalidCountry is returned when the country/market code is not NG or US (HTTP 400).
+	ErrInvalidCountry = &TranslatableError{Code: "INVALID_COUNTRY", Key: "ERR_INVALID_COUNTRY",
+		Message: messages.ErrInvalidCountry, Public: true}
+
 	// ─── Debt ─────────────────────────────────────────────────────────────────
 
 	// ErrDebtNotFound is an internal error.

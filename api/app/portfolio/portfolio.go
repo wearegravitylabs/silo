@@ -81,6 +81,9 @@ func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.Crea
 
 	// Auto-create a default "General" folder for each type. Non-fatal.
 	for _, ft := range []model.FolderType{model.FolderTypeAsset, model.FolderTypeDebt} {
+		// Icon is left nil deliberately: the UI renders the design's coloured
+		// folder glyph for iconless folders, and only shows an emoji once a
+		// user picks one.
 		defaultFolder := model.Folder{
 			PortfolioID: created.ID,
 			FolderType:  ft,
