@@ -13,7 +13,7 @@ import { PREMIUM_FEATURES, PREMIUM_MONTHLY, premiumPrice, YEARLY_DISCOUNT, type 
 
 /**
  * Premium upsell: billing cycle and currency, price, Upgrade Plan, what's included — beside the brand
- * artwork. The artwork hides on small screens. UI only for now: Upgrade Plan reports through onUpgrade.
+ * artwork. The artwork hides on small screens. Upgrade Plan reports through onUpgrade; `upgrading` shows progress.
  */
 export function UpgradeModal({
   open,
@@ -21,12 +21,15 @@ export function UpgradeModal({
   defaultCurrency = 'NGN',
   defaultCycle = 'monthly',
   onUpgrade,
+  upgrading = false,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   defaultCurrency?: string
   defaultCycle?: BillingCycle
   onUpgrade?: (plan: { currency: string; cycle: BillingCycle }) => void
+  /** The upgrade is in progress: Upgrade Plan shows a spinner. */
+  upgrading?: boolean
 }) {
   const [cycle, setCycle] = useState<BillingCycle>(defaultCycle)
   const [currency, setCurrency] = useState(defaultCurrency in PREMIUM_MONTHLY ? defaultCurrency : 'NGN')
@@ -85,7 +88,13 @@ export function UpgradeModal({
             <span className="text-xs leading-5 text-muted-foreground">per {cycle === 'monthly' ? 'month' : 'year'}</span>
           </div>
 
-          <Button size="lg" onClick={() => onUpgrade?.({ currency, cycle })} className="mt-6 w-full rounded-lg">
+          <Button
+            size="lg"
+            loading={upgrading}
+            loadingText="Upgrading…"
+            onClick={() => onUpgrade?.({ currency, cycle })}
+            className="mt-6 w-full rounded-lg"
+          >
             Upgrade Plan
           </Button>
 

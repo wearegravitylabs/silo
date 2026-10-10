@@ -22,7 +22,7 @@ import {
   XIcon,
 } from 'lucide-react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
-import { useMe, UserAvatar } from '@/features/account'
+import { useMe, UserAvatar, useUpgradePlan } from '@/features/account'
 import { UpgradeModal } from '@/features/billing'
 import { AvatarFace, avatarIdFromImageUrl, usePortfolio, usePortfolios } from '@/features/portfolios'
 import { AiSparkleIcon, ChevronDownIcon } from '@/components/icons'
@@ -241,7 +241,8 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
 function SidebarCard({ portfolioId }: { portfolioId: string }) {
   const { data: me } = useMe()
   const portfolio = usePortfolio(portfolioId)
-  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const upgrade = useUpgradePlan()
   const card = 'mx-2 flex flex-col rounded-xl bg-background p-3 shadow-panel'
 
   if (me?.trial_days_left != null) {
@@ -261,19 +262,26 @@ function SidebarCard({ portfolioId }: { portfolioId: string }) {
         </p>
         <button
           type="button"
-          onClick={() => setUpgrading(true)}
+          onClick={() => setUpgradeOpen(true)}
           className="mt-1.5 ml-6 flex w-fit items-center gap-1 rounded-md text-xs font-semibold text-primary-dark transition-opacity outline-none hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           Upgrade plan
           <ArrowUpRightIcon className="size-3" aria-hidden />
         </button>
-        <UpgradeModal open={upgrading} onOpenChange={setUpgrading} defaultCurrency={portfolio.base_currency} />
+        <UpgradeModal
+          open={upgradeOpen}
+          onOpenChange={setUpgradeOpen}
+          defaultCurrency={portfolio.base_currency}
+          upgrading={upgrade.isPending}
+          // Simulated: ends the trial, so this card switches to "What's New".
+          onUpgrade={() => upgrade.mutate(undefined, { onSuccess: () => setUpgradeOpen(false) })}
+        />
       </div>
     )
   }
 
   return (
-    <a href="#" className={cn(card, 'gap-1.5 transition-shadow hover:shadow-elevated')}>
+    <a href="#" className={cn(card, 'animate-rise gap-1.5 transition-shadow hover:shadow-elevated')}>
       <span className="flex items-center justify-between text-xs leading-5 text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <SproutIcon className="size-3.5 text-success" aria-hidden />
