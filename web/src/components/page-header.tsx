@@ -16,9 +16,7 @@ export function PageHeader({
   return (
     <div className={cn('flex flex-wrap items-end justify-between gap-x-4 gap-y-3 px-4 pt-5', className)}>
       <div className="flex min-w-0 flex-col gap-2">
-        <span className="truncate text-[0.6875rem] leading-4 font-medium tracking-[0.0625rem] text-muted-foreground uppercase">
-          {eyebrow}
-        </span>
+        <span className="truncate text-eyebrow">{eyebrow}</span>
         {title}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}

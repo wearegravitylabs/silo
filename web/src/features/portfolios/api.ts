@@ -13,6 +13,7 @@ const MOCK_PORTFOLIOS: Portfolio[] = [
     description: '',
     base_currency: 'NGN',
     image_url: null,
+    summary: { net_worth: 1_000_000, change_amount: 1_000, change_pct: 12 },
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
   },
@@ -30,6 +31,7 @@ export const createPortfolio = async (data: CreatePortfolioInput): Promise<Portf
     description: data.description ?? '',
     base_currency: data.base_currency,
     image_url: data.image_url ?? null,
+    summary: { net_worth: 0, change_amount: 0, change_pct: 0 },
     created_at: now,
     updated_at: now,
   }

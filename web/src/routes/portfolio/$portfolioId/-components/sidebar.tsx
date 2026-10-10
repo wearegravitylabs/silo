@@ -1,6 +1,8 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   ArrowUpRightIcon,
   BanknoteIcon,
   ChevronsRightIcon,
@@ -12,13 +14,18 @@ import {
   LogOutIcon,
   MenuIcon,
   PanelLeftIcon,
+  PlusIcon,
+  SettingsIcon,
+  SlidersHorizontalIcon,
   SproutIcon,
+  UserIcon,
   XIcon,
 } from 'lucide-react'
 import { Dialog as DialogPrimitive } from 'radix-ui'
 import { useMe, UserAvatar } from '@/features/account'
+import { UpgradeModal } from '@/features/billing'
 import { AvatarFace, avatarIdFromImageUrl, usePortfolio, usePortfolios } from '@/features/portfolios'
-import { AiSparkleIcon, ChevronDownIcon, PlusCircleIcon } from '@/components/icons'
+import { AiSparkleIcon, ChevronDownIcon } from '@/components/icons'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { formatCompactMoney, formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useSiloAiPanel } from '@/stores/silo-ai-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
@@ -150,10 +158,10 @@ function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioI
           <AskSiloAiButton collapsed={collapsed} />
         </div>
 
-        {!collapsed && <SidebarCard />}
+        {!collapsed && <SidebarCard portfolioId={portfolioId} />}
 
         <div className={cn('flex h-14 items-center py-4', collapsed ? 'justify-center' : 'justify-between px-4')}>
-          <UserAvatar className="size-6 text-[9px] tracking-normal" />
+          <UserMenu />
           {!collapsed && (
             <a
               href="mailto:support@silo.app"
@@ -191,24 +199,34 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
           </>
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56">
+      <DropdownMenuContent className="w-70" sideOffset={6}>
         {portfolios.map((p) => (
-          <DropdownMenuItem key={p.id} asChild className={cn(p.id === portfolioId && 'bg-accent')}>
+          <DropdownMenuItem key={p.id} asChild className="gap-2.5 py-2">
             <Link to="/portfolio/$portfolioId/dashboard" params={{ portfolioId: p.id }}>
-              <AvatarFace id={avatarIdFromImageUrl(p.image_url)} className="size-5" />
-              <span className="truncate">{p.name}</span>
+              <AvatarFace id={avatarIdFromImageUrl(p.image_url)} className="size-8" />
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate text-foreground">{p.name}</span>
+                {p.summary && <PortfolioValue currency={p.base_currency} {...p.summary} />}
+              </span>
             </Link>
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem
+          asChild
+          className="mx-1 my-1 justify-center gap-1 bg-gradient-secondary py-1 text-xs font-semibold shadow-small focus:bg-gradient-secondary focus:opacity-80"
+        >
           <Link to="/onboarding/portfolio">
-            <PlusCircleIcon className="size-4" />
-            Create portfolio
+            <PlusIcon className="size-3.5" />
+            Create a New Portfolio
           </Link>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
+        <DropdownMenuSeparator className="mx-0" />
+        {/* Placeholder until portfolio settings exist */}
+        <DropdownMenuItem className="gap-2.5">
+          <SettingsIcon className="size-4" />
+          Portfolio settings
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className="gap-2.5">
           <Link to="/login">
             <LogOutIcon className="size-4" />
             Log out
@@ -220,8 +238,10 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
 }
 
 /** Bottom card: the trial countdown while the user is on a free trial, otherwise what's new. */
-function SidebarCard() {
+function SidebarCard({ portfolioId }: { portfolioId: string }) {
   const { data: me } = useMe()
+  const portfolio = usePortfolio(portfolioId)
+  const [upgrading, setUpgrading] = useState(false)
   const card = 'mx-2 flex flex-col rounded-xl bg-background p-3 shadow-panel'
 
   if (me?.trial_days_left != null) {
@@ -239,14 +259,15 @@ function SidebarCard() {
           </span>{' '}
           left to use Silo on free trial
         </p>
-        {/* TODO: billing page */}
-        <a
-          href="#"
-          className="mt-1.5 flex w-fit items-center gap-1 pl-6 text-xs font-semibold text-primary-dark transition-opacity hover:opacity-70"
+        <button
+          type="button"
+          onClick={() => setUpgrading(true)}
+          className="mt-1.5 ml-6 flex w-fit items-center gap-1 rounded-md text-xs font-semibold text-primary-dark transition-opacity outline-none hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           Upgrade plan
           <ArrowUpRightIcon className="size-3" aria-hidden />
-        </a>
+        </button>
+        <UpgradeModal open={upgrading} onOpenChange={setUpgrading} defaultCurrency={portfolio.base_currency} />
       </div>
     )
   }
@@ -291,6 +312,56 @@ function NavLink({
       {icon}
       {!collapsed && <span className="pl-1 text-foreground">{label}</span>}
     </Link>
+  )
+}
+
+/** "₦ 1,000,000.00 ↑ ₦1k (12%)" under a portfolio's name. */
+function PortfolioValue({
+  currency,
+  net_worth,
+  change_amount,
+  change_pct,
+}: {
+  currency: string
+  net_worth: number
+  change_amount: number
+  change_pct: number
+}) {
+  const up = change_amount >= 0
+  return (
+    <span className="flex items-center gap-1.5 text-xs leading-5 text-muted-foreground">
+      {formatMoney(net_worth, currency)}
+      <span className={cn('flex items-center gap-0.5', up ? 'text-positive' : 'text-negative')}>
+        {up ? <ArrowUpIcon className="size-3 text-inherit!" /> : <ArrowDownIcon className="size-3 text-inherit!" />}
+        {formatCompactMoney(Math.abs(change_amount), currency)} ({Math.abs(Math.round(change_pct))}%)
+      </span>
+    </span>
+  )
+}
+
+/** Your avatar at the bottom of the sidebar: opens Profile / Preferences / Settings above it. */
+function UserMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger aria-label="Account menu" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+        <UserAvatar className="size-6 text-[9px] tracking-normal" />
+      </DropdownMenuTrigger>
+      {/* Placeholders until the account pages exist */}
+      <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-61">
+        <DropdownMenuItem className="gap-2.5">
+          <UserIcon className="size-4" />
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2.5">
+          <SlidersHorizontalIcon className="size-4" />
+          Preferences
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2.5">
+          <SettingsIcon className="size-4" />
+          Settings
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

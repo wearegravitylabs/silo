@@ -43,6 +43,11 @@
   @apply heading text-h6;
 }
 
+/* Small spaced capitals above a section ("RETIREMENT PORTFOLIO", "ACCESS TYPE") */
+@utility text-eyebrow {
+  @apply text-[0.6875rem] leading-4 font-medium tracking-[0.0625rem] text-muted-foreground uppercase;
+}
+
 @layer base {
   /* 16px until the fluid curve overtakes it at exactly 1536px (5.248 + 0.7% × 1536 = 16), then scales. */
   html {

@@ -23,6 +23,19 @@ export function formatMoney(value: number, currency = 'USD', { spaced = true, de
     .join('')
 }
 
+/** Short money for tight spaces: "₦1k", "$2.5M" (narrow symbol, one decimal at most). */
+export function formatCompactMoney(value: number, currency = 'USD') {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    currencyDisplay: 'narrowSymbol',
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  })
+    .format(value)
+    .replace(/K$/, 'k')
+}
+
 /** Flag emoji for an ISO 4217 code; most codes start with the ISO 3166-1 country code. */
 export function currencyFlag(code: string): string {
   const cc = code.slice(0, 2).toUpperCase()
