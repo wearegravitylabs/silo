@@ -48,6 +48,19 @@
   --color-chart-4: #d6dfff;
   --color-chart-5: #eef2ff;
 
+  /* Per-asset-type series (allocation by type) */
+  --color-type-stock: #4a8ff0;
+  --color-type-crypto: #e2843f;
+  --color-type-real-estate: #4fa83d;
+  --color-type-other: #b3b8cb;
+
+  /* Per-currency series (net worth splits, allocation by currency) */
+  --color-currency-ngn: #2e7d4f;
+  --color-currency-usd: #b4233a;
+  --color-currency-eur: #1b2f8a;
+  --color-currency-gbp: #e8506b;
+  --color-currency-other: #b3b8cb;
+
   /* Folder tab badges, cycled in order */
   --color-folder-1: #1a56db;
   --color-folder-2: #7c3aed;
@@ -55,6 +68,15 @@
   --color-folder-4: #d97706;
   --color-folder-5: #dc2626;
   --color-folder-6: #0891b2;
+
+  /* Silo AI: multicolour sparkle, pink→orange card border, red-pink action text */
+  --color-ai: #e0284a;
+  --color-ai-blue: #1620ff;
+  --color-ai-from: #f3a6e4;
+  --color-ai-to: #fbcf9e;
+  --color-ai-tint: #fffafd;
+  --color-ai-soft: #fde6dc; /* AI avatar disc */
+  --color-ai-input: #f6f5f9; /* composer fill */
 
   /* shadcn surface slots */
   --color-card: #ffffff;
@@ -72,6 +94,13 @@
 }
 @utility bg-gradient-secondary {
   background-image: linear-gradient(180deg, #ffffff 0%, var(--color-surface) 65%, var(--color-accent) 100%);
+}
+@utility bg-gradient-ai {
+  background-image: linear-gradient(160deg, var(--color-ai-from) 0%, var(--color-ai-to) 100%);
+}
+/* Thin red stripes: the unscheduled-debt column's bottom edge */
+@utility bg-hatch-destructive {
+  background-image: repeating-linear-gradient(90deg, var(--color-destructive) 0 1px, transparent 1px 3px);
 }
 @utility bg-gradient-destructive {
   background-image: linear-gradient(180deg, var(--color-destructive) 0%, #c91f0c 100%);

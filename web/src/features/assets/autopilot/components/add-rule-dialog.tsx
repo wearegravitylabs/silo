@@ -50,7 +50,7 @@ function RuleFormBody({ asset, portfolioId, onDone }: { asset: AssetItem; portfo
   const { create } = useRuleMutations(portfolioId)
   const set = (patch: Partial<RuleForm>) => setForm((f) => ({ ...f, ...patch }))
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError(null)
     const value = parseFloat(form.value)

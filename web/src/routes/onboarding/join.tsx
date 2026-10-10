@@ -12,7 +12,7 @@ export const Route = createFileRoute('/onboarding/join')({
   //   if (!search.invite) throw redirect({ to: '/onboarding' })
   // },
   loaderDeps: ({ search }) => ({ invite: search.invite ?? PREVIEW_INVITE }),
-  loader: ({ context: { queryClient }, deps }) => queryClient.ensureQueryData(inviteQuery(deps.invite)),
+  loader: ({ context: { queryClient }, deps }) => queryClient.query({ ...inviteQuery(deps.invite), staleTime: 'static' }),
   component: JoinPage,
 })
 

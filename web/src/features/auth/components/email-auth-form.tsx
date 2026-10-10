@@ -23,7 +23,7 @@ export function EmailAuthForm({
   const [pending, setPending] = useState(false)
   const emailError = touched && !EMAIL_RE.test(email) ? 'Enter a valid email address' : undefined
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setTouched(true)
     if (pending || !EMAIL_RE.test(email)) return

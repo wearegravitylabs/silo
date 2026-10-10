@@ -17,7 +17,7 @@ const buttonVariants = cva(
       variant: {
         primary:
           'bg-gradient-primary text-primary-foreground hover:opacity-90 active:scale-[0.98] disabled:opacity-100 not-aria-busy:disabled:bg-line not-aria-busy:disabled:bg-none not-aria-busy:disabled:text-subtle',
-        secondary: 'bg-gradient-secondary text-foreground shadow-button hover:opacity-80 active:scale-[0.98]',
+        secondary: 'bg-gradient-secondary text-foreground shadow-small hover:opacity-80 active:scale-[0.98]',
         destructive: 'bg-gradient-destructive text-primary-foreground hover:opacity-90 active:scale-[0.98]',
         outline: 'border border-accent bg-background font-medium text-muted-foreground hover:bg-surface',
         ghost: 'text-muted-foreground hover:bg-accent hover:text-foreground aria-expanded:bg-accent',

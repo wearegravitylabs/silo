@@ -1,9 +1,9 @@
 import type { DashboardPeriod, DashboardResponse } from './types'
-import { mockDashboard } from './mock-data'
+import { emptyDashboard, mockDashboard } from './mock-data'
 
-// TODO: switch back to the API once the dashboard endpoint is ready:
-// api<DashboardResponse>(`/portfolios/${portfolioId}/dashboard`, {
-//   params: { period: PERIODS.find((p) => p.label === period)?.api ?? '1M' },
-// })
-export const getDashboard = (_portfolioId: string, period: DashboardPeriod) =>
-  new Promise<DashboardResponse>((resolve) => setTimeout(() => resolve(mockDashboard(period)), 800))
+// TODO: replace with the dashboard endpoint (GET /portfolios/:id/dashboard?period=…) once it exists.
+// Mock: the demo portfolio has data; any portfolio made in onboarding starts empty.
+export const getDashboard = (portfolioId: string, period: DashboardPeriod) =>
+  new Promise<DashboardResponse>((resolve) =>
+    setTimeout(() => resolve(portfolioId === 'demo' ? mockDashboard(period) : emptyDashboard(period)), 800),
+  )

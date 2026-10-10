@@ -80,7 +80,7 @@ export function AvatarPicker({ selected, onChange }: { selected: AvatarId; onCha
             type="button"
             aria-label="Change avatar"
             onClick={() => setDraft(selected)}
-            className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full bg-background text-muted-foreground shadow-button transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+            className="absolute right-0 bottom-0 flex size-7 items-center justify-center rounded-full bg-background text-muted-foreground shadow-small transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
           >
             <PencilIcon className="size-3.5" aria-hidden />
           </button>

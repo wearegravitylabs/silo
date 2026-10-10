@@ -5,11 +5,14 @@
   --animate-fade-in-up: fade-in-up 0.5s var(--ease-out-expo) both; /* page/content entrance */
   --animate-rise: rise 0.2s var(--ease-out-expo) both; /* modals, menus, small content */
   --animate-slide-in-right: slide-in-right 0.22s var(--ease-out-expo) both;
+  --animate-drawer-in: drawer-in 0.3s var(--ease-out-expo) both; /* mobile sidebar */
   --animate-sheet-up: sheet-up 0.3s var(--ease-out-expo) both;
   --animate-quote-in: quote-in 0.5s var(--ease-out-expo) both;
   --animate-quote-out: quote-out 0.42s ease-in both;
   --animate-author-in: author-in 0.5s var(--ease-out-expo) 0.1s both;
   --animate-dot-pulse: dot-pulse 1.5s ease infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite; /* loading bars and "Thinking…" text sweep */
+  --animate-caret: caret-blink 1s steps(1) infinite; /* streaming text cursor */
 
   @keyframes fade-in-up {
     from {
@@ -37,6 +40,14 @@
     }
     to {
       transform: translateY(0);
+    }
+  }
+  @keyframes drawer-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
     }
   }
   @keyframes slide-in-right {
@@ -80,6 +91,19 @@
       transform: scaleX(1.2);
     }
   }
+  @keyframes shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+  @keyframes caret-blink {
+    50% {
+      opacity: 0;
+    }
+  }
   @keyframes author-in {
     from {
       opacity: 0;
@@ -102,4 +126,22 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Loading bar: a light band sweeping across the grey (pair with animate-shimmer) */
+@utility bg-shimmer {
+  background-image: linear-gradient(90deg, var(--color-accent) 30%, var(--color-surface) 50%, var(--color-accent) 70%);
+  background-size: 200% 100%;
+}
+/* Same sweep through text: muted → dark → muted (pair with animate-shimmer) */
+@utility text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 35%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 65%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  color: transparent;
 }

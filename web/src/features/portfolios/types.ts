@@ -5,6 +5,8 @@ export interface Portfolio {
   description: string
   base_currency: string
   image_url: string | null
+  /** Headline numbers for the portfolio switcher, in base currency. */
+  summary?: { net_worth: number; change_amount: number; change_pct: number }
   created_at: string
   updated_at: string
 }
