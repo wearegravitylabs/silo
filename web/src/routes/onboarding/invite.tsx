@@ -11,7 +11,7 @@ export const Route = createFileRoute('/onboarding/invite')({
   //   if (!search.portfolio) throw redirect({ to: '/onboarding/portfolio', search: (prev) => prev })
   // },
   loaderDeps: ({ search }) => ({ portfolio: search.portfolio ?? PREVIEW_PORTFOLIO }),
-  loader: ({ context: { queryClient }, deps }) => queryClient.ensureQueryData(inviteLinkQuery(deps.portfolio)),
+  loader: ({ context: { queryClient }, deps }) => queryClient.query({ ...inviteLinkQuery(deps.portfolio), staleTime: 'static' }),
   component: InvitePage,
 })
 

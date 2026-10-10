@@ -22,7 +22,7 @@ export function CreatePortfolioStep({ onCreated }: { onCreated: (portfolio: Port
   const nameError = submitted && !name.trim() ? 'Enter a portfolio name' : undefined
   const currency = pickedCurrency ?? 'USD'
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setSubmitted(true)
     if (!name.trim()) return

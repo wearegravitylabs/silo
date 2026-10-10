@@ -45,7 +45,7 @@ function NoteForm({
   const [tags, setTags] = useState((note?.tags?.items ?? []).join(', '))
   const { save } = useNoteMutations(portfolioId, assetId)
 
-  const submit = (e: React.FormEvent) => {
+  const submit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!content.trim()) return
     save.mutate(

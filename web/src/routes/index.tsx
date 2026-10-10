@@ -6,7 +6,7 @@ import { AppShellSkeleton } from './portfolio/$portfolioId/-components/app-shell
 export const Route = createFileRoute('/')({
   pendingComponent: AppShellSkeleton,
   loader: async ({ context: { queryClient } }) => {
-    const [first] = await queryClient.ensureQueryData(portfoliosQuery)
+    const [first] = await queryClient.query({ ...portfoliosQuery, staleTime: 'static' })
     if (!first) throw redirect({ to: '/onboarding/portfolio' })
     throw redirect({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: first.id } })
   },

@@ -31,12 +31,12 @@ export const Route = createFileRoute('/portfolio/$portfolioId/assets')({
   // folders keeps the page and the table shows the previous rows while loading.
   loader: async ({ context: { queryClient }, params: { portfolioId }, location }) => {
     const [folders] = await Promise.all([
-      queryClient.ensureQueryData(foldersQuery(portfolioId, 'asset')),
-      queryClient.ensureQueryData(assetOverviewQuery(portfolioId)),
+      queryClient.query({ ...foldersQuery(portfolioId, 'asset'), staleTime: 'static' }),
+      queryClient.query({ ...assetOverviewQuery(portfolioId), staleTime: 'static' }),
     ])
     const { folder } = location.search as AssetsSearch
     const folderId = folder ?? folders[0]?.id ?? null
-    await queryClient.ensureQueryData(assetsQuery(portfolioId, folderId))
+    await queryClient.query({ ...assetsQuery(portfolioId, folderId), staleTime: 'static' })
   },
   pendingComponent: () => (
     <AssetsShell>

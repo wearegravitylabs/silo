@@ -13,7 +13,10 @@ import { Topbar } from './-components/topbar'
  */
 export const Route = createFileRoute('/portfolio/$portfolioId')({
   loader: async ({ context: { queryClient }, params }) => {
-    const [portfolios] = await Promise.all([queryClient.ensureQueryData(portfoliosQuery), queryClient.ensureQueryData(meQuery)])
+    const [portfolios] = await Promise.all([
+      queryClient.query({ ...portfoliosQuery, staleTime: 'static' }),
+      queryClient.query({ ...meQuery, staleTime: 'static' }),
+    ])
     if (!portfolios.some((p) => p.id === params.portfolioId)) throw notFound()
   },
   pendingComponent: AppShellSkeleton,

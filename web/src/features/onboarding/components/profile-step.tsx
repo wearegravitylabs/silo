@@ -22,7 +22,7 @@ export function ProfileStep({ onDone }: { onDone: () => void }) {
   const phoneError = submitted && !validatePhoneNumber(phoneNumber, country) ? 'Enter a valid phone number' : undefined
   const canSubmit = firstName.trim() !== '' && lastName.trim() !== ''
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setSubmitted(true)
     if (!canSubmit || !validatePhoneNumber(phoneNumber, country)) return
