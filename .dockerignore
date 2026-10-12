@@ -1,0 +1,30 @@
+# The API image only needs api/. Everything below is either secret, huge, or
+# irrelevant to the build — and the build context is sent to the Docker daemon
+# in full, so excluding it is both a speed and a safety matter.
+
+# Secrets. COPY api/ would otherwise pull a real .env into the build stage.
+api/.env
+api/.env.*
+!api/.env.example
+
+# The frontend's dependencies dwarf everything else in this repo and the API
+# build has no use for them.
+web/node_modules/
+web/dist/
+web/.vite/
+
+.git
+.github
+.idea
+.vscode
+
+api/bin/
+api/tmp/
+
+docker-compose.yml
+docker/
+*.postman_collection.json
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+docs/
