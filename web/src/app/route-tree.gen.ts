@@ -27,6 +27,7 @@ import { Route as OnboardingRequestSentRouteImport } from './../routes/onboardin
 import { Route as PortfolioPortfolioIdRouteRouteImport } from './../routes/portfolio/$portfolioId/route'
 import { Route as PortfolioPortfolioIdAssetsRouteImport } from './../routes/portfolio/$portfolioId/assets'
 import { Route as PortfolioPortfolioIdDashboardRouteImport } from './../routes/portfolio/$portfolioId/dashboard'
+import { Route as PortfolioPortfolioIdDebtsRouteImport } from './../routes/portfolio/$portfolioId/debts'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -120,6 +121,12 @@ const PortfolioPortfolioIdDashboardRoute =
     path: '/dashboard',
     getParentRoute: () => PortfolioPortfolioIdRouteRoute,
   } as any)
+const PortfolioPortfolioIdDebtsRoute =
+  PortfolioPortfolioIdDebtsRouteImport.update({
+    id: '/debts',
+    path: '/debts',
+    getParentRoute: () => PortfolioPortfolioIdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -139,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/': typeof OnboardingIndexRoute
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
+  '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -157,6 +165,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingIndexRoute
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
+  '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -178,6 +187,7 @@ export interface FileRoutesById {
   '/onboarding/': typeof OnboardingIndexRoute
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
+  '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -199,6 +209,7 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
+    | '/portfolio/$portfolioId/debts'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
+    | '/portfolio/$portfolioId/debts'
   id:
     | '__root__'
     | '/'
@@ -237,6 +249,7 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
+    | '/portfolio/$portfolioId/debts'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -377,6 +390,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioPortfolioIdDashboardRouteImport
       parentRoute: typeof PortfolioPortfolioIdRouteRoute
     }
+    '/portfolio/$portfolioId/debts': {
+      id: '/portfolio/$portfolioId/debts'
+      path: '/debts'
+      fullPath: '/portfolio/$portfolioId/debts'
+      preLoaderRoute: typeof PortfolioPortfolioIdDebtsRouteImport
+      parentRoute: typeof PortfolioPortfolioIdRouteRoute
+    }
   }
 }
 
@@ -421,12 +441,14 @@ const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
 interface PortfolioPortfolioIdRouteRouteChildren {
   PortfolioPortfolioIdAssetsRoute: typeof PortfolioPortfolioIdAssetsRoute
   PortfolioPortfolioIdDashboardRoute: typeof PortfolioPortfolioIdDashboardRoute
+  PortfolioPortfolioIdDebtsRoute: typeof PortfolioPortfolioIdDebtsRoute
 }
 
 const PortfolioPortfolioIdRouteRouteChildren: PortfolioPortfolioIdRouteRouteChildren =
   {
     PortfolioPortfolioIdAssetsRoute: PortfolioPortfolioIdAssetsRoute,
     PortfolioPortfolioIdDashboardRoute: PortfolioPortfolioIdDashboardRoute,
+    PortfolioPortfolioIdDebtsRoute: PortfolioPortfolioIdDebtsRoute,
   }
 
 const PortfolioPortfolioIdRouteRouteWithChildren =

@@ -61,14 +61,7 @@ export function NetWorthCard({
         <PeriodTabs period={period} onPeriod={onPeriod} className="mt-3" />
       </div>
 
-      <NetWorthModal
-        open={expanded}
-        onOpenChange={setExpanded}
-        nw={nw}
-        chartPoints={chartPoints}
-        period={period}
-        onPeriod={onPeriod}
-      />
+      <NetWorthModal open={expanded} onOpenChange={setExpanded} nw={nw} chartPoints={chartPoints} period={period} onPeriod={onPeriod} />
     </Card>
   )
 }

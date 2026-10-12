@@ -49,6 +49,16 @@
 }
 
 @layer base {
+  /* Tailwind v4 leaves borders and dividers in the text colour (dark) unless a colour is set. Default every
+     border, divide-* and hr to the light divider token; an explicit border-* colour still wins. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentColor);
+  }
+
   /* 16px until the fluid curve overtakes it at exactly 1536px (5.248 + 0.7% × 1536 = 16), then scales. */
   html {
     font-size: max(16px, 5.248px + 0.7vw);

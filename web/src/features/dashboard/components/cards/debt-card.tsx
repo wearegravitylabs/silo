@@ -33,9 +33,8 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
         badge={summary.debt_free_date && <DebtFreeBadge date={summary.debt_free_date} />}
         right={
           hasDebts ? (
-            // TODO: point at the Debts page once it exists
             <Button variant="secondary" size="xs" asChild className="shadow-elevated">
-              <Link to="/portfolio/$portfolioId/dashboard" params={{ portfolioId }}>
+              <Link to="/portfolio/$portfolioId/debts" params={{ portfolioId }}>
                 View all
               </Link>
             </Button>

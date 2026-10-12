@@ -79,6 +79,7 @@ function AssetsPage() {
         selectedId={folderId}
         onSelect={(folder) => setSearch({ folder })}
         portfolioId={portfolioId}
+        folderType="asset"
         showCards={showCards}
         onToggleCards={() => setShowCards((v) => !v)}
       />

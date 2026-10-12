@@ -148,3 +148,31 @@ export function AiSparkleIcon({ className, ...props }: IconProps) {
     </Svg>
   )
 }
+
+export function SortIcon({ className, ...props }: IconProps) {
+  return (
+    <Svg viewBox="0 0 12 12" className={cn('size-3 text-subtle', className)} {...props}>
+      <path
+        d="M6 2v8M3.5 4.5L6 2l2.5 2.5M3.5 7.5L6 10l2.5-2.5"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}
+
+export function ExportIcon({ className, ...props }: IconProps) {
+  return (
+    <Svg viewBox="0 0 14 14" className={cn('size-3.5 text-muted-foreground', className)} {...props}>
+      <path
+        d="M7 1v8M3.5 5.5L7 9l3.5-3.5M2 10v1.5a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V10"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  )
+}

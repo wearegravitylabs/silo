@@ -48,7 +48,15 @@ export function NetWorthModal({
 }
 
 function CurrencyBreakdown({ currencies, className }: { currencies: DashboardCurrencyAssets[]; className?: string }) {
-  const [open, setOpen] = useState(() => new Set(currencies.filter((c) => c.count > 0).slice(0, 1).map((c) => c.currency)))
+  const [open, setOpen] = useState(
+    () =>
+      new Set(
+        currencies
+          .filter((c) => c.count > 0)
+          .slice(0, 1)
+          .map((c) => c.currency),
+      ),
+  )
   const toggle = (currency: string) =>
     setOpen((prev) => {
       const next = new Set(prev)

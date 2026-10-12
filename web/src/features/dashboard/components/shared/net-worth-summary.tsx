@@ -34,15 +34,7 @@ export function NetWorthTotal({ nw, period }: { nw: DashboardNetWorth; period: D
 }
 
 /** "↑ ₦12,000.00 (12%) Past Month": amount and/or percentage, whichever the API sent. */
-function ChangeLine({
-  trend,
-  nw,
-  description,
-}: {
-  trend: keyof typeof TREND
-  nw: DashboardNetWorth
-  description?: string
-}) {
+function ChangeLine({ trend, nw, description }: { trend: keyof typeof TREND; nw: DashboardNetWorth; description?: string }) {
   const { tone, Icon, label } = TREND[trend]
   const amount = nw.change_amount != null && formatMoney(Math.abs(nw.change_amount), nw.currency, { spaced: false })
   const pct = nw.change_pct != null && `${Math.abs(Math.round(nw.change_pct))}%`

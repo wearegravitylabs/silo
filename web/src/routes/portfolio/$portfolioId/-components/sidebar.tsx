@@ -147,7 +147,13 @@ function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioI
             label="Assets"
             collapsed={collapsed}
           />
-          <NavPlaceholder icon={<BanknoteIcon />} label="Debts" collapsed={collapsed} />
+          <NavLink
+            to="/portfolio/$portfolioId/debts"
+            portfolioId={portfolioId}
+            icon={<BanknoteIcon />}
+            label="Debts"
+            collapsed={collapsed}
+          />
           <NavPlaceholder icon={<LockIcon />} label="Vault" collapsed={collapsed} />
           <NavPlaceholder icon={<ChevronsRightIcon />} label="Projections" collapsed={collapsed} />
         </nav>
@@ -309,7 +315,7 @@ function NavLink({
   label,
   collapsed,
 }: {
-  to: '/portfolio/$portfolioId/dashboard' | '/portfolio/$portfolioId/assets'
+  to: '/portfolio/$portfolioId/dashboard' | '/portfolio/$portfolioId/assets' | '/portfolio/$portfolioId/debts'
   portfolioId: string
   icon: ReactNode
   label: string
