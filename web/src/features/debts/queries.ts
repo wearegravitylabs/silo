@@ -1,5 +1,6 @@
-import { keepPreviousData, queryOptions, useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { getDebtsOverview, listDebtFolders, listDebts } from './api'
+import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { createDebt, getDebtsOverview, listDebtFolders, listDebts } from './api'
+import type { CreateDebtInput } from './types'
 
 export const debtKeys = {
   all: (portfolioId: string) => ['debts', portfolioId] as const,
@@ -36,3 +37,12 @@ export const debtFoldersQuery = (portfolioId: string) =>
 
 /** Debt folder tabs. Suspends — preload with `debtFoldersQuery` in the route loader. */
 export const useDebtFolders = (portfolioId: string) => useSuspenseQuery(debtFoldersQuery(portfolioId)).data
+
+/** Adds a debt; refetches every debt query for the portfolio (list, total). */
+export const useCreateDebt = (portfolioId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateDebtInput) => createDebt(portfolioId, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: debtKeys.all(portfolioId) }),
+  })
+}

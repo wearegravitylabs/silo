@@ -4,14 +4,14 @@ import { ChangeBadge } from '@/components/change-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { DEBT_TYPE_ICONS, DEBT_TYPE_LABELS, FREQUENCY_LABELS } from '../../constants'
+import { DEBT_ICONS, DEBT_TYPE_LABELS, debtIconId, FREQUENCY_LABELS } from '../../constants'
 import type { Debt } from '../../types'
 import { DebtRowMenu } from './debt-row-menu'
 
 /** One 72px debt row: type disc, name (+ attention flag), schedule, 1M change, value with interest note, ⋯ menu. */
 export function DebtRow({ debt, selected, onSelect }: { debt: Debt; selected: boolean; onSelect: (selected: boolean) => void }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const Icon = DEBT_TYPE_ICONS[debt.debt_type] ?? DEBT_TYPE_ICONS.manual
+  const Icon = DEBT_ICONS[debtIconId(debt)]
   const schedule = debt.has_schedule && debt.frequency ? FREQUENCY_LABELS[debt.frequency] : '--'
 
   return (

@@ -4,11 +4,12 @@ import { ChevronDownIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
+import { SubmitError, SummaryList } from '@/components/summary-list'
+import { TwoPane } from '@/components/two-pane'
 import { currencyFlag, formatCurrency } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { uploadFile } from '../../api'
 import { isValidLot, LotFields } from './lot-fields'
-import { SubmitError, SummaryList, TwoPane } from './step-layout'
 import type { ManualStockForm } from './types'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'NGN', 'GHS', 'KES', 'ZAR']

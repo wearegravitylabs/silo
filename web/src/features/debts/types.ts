@@ -30,6 +30,22 @@ export interface Debt {
   change_pct_1m: number | null
   /** Flagged for the user's attention (e.g. overdue, high interest). Not in the API yet. */
   needs_attention: boolean
+  /** Icon id chosen when adding (see DEBT_ICON_OPTIONS); null = the type's icon. Not in the API yet (could live in metadata). */
+  icon?: string | null
+}
+
+/** What the Add Debt sheet sends. Mirrors api/model CreateDebtRequest, plus the icon. */
+export interface CreateDebtInput {
+  folder_id: string | null
+  name: string
+  debt_type: DebtType
+  balance: number
+  currency: string
+  has_schedule: boolean
+  payment_amount: number
+  frequency: PaymentFrequency | ''
+  interest_rate: number
+  icon: string | null
 }
 
 /** Portfolio-wide debt total and its change over the last month, in the base currency. Not in the API yet. */

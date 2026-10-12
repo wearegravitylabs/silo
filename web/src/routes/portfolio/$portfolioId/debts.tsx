@@ -1,5 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { debtFoldersQuery, debtsOverviewQuery, debtsQuery, DebtsSummaryHeader, DebtTable, useDebtFolders, useDebts } from '@/features/debts'
+import {
+  AddDebtSheet,
+  debtFoldersQuery,
+  debtsOverviewQuery,
+  debtsQuery,
+  DebtsSummaryHeader,
+  DebtTable,
+  useDebtFolders,
+  useDebts,
+} from '@/features/debts'
 import { FolderTabs } from '@/features/folders'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import { DebtsSkeleton } from './-components/debts-skeleton'
@@ -7,11 +16,14 @@ import { DebtsSkeleton } from './-components/debts-skeleton'
 interface DebtsSearch {
   /** Selected folder tab; defaults to the first folder */
   folder?: string
+  /** Open the Add Debt sheet */
+  create?: boolean
 }
 
 export const Route = createFileRoute('/portfolio/$portfolioId/debts')({
   validateSearch: (search: Record<string, unknown>): DebtsSearch => ({
     ...(typeof search.folder === 'string' && { folder: search.folder }),
+    ...(search.create === true && { create: true }),
   }),
   // Like assets: search is read from location (not loaderDeps) so switching folders keeps the page.
   loader: async ({ context: { queryClient }, params: { portfolioId }, location }) => {
@@ -51,14 +63,17 @@ function DebtsPage() {
 
   const folderId = search.folder ?? folders[0]?.id ?? null
   const { data: debts = [], isPending, isPlaceholderData } = useDebts(portfolioId, folderId)
-  const setFolder = (folder: string) => navigate({ search: (s) => ({ ...s, folder }), replace: true })
+  const setSearch = (patch: Partial<DebtsSearch>) => navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
+  const setFolder = (folder: string) => setSearch({ folder })
+  const setCreating = (create: boolean) => setSearch({ create: create || undefined })
 
   return (
     <DebtsShell>
-      <DebtsSummaryHeader portfolioId={portfolioId} currency={portfolio.base_currency} />
+      <DebtsSummaryHeader portfolioId={portfolioId} currency={portfolio.base_currency} onAddDebt={() => setCreating(true)} />
       <FolderTabs folders={folders} selectedId={folderId} onSelect={setFolder} portfolioId={portfolioId} folderType="debt" />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
       <DebtTable key={folderId} debts={debts} loading={isPending} dimmed={isPlaceholderData} />
+      <AddDebtSheet portfolioId={portfolioId} folderId={folderId} open={!!search.create} onOpenChange={setCreating} />
     </DebtsShell>
   )
 }

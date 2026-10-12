@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button'
+import { SubmitError, SummaryList } from '@/components/summary-list'
+import { TwoPane } from '@/components/two-pane'
 import { formatCurrency } from '@/lib/format'
 import { useTickerPreview } from '../../queries'
 import type { TickerSearchResult } from '../../types'
 import { isValidLot, LotFields } from './lot-fields'
-import { SubmitError, SummaryList, TwoPane } from './step-layout'
 import type { Lot } from './types'
 import { YahooAttribution } from './yahoo-attribution'
 

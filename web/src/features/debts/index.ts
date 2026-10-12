@@ -1,3 +1,4 @@
+export { AddDebtSheet } from './components/add-debt/add-debt-sheet'
 export { DebtTable } from './components/debt-table/debt-table'
 export { DebtsSummaryHeader } from './components/debts-summary-header'
 export { debtFoldersQuery, debtsOverviewQuery, debtsQuery, useDebtFolders, useDebts, useDebtsOverview } from './queries'
