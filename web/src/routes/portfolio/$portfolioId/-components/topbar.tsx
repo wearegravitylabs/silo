@@ -43,8 +43,8 @@ export function Topbar({ portfolioId }: { portfolioId: string }) {
             className="flex h-full min-w-0 flex-1 cursor-text items-center gap-2 rounded-lg pl-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           >
             <SearchIcon className="size-4 text-muted-foreground" />
-            <span className="flex-1 text-muted-foreground">Search</span>
-            <kbd className="font-sans text-xs tracking-widest text-subtle">⌘K</kbd>
+            <span className="text-muted-foreground">Search</span>
+            <kbd className="mr-auto font-sans text-xs tracking-widest text-subtle">⌘K</kbd>
           </button>
           <button
             type="button"

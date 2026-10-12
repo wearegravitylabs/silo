@@ -25,12 +25,16 @@ export function ExpandIcon({ className, ...props }: IconProps) {
   )
 }
 
-/** Total Net Worth mark: solid brand disc with a white ring. */
+/** Total Net Worth mark: solid brand disc with a diamond cut-out. */
 export function NetWorthIcon({ className, ...props }: IconProps) {
   return (
-    <Svg viewBox="0 0 16 16" className={cn('size-4', className)} {...props}>
-      <circle cx="8" cy="8" r="7" className="fill-primary-dark" />
-      <circle cx="8" cy="8" r="3" className="stroke-white" strokeWidth="1.6" />
+    <Svg viewBox="0 0 13.3333 13.3333" className={cn('size-3.5 text-primary-dark', className)} {...props}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M6.66667 0C2.98477 0 0 2.98477 0 6.66667C0 10.3486 2.98477 13.3333 6.66667 13.3333C10.3486 13.3333 13.3333 10.3486 13.3333 6.66667C13.3333 2.98477 10.3486 0 6.66667 0ZM6.19524 4.30964L4.30962 6.19526C4.04927 6.45561 4.04927 6.87772 4.30962 7.13807L6.19524 9.02369C6.45559 9.28404 6.8777 9.28404 7.13805 9.02369L9.02367 7.13807C9.28402 6.87772 9.28402 6.45561 9.02367 6.19526L7.13805 4.30964C6.8777 4.04929 6.45559 4.04929 6.19524 4.30964Z"
+        fill="currentColor"
+      />
     </Svg>
   )
 }

@@ -35,7 +35,7 @@
   --color-positive-subtle: #f0fbf4;
   --color-negative: #c50f3c; /* losses, debts */
   --color-negative-subtle: #fef2f2;
-  --color-success: #29af0b;
+  --color-success: #29af0b; /* increases (net worth change) */
   --color-success-light: #c7f6bc;
   --color-warning: #f07f22;
   --color-warning-light: #fad7ba;
@@ -55,9 +55,9 @@
   --color-type-other: #b3b8cb;
 
   /* Per-currency series (net worth splits, allocation by currency) */
-  --color-currency-ngn: #2e7d4f;
-  --color-currency-usd: #b4233a;
-  --color-currency-eur: #1b2f8a;
+  --color-currency-ngn: #008753;
+  --color-currency-usd: #c50f3c;
+  --color-currency-eur: #003399;
   --color-currency-gbp: #e8506b;
   --color-currency-other: #b3b8cb;
 
