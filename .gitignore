@@ -23,6 +23,10 @@ go.work.sum
 
 # Environment files
 .env
+# Catches .env.production, .env.staging and anything else of that shape. The
+# repo is public; a secrets file reaching it is not recoverable by deleting the
+# commit. The example files are re-included below.
+.env.*
 .env.local
 .env.*.local
 !**/.env.example
