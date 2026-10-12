@@ -1,19 +1,18 @@
 import { useState } from 'react'
-import { FilterMenu, type FilterOption } from '@/components/filter-menu'
 import { SortIcon } from '@/components/icons'
+import { MultiFilterMenu, type MultiFilterOption } from '@/components/multi-filter-menu'
 import { SearchInput } from '@/components/search-input'
 import { TablePagination } from '@/components/table-pagination'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { DEBT_TYPE_LABELS, FREQUENCY_LABELS } from '../../constants'
-import type { Debt } from '../../types'
+import { DEBT_TYPE_FILTER_OPTIONS, FREQUENCY_LABELS, NO_SCHEDULE, SCHEDULE_FILTER_BASE } from '../../constants'
+import type { Debt, PaymentFrequency } from '../../types'
 import { DebtRow } from './debt-row'
 
 type SortKey = 'name' | 'schedule' | 'change' | 'value'
 type Sort = { key: SortKey; dir: 'asc' | 'desc' } | null
-
-const NO_SCHEDULE = 'none'
 
 // Payment Schedule and 1M drop out on small screens; Debt and Value always show.
 const COLUMNS: { key: SortKey; label: string; align?: 'right'; hideOnMobile?: boolean }[] = [
@@ -36,8 +35,8 @@ const SORT_VALUE: Record<SortKey, (d: Debt) => string | number | null> = {
  * Any change to filters, search, sort or page size goes back to page 1. Select-all covers the rows on the current page.
  */
 export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?: boolean; dimmed?: boolean }) {
-  const [type, setTypeState] = useState<string | null>(null)
-  const [schedule, setScheduleState] = useState<string | null>(null)
+  const [types, setTypesState] = useState<string[]>([])
+  const [schedules, setSchedulesState] = useState<string[]>([])
   const [search, setSearchState] = useState('')
   const [sort, setSortState] = useState<Sort>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -50,16 +49,22 @@ export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?:
       set(value)
       setPage(1)
     }
-  const setType = firstPage(setTypeState)
-  const setSchedule = firstPage(setScheduleState)
+  const setTypes = firstPage(setTypesState)
+  const setSchedules = firstPage(setSchedulesState)
+  const filtering = types.length > 0 || schedules.length > 0
+  const clearFilters = () => {
+    setTypesState([])
+    setSchedulesState([])
+    setPage(1)
+  }
   const setSearch = firstPage(setSearchState)
   const setPageSize = firstPage(setPageSizeState)
 
   const q = search.trim().toLowerCase()
   const filtered = debts.filter(
     (d) =>
-      (!type || d.debt_type === type) &&
-      (!schedule || (schedule === NO_SCHEDULE ? !d.has_schedule : d.has_schedule && d.frequency === schedule)) &&
+      (types.length === 0 || types.includes(d.debt_type)) &&
+      (schedules.length === 0 || schedules.includes(d.has_schedule && d.frequency ? d.frequency : NO_SCHEDULE)) &&
       (!q || d.name.toLowerCase().includes(q)),
   )
   const sorted = sort ? sortBy(filtered, sort) : filtered
@@ -67,15 +72,13 @@ export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?:
   const current = Math.min(page, Math.max(1, Math.ceil(sorted.length / pageSize)))
   const rows = sorted.slice((current - 1) * pageSize, current * pageSize)
 
-  const typeOptions: FilterOption[] = [
-    { label: 'All Types', value: null },
-    ...[...new Set(debts.map((d) => d.debt_type))].map((t) => ({ label: DEBT_TYPE_LABELS[t] ?? t, value: t })),
-  ]
-  const frequencies = [...new Set(debts.flatMap((d) => (d.has_schedule && d.frequency ? [d.frequency] : [])))]
-  const scheduleOptions: FilterOption[] = [
-    { label: 'All Schedules', value: null },
-    ...frequencies.map((f) => ({ label: FREQUENCY_LABELS[f], value: f })),
-    { label: 'No Schedule', value: NO_SCHEDULE },
+  // The usual frequencies always; others (bi-weekly, quarterly…) once a debt uses them.
+  const used = new Set(debts.flatMap((d) => (d.has_schedule && d.frequency ? [d.frequency] : [])))
+  const scheduleOptions: MultiFilterOption[] = [
+    ...(Object.keys(FREQUENCY_LABELS) as PaymentFrequency[])
+      .filter((f) => SCHEDULE_FILTER_BASE.includes(f) || used.has(f))
+      .map((f) => ({ value: f, label: FREQUENCY_LABELS[f] })),
+    { value: NO_SCHEDULE, label: 'No Schedule' },
   ]
 
   const selectedCount = rows.filter((d) => selected.has(d.id)).length
@@ -95,13 +98,20 @@ export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?:
   }
 
   const empty = !loading && rows.length === 0
+  // No debts at all → "No Debts Yet", no footer. Debts hidden by filters/search → "No result found" with the footer.
+  const none = debts.length === 0
 
   return (
     <section className="mx-4 mb-6 flex min-h-0 flex-1 flex-col md:mx-10 md:mb-10" aria-label="Debts">
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 py-4">
         <div className="flex items-center gap-2">
-          <FilterMenu label="Debt Type" value={type} onChange={setType} options={typeOptions} />
-          <FilterMenu label="Payment Schedule" value={schedule} onChange={setSchedule} options={scheduleOptions} />
+          <MultiFilterMenu label="Debt Type" options={DEBT_TYPE_FILTER_OPTIONS} values={types} onChange={setTypes} />
+          <MultiFilterMenu label="Payment Schedule" options={scheduleOptions} values={schedules} onChange={setSchedules} />
+          {filtering && (
+            <Button variant="link" size="xs" onClick={clearFilters} className="ml-4 animate-rise px-0">
+              Clear filter
+            </Button>
+          )}
         </div>
         <SearchInput
           value={search}
@@ -166,14 +176,14 @@ export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?:
 
           {empty && (
             <div className="flex min-h-92 animate-rise flex-col items-center justify-center gap-1.5 rounded-xl bg-card px-6 text-center shadow-small">
-              <p className="font-medium text-foreground">{debts.length === 0 ? 'No Debts Yet' : 'No Debts Found'}</p>
+              <p className="font-medium text-foreground">{none ? 'No Debts Yet' : 'No result found'}</p>
               <p className="text-xs leading-5 text-muted-foreground">
-                {debts.length === 0 ? 'Once you create a debt, it will appear here' : 'Try adjusting your filters or search'}
+                {none ? 'Once you create a debt, it will appear here' : 'We couldn’t find any result based on the filter'}
               </p>
             </div>
           )}
         </div>
-        {!empty && !loading && (
+        {!loading && !none && (
           <TablePagination page={current} pageSize={pageSize} total={sorted.length} onPageChange={setPage} onPageSizeChange={setPageSize} />
         )}
       </div>

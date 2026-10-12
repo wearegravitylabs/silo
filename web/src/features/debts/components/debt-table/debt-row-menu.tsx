@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-/** ⋯ menu on a debt row: View details, Add Auto-pilot Rule, Delete Debt. `onOpenChange` lets the row shade itself while open. */
+/** ⋯ menu on a debt row: View details, Add Auto-pilot, Delete Debt. `onOpenChange` lets the row shade itself while open. */
 export function DebtRowMenu({
   name,
   onOpenChange,
@@ -37,7 +37,7 @@ export function DebtRowMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onAddRule}>
           <Navigation2Icon className="size-4 -rotate-90" />
-          Add Auto-pilot Rule
+          Add Auto-pilot
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={onDelete}>

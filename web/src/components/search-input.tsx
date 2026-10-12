@@ -1,7 +1,8 @@
-import { CloseIcon, SearchIcon } from '@/components/icons'
+import { CircleXIcon } from 'lucide-react'
+import { SearchIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
 
-/** Table search box: magnifier, text, ✕ to clear once there's a value. Size with className (default w-60). */
+/** Table search box: magnifier, text, round ✕ to clear once there's a value. Size with className (default w-60). */
 export function SearchInput({
   value,
   onChange,
@@ -32,8 +33,13 @@ export function SearchInput({
         className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-subtle"
       />
       {value && (
-        <button type="button" aria-label="Clear search" onClick={() => onChange('')} className="flex">
-          <CloseIcon className="size-3" />
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => onChange('')}
+          className="flex rounded-full transition-opacity outline-none hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40"
+        >
+          <CircleXIcon className="size-4 fill-muted-foreground text-surface" aria-hidden />
         </button>
       )}
     </label>

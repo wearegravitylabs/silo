@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { ExportDialog } from '@/components/export-dialog'
 import {
   AddDebtSheet,
   debtFoldersQuery,
@@ -60,6 +62,7 @@ function DebtsPage() {
   const navigate = Route.useNavigate()
   const portfolio = usePortfolio(portfolioId)
   const folders = useDebtFolders(portfolioId)
+  const [exporting, setExporting] = useState(false)
 
   const folderId = search.folder ?? folders[0]?.id ?? null
   const { data: debts = [], isPending, isPlaceholderData } = useDebts(portfolioId, folderId)
@@ -69,11 +72,18 @@ function DebtsPage() {
 
   return (
     <DebtsShell>
-      <DebtsSummaryHeader portfolioId={portfolioId} currency={portfolio.base_currency} onAddDebt={() => setCreating(true)} />
+      <DebtsSummaryHeader
+        portfolioId={portfolioId}
+        currency={portfolio.base_currency}
+        onExport={() => setExporting(true)}
+        onAddDebt={() => setCreating(true)}
+      />
       <FolderTabs folders={folders} selectedId={folderId} onSelect={setFolder} portfolioId={portfolioId} folderType="debt" />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
       <DebtTable key={folderId} debts={debts} loading={isPending} dimmed={isPlaceholderData} />
       <AddDebtSheet portfolioId={portfolioId} folderId={folderId} open={!!search.create} onOpenChange={setCreating} />
+      {/* TODO: generate the file once there's an export endpoint; UI only for now. */}
+      <ExportDialog title="Export Debt" open={exporting} onOpenChange={setExporting} />
     </DebtsShell>
   )
 }

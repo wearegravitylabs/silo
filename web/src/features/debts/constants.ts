@@ -98,3 +98,12 @@ export const PERIODS_PER_YEAR: Record<PaymentFrequency, number> = {
   biannual: 2,
   annually: 1,
 }
+
+/** Debt Type filter: every type, alphabetical. */
+export const DEBT_TYPE_FILTER_OPTIONS = [...DEBT_TYPE_OPTIONS].sort((a, b) => a.label.localeCompare(b.label))
+
+/** Payment Schedule filter value for debts without a repayment plan. */
+export const NO_SCHEDULE = 'none'
+
+/** Frequencies the Payment Schedule filter always lists; any other frequency in use is added in canonical order. */
+export const SCHEDULE_FILTER_BASE: PaymentFrequency[] = ['daily', 'weekly', 'monthly', 'annually']
