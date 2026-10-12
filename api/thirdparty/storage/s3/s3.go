@@ -15,7 +15,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // Config carries the provider-specific settings.
@@ -153,6 +152,16 @@ func (c *Client) ensureBucket(ctx context.Context, bucket string) error {
 }
 
 // Upload stores data at the given key and returns the public URL.
+//
+// No per-object ACL is set. Whether an object can be read without credentials
+// is a property of its bucket — the public one carries a public-read policy
+// from ensureBucket, or the provider's own public-access setting — and the
+// private bucket is reached only through presigned URLs.
+//
+// Setting one here was wrong in three ways: it marked private documents
+// public-read, R2 does not implement ACLs at all, and S3 buckets created since
+// April 2023 default to bucket-owner-enforced, where any ACL makes PutObject
+// fail with AccessControlListNotSupported.
 func (c *Client) Upload(ctx context.Context, bucket, key string, data io.Reader, size int64) (string, error) {
 	if bucket == "" {
 		bucket = c.bucket
@@ -163,7 +172,6 @@ func (c *Client) Upload(ctx context.Context, bucket, key string, data io.Reader,
 		Key:           aws.String(key),
 		Body:          data,
 		ContentLength: aws.Int64(size),
-		ACL:           types.ObjectCannedACLPublicRead,
 	})
 	if err != nil {
 		return "", fmt.Errorf("s3: upload %s: %w", key, err)
