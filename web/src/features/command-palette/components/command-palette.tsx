@@ -3,6 +3,7 @@ import { ArrowDownIcon, ArrowUpIcon, AtSignIcon, CornerDownLeftIcon, FileUpIcon,
 import { AiSparkleIcon } from '@/components/icons'
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { floatingPanel } from '@/components/ui/floating'
 import { MENTION_RE, MENTIONS, QUICK_ACTIONS, SUGGESTIONS, type MentionToken, type QuickAction } from '../data'
 
 /** What the palette selected: a quick action, or a prompt for Silo AI. */
@@ -281,11 +282,7 @@ function MentionDropdown({
   onPick: (token: MentionToken) => void
 }) {
   return (
-    <div
-      role="listbox"
-      aria-label="Mention"
-      className="absolute top-full left-2 z-10 mt-1 w-69 animate-rise rounded-xl bg-background p-1 shadow-dropdown"
-    >
+    <div role="listbox" aria-label="Mention" className={cn('absolute top-full left-2 z-10 mt-1 w-69 animate-rise', floatingPanel)}>
       {options.length === 0 && <p className="px-2 py-3 text-center text-xs">No matches</p>}
       {options.map((m, i) => (
         <button

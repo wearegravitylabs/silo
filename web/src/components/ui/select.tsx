@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Select as SelectPrimitive } from 'radix-ui'
 import { ChevronDownIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
+import { floatingPanel } from './floating'
 
 /** Single-choice select. Pair SelectTrigger (+ SelectValue placeholder) with SelectContent of SelectItems. */
 const Select = SelectPrimitive.Root
@@ -43,14 +44,15 @@ function SelectContent({
         position={position}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 max-h-(--radix-select-content-available-height) overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-dropdown',
+          'z-50 max-h-(--radix-select-content-available-height) overflow-hidden',
+          floatingPanel,
           'origin-(--radix-select-content-transform-origin) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
           position === 'popper' && 'w-(--radix-select-trigger-width)',
           className,
         )}
         {...props}
       >
-        <SelectPrimitive.Viewport className="flex flex-col gap-0.5 p-1">{children}</SelectPrimitive.Viewport>
+        <SelectPrimitive.Viewport className="flex flex-col gap-0.5">{children}</SelectPrimitive.Viewport>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   )

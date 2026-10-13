@@ -55,7 +55,7 @@ export function IconPicker({
         </div>
       </PopoverAnchor>
 
-      <PopoverContent align="center" sideOffset={4} collisionPadding={16} className="rounded-xl border border-border p-1.5">
+      <PopoverContent align="center" sideOffset={4} collisionPadding={16} className="p-1.5">
         <div
           role="radiogroup"
           aria-label={label}

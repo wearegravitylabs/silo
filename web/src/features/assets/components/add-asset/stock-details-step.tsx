@@ -64,8 +64,8 @@ export function StockDetailsStep({
                 value: quote ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : '—',
                 valueClassName: quote
                   ? change >= 0
-                    ? 'font-semibold text-positive'
-                    : 'font-semibold text-negative'
+                    ? 'font-semibold text-success'
+                    : 'font-semibold text-destructive'
                   : 'text-muted-foreground',
               },
             ]}

@@ -1,4 +1,4 @@
-import { ChevronDownIcon, MessageSquareIcon, SquarePenIcon, XIcon } from 'lucide-react'
+import { BrushCleaningIcon, ChevronDownIcon, CirclePlusIcon, MessageSquareIcon, XIcon } from 'lucide-react'
 import { AiSparkleIcon } from '@/components/icons'
 import {
   DropdownMenu,
@@ -10,7 +10,7 @@ import {
 import { useSiloAiChat } from '../../store'
 import { DevStateMenu } from '../dev/dev-state-menu'
 
-/** "✦ Silo AI ⌄" (new chat + recent chats) and the close button. */
+/** "✦ Silo AI ⌄" (new chat, clear history, recent chats) and the close button. */
 export function PanelHeader({ onClose }: { onClose: () => void }) {
   return (
     <header className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4">
@@ -32,19 +32,27 @@ export function PanelHeader({ onClose }: { onClose: () => void }) {
 
 function ChatMenu() {
   // The open chat is never in history (it's filed there when you leave it), so no "current" marker is needed.
-  const { history, newChat, openChat } = useSiloAiChat()
+  const { history, messages, newChat, openChat, clearHistory } = useSiloAiChat()
+  const nothingToClear = history.length === 0 && messages.length === 0
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-2 rounded-md font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
+      <DropdownMenuTrigger className="group flex items-center gap-2 rounded-md font-medium text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
         <AiSparkleIcon />
         Silo AI
-        <ChevronDownIcon className="size-3.5 text-muted-foreground" aria-hidden />
+        <ChevronDownIcon
+          className="size-3.5 text-muted-foreground transition-transform duration-200 group-aria-expanded:rotate-180"
+          aria-hidden
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuItem onSelect={newChat}>
-          <SquarePenIcon className="size-4" />
-          New chat
+          <CirclePlusIcon className="size-4" />
+          Create a new Chat
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={clearHistory} disabled={nothingToClear}>
+          <BrushCleaningIcon className="size-4" />
+          Clear History
         </DropdownMenuItem>
         {history.length > 0 && (
           <>

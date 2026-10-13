@@ -154,7 +154,7 @@ function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioI
             label="Debts"
             collapsed={collapsed}
           />
-          <NavPlaceholder icon={<LockIcon />} label="Vault" collapsed={collapsed} />
+          <NavLink to="/portfolio/$portfolioId/vault" portfolioId={portfolioId} icon={<LockIcon />} label="Vault" collapsed={collapsed} />
           <NavPlaceholder icon={<ChevronsRightIcon />} label="Projections" collapsed={collapsed} />
         </nav>
       </div>
@@ -315,7 +315,11 @@ function NavLink({
   label,
   collapsed,
 }: {
-  to: '/portfolio/$portfolioId/dashboard' | '/portfolio/$portfolioId/assets' | '/portfolio/$portfolioId/debts'
+  to:
+    | '/portfolio/$portfolioId/dashboard'
+    | '/portfolio/$portfolioId/assets'
+    | '/portfolio/$portfolioId/debts'
+    | '/portfolio/$portfolioId/vault'
   portfolioId: string
   icon: ReactNode
   label: string
@@ -345,7 +349,7 @@ function PortfolioValue({
   return (
     <span className="flex items-center gap-1.5 text-xs leading-5 text-muted-foreground">
       {formatMoney(net_worth, currency)}
-      <span className={cn('flex items-center gap-0.5', up ? 'text-positive' : 'text-negative')}>
+      <span className={cn('flex items-center gap-0.5', up ? 'text-success' : 'text-destructive')}>
         {up ? <ArrowUpIcon className="size-3 text-inherit!" /> : <ArrowDownIcon className="size-3 text-inherit!" />}
         {formatCompactMoney(Math.abs(change_amount), currency)} ({Math.abs(Math.round(change_pct))}%)
       </span>

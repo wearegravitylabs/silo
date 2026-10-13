@@ -34,7 +34,7 @@ export function SearchList<T>({
 
   return (
     <div className={cn('flex flex-col', className)}>
-      <div className="p-2">
+      <div className="p-1 pb-2">
         <label className="flex h-8 items-center gap-1.5 rounded-lg bg-accent px-2">
           <SearchIcon className="size-3.5" />
           <input
@@ -47,7 +47,7 @@ export function SearchList<T>({
           />
         </label>
       </div>
-      <div role="listbox" className="max-h-55 overflow-y-auto px-1 pb-1">
+      <div role="listbox" className="max-h-55 overflow-y-auto">
         {filtered.length === 0 ? (
           <p className="py-4 text-center text-xs text-subtle">{emptyText}</p>
         ) : (

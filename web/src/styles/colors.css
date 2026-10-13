@@ -12,8 +12,8 @@
   --color-accent: #eff0f5; /* hover/selected fills, chips */
   --color-accent-foreground: #2c2e35;
   --color-line: #e3e5ed; /* stronger divider, inactive dots */
-  --color-border: #eff0f5;
-  --color-input: #eff0f5;
+  --color-border: #eff0f5; /* border/default */
+  --color-input: var(--color-border);
   --color-ink: #040103; /* overlays: bg-ink/40 */
 
   /* Brand */
@@ -27,16 +27,18 @@
   --color-ring: #044ffa;
   --color-night: #071160; /* auth quote panel */
   --color-sky: #b3dfff;
+  --color-mint: #0ddf86; /* premium gem: highlight → mint → primary-dark */
+  --color-artwork: #8090b3; /* upgrade modal building */
+  --color-artwork-shadow: #0b2660;
 
   /* Status */
+  /* The one green and one red: gains, increases, success (text/success) and
+     losses, debts, errors (text/error). Change them here and everything follows. */
   --color-destructive: #f03722;
   --color-destructive-subtle: #fff0ee;
-  --color-positive: #008753; /* gains */
-  --color-positive-subtle: #f0fbf4;
-  --color-negative: #c50f3c; /* losses, debts */
-  --color-negative-subtle: #fef2f2;
-  --color-success: #29af0b; /* increases (net worth change) */
-  --color-success-light: #c7f6bc;
+  --color-success: #29af0b;
+  --color-success-subtle: #edfce9; /* Backgrounds/success */
+  --color-success-light: #c7f6bc; /* Success/success_100 */
   --color-info: #3b82f6; /* neutral notices ("Current Balance: …") */
   --color-info-subtle: #e9f3fe;
   --color-warning: #f07f22;
@@ -82,7 +84,11 @@
   --color-ai-to: #fbcf9e;
   --color-ai-tint: #fffafd;
   --color-ai-soft: #fde6dc; /* AI avatar disc */
-  --color-ai-input: #f6f5f9; /* composer fill */
+  --color-ai-input: #eeeff4; /* composer fill */
+  /* Sparkle icon gradient, top to bottom (the blue stop is primary-dark) */
+  --color-ai-spark-1: #ff16d0;
+  --color-ai-spark-3: #ff1414;
+  --color-ai-spark-4: #ff9524;
 
   /* shadcn surface slots */
   --color-card: #ffffff;
@@ -101,8 +107,31 @@
 @utility bg-gradient-secondary {
   background-image: linear-gradient(180deg, #ffffff 0%, var(--color-surface) 65%, var(--color-accent) 100%);
 }
+/* Silo AI frames (composer, insights card): the sparkle's four colours, softened to ~40% over white, top to bottom */
 @utility bg-gradient-ai {
-  background-image: linear-gradient(160deg, var(--color-ai-from) 0%, var(--color-ai-to) 100%);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-ai-spark-1) 42%, white) 0%,
+    color-mix(in oklab, var(--color-primary-dark) 42%, white) 28%,
+    color-mix(in oklab, var(--color-ai-spark-3) 42%, white) 55%,
+    color-mix(in oklab, var(--color-ai-spark-4) 42%, white) 100%
+  );
+}
+/* Silo AI badges (debt-free date): the same four colours as a faint ~6% wash */
+@utility bg-gradient-ai-subtle {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-ai-spark-1) 6%, var(--color-background)) 0%,
+    color-mix(in srgb, var(--color-primary-dark) 6%, var(--color-background)) 28%,
+    color-mix(in srgb, var(--color-ai-spark-3) 6%, var(--color-background)) 55%,
+    color-mix(in srgb, var(--color-ai-spark-4) 6%, var(--color-background)) 100%
+  );
+}
+/* Silo AI text: the sparkle's blue → red, mostly red */
+@utility text-gradient-ai {
+  background-image: linear-gradient(90deg, var(--color-ai-blue) -40%, var(--color-ai) 55%);
+  background-clip: text;
+  color: transparent;
 }
 /* Thin red stripes: the unscheduled-debt column's bottom edge */
 @utility bg-hatch-destructive {

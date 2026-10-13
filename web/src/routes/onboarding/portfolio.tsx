@@ -15,7 +15,7 @@ function PortfolioPage() {
       onCreated={(portfolio) =>
         next
           ? navigate({ to: STEP_PATH[next], search: (prev) => ({ ...prev, portfolio: portfolio.id }) })
-          : navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: portfolio.id } })
+          : navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: portfolio.id }, search: { welcome: true } })
       }
     />
   )

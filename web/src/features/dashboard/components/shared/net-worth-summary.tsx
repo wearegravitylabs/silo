@@ -1,14 +1,14 @@
 // Pieces shared by the Total Net Worth card and its expanded modal.
-import { ArrowDownIcon, ArrowUpIcon, MinusIcon } from 'lucide-react'
+import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { PERIODS, type DashboardNetWorth, type DashboardPeriod } from '../../types'
 
-/** Change line styling per direction: green up, red down, grey when nothing moved. */
+/** Change line styling per direction: green up, red down; all grey with no arrow when nothing moved. */
 const TREND = {
   up: { tone: 'text-success', Icon: ArrowUpIcon, label: 'Up' },
   down: { tone: 'text-destructive', Icon: ArrowDownIcon, label: 'Down' },
-  flat: { tone: 'text-muted-foreground', Icon: MinusIcon, label: 'No change' },
+  flat: { tone: 'text-muted-foreground', Icon: null, label: 'No change' },
 }
 
 /** Direction from the API's change (amount first, else percentage); null when the API has no change to show. */
@@ -41,8 +41,8 @@ function ChangeLine({ trend, nw, description }: { trend: keyof typeof TREND; nw:
 
   return (
     <p className="flex items-center gap-1.5 text-xs leading-5">
-      <span className={cn('flex items-center gap-1 font-medium', tone)}>
-        <Icon className="size-3.5" aria-label={label} />
+      <span className={cn('flex items-center gap-1', Icon && 'font-medium', tone)}>
+        {Icon && <Icon className="size-3.5" aria-label={label} />}
         {amount}
         {amount && pct ? ` (${pct})` : pct}
       </span>

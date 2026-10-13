@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { AtSignIcon } from 'lucide-react'
 import { SearchIcon } from '@/components/icons'
 import { cn } from '@/lib/utils'
+import { floatingPanel } from '@/components/ui/floating'
 import type { MentionOption } from '../../mock-data'
 
 /**
@@ -47,9 +48,9 @@ export function MentionMenu({
     <div
       role="dialog"
       aria-label="Mention"
-      className="absolute inset-x-0 bottom-full z-20 mb-2 flex max-h-96 animate-rise flex-col overflow-hidden rounded-xl bg-background shadow-dropdown"
+      className={cn('absolute inset-x-0 bottom-full z-20 mb-2 flex max-h-96 animate-rise flex-col overflow-hidden', floatingPanel)}
     >
-      <div className="p-2 pb-1">
+      <div className="p-1">
         <label className="flex h-8 items-center gap-2 rounded-lg bg-accent px-3">
           <SearchIcon className="size-4" />
           <input
@@ -64,7 +65,7 @@ export function MentionMenu({
         </label>
       </div>
 
-      <div ref={listRef} role="listbox" className="flex flex-col overflow-y-auto px-2 pb-2">
+      <div ref={listRef} role="listbox" className="flex flex-col overflow-y-auto px-1 pb-1">
         {options.length === 0 && <p className="px-2 py-6 text-center text-xs">No matches</p>}
         {partners.length > 0 && <GroupLabel>Partners</GroupLabel>}
         {partners.map((o) => (

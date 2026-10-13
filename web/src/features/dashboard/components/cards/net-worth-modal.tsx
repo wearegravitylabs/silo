@@ -37,18 +37,24 @@ export function NetWorthModal({
             Total Net Worth
           </DialogTitle>
         </DialogHeader>
-        <DialogBody className="flex flex-col pb-5">
-          <NetWorthTotal nw={nw} period={period} />
-          <LineChart points={chartPoints} currency={nw.currency} label="Net worth" className="mt-4 h-50" />
-          <PeriodTabs value={period} onChange={onPeriod} className="mt-3" />
-          <CurrencyBreakdown currencies={nw.by_currency} className="mt-4" />
+        {/* The total, chart and periods keep their full size; only the currency list scrolls in the space left.
+            On very short screens the list keeps 160px and the whole body scrolls instead. */}
+        <DialogBody className="flex flex-col pb-0">
+          <div className="shrink-0">
+            <NetWorthTotal nw={nw} period={period} />
+            <LineChart points={chartPoints} currency={nw.currency} label="Net worth" className="mt-4 h-50" />
+            <PeriodTabs value={period} onChange={onPeriod} className="mt-3" />
+          </div>
+          <div className="mt-4 min-h-40 flex-1 overflow-y-auto border-t border-border pb-5">
+            <CurrencyBreakdown currencies={nw.by_currency} />
+          </div>
         </DialogBody>
       </DialogContent>
     </Dialog>
   )
 }
 
-function CurrencyBreakdown({ currencies, className }: { currencies: DashboardCurrencyAssets[]; className?: string }) {
+function CurrencyBreakdown({ currencies }: { currencies: DashboardCurrencyAssets[] }) {
   const [open, setOpen] = useState(
     () =>
       new Set(
@@ -66,7 +72,7 @@ function CurrencyBreakdown({ currencies, className }: { currencies: DashboardCur
     })
 
   return (
-    <ul className={cn('divide-y divide-border border-t border-border', className)}>
+    <ul className="divide-y divide-border">
       {currencies.map((c) => {
         const expandable = c.assets.length > 0
         const expanded = expandable && open.has(c.currency)
@@ -81,7 +87,9 @@ function CurrencyBreakdown({ currencies, className }: { currencies: DashboardCur
             >
               <CurrencyFlag code={c.currency} />
               <span className="text-foreground">Assets in {c.currency}</span>
-              <span className="ml-0.5 rounded-md bg-accent px-1.5 text-xs leading-5 font-medium text-foreground">{c.count}</span>
+              <span className="ml-0.5 inline-flex h-5 min-w-4.5 items-center justify-center rounded-md border-[0.5px] border-line bg-accent px-1 text-xs text-foreground">
+                {c.count}
+              </span>
               <span className="ml-auto font-medium text-foreground">{formatMoney(c.value, c.currency)}</span>
             </button>
             {expanded && (

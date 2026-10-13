@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
+import { WelcomeModal } from '@/features/dashboard'
 import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
 import { cn } from '@/lib/utils'
@@ -112,6 +113,14 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     id: 'palette-search',
     label: 'Plain search',
     render: () => <CommandPalette open onOpenChange={noop} defaultText="add" />,
+  },
+
+  { group: 'Welcome', id: 'welcome-video', label: 'Welcome to Silo', render: () => <WelcomeModal open onOpenChange={noop} /> },
+  {
+    group: 'Welcome',
+    id: 'welcome-command-bar',
+    label: 'AI Command Bar',
+    render: () => <WelcomeModal open onOpenChange={noop} defaultStep={1} />,
   },
 
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },

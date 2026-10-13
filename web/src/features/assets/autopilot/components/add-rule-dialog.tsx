@@ -89,7 +89,7 @@ function RuleFormBody({ asset, portfolioId, onDone }: { asset: AssetItem; portfo
                 className={cn(
                   'h-8.5 flex-1 rounded-lg font-semibold text-muted-foreground transition-all',
                   form.action === action && 'bg-background shadow-[0_1px_4px_rgb(0_0_0/0.08)]',
-                  form.action === action && (action === 'add' ? 'text-positive' : 'text-destructive'),
+                  form.action === action && (action === 'add' ? 'text-success' : 'text-destructive'),
                 )}
               >
                 {action === 'add' ? '+ Add' : '− Remove'}

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 export interface SummaryRow {
   label: string
   value: ReactNode
-  /** e.g. text-positive for returns, font-semibold for a total */
+  /** e.g. text-success for returns, font-semibold for a total */
   valueClassName?: string
 }
 
@@ -28,7 +28,7 @@ export function SummaryList({ title, rows, className }: { title: string; rows: S
 /** Request failure shown under a sheet's submit button. */
 export function SubmitError({ message }: { message: string }) {
   return (
-    <p role="alert" className="border border-red-300 bg-negative-subtle px-3.5 py-2.5 text-negative">
+    <p role="alert" className="border border-destructive-light bg-destructive-subtle px-3.5 py-2.5 text-destructive">
       {message}
     </p>
   )

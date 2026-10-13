@@ -81,7 +81,7 @@ function RuleCard({
   onEdit: () => void
   onPause: () => void
 }) {
-  const tone = rule.action === 'add' ? 'text-positive' : 'text-destructive'
+  const tone = rule.action === 'add' ? 'text-success' : 'text-destructive'
   const amount =
     rule.units != null
       ? `${rule.units.toLocaleString()}${asset.ticker ? ` $${asset.ticker}` : ' units'}`

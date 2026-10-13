@@ -2,6 +2,7 @@ import * as React from 'react'
 import { CheckIcon } from 'lucide-react'
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
 import { cn } from '@/lib/utils'
+import { floatingPanel } from './floating'
 import { usePreviewMode } from './preview-mode'
 
 /** Menu root. Non-modal inside <PreviewMode> (dev galleries). */
@@ -23,7 +24,8 @@ function DropdownMenuContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 flex min-w-36 flex-col gap-0.5 rounded-xl bg-popover p-1 text-popover-foreground shadow-dropdown outline-none',
+          'z-50 flex min-w-36 flex-col gap-0.5',
+          floatingPanel,
           'origin-(--radix-dropdown-menu-content-transform-origin) data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
           className,
         )}

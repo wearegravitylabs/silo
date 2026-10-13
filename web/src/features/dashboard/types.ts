@@ -97,5 +97,8 @@ export interface DashboardResponse {
 }
 
 /** Chart periods are shared app-wide (src/lib/periods). */
+/** Which mock the dashboard serves until the API exists: `busy` (full demo data) or `empty` (a new portfolio). */
+export type DashboardMock = 'busy' | 'empty'
+
 export { CHART_PERIODS as PERIODS } from '@/lib/periods'
 export type { ChartPeriod as DashboardPeriod } from '@/lib/periods'

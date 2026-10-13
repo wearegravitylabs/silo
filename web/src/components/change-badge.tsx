@@ -25,7 +25,7 @@ export function ChangeBadge({
     <span
       className={cn(
         'inline-flex items-center gap-1 rounded-md px-2 py-0.75 text-xs font-medium',
-        up !== inverse ? 'bg-positive-subtle text-positive' : 'bg-negative-subtle text-negative',
+        up !== inverse ? 'bg-success-subtle text-success' : 'bg-destructive-subtle text-destructive',
         className,
       )}
     >

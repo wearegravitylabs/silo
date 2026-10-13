@@ -28,6 +28,7 @@ import { Route as PortfolioPortfolioIdRouteRouteImport } from './../routes/portf
 import { Route as PortfolioPortfolioIdAssetsRouteImport } from './../routes/portfolio/$portfolioId/assets'
 import { Route as PortfolioPortfolioIdDashboardRouteImport } from './../routes/portfolio/$portfolioId/dashboard'
 import { Route as PortfolioPortfolioIdDebtsRouteImport } from './../routes/portfolio/$portfolioId/debts'
+import { Route as PortfolioPortfolioIdVaultRouteImport } from './../routes/portfolio/$portfolioId/vault'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -127,6 +128,12 @@ const PortfolioPortfolioIdDebtsRoute =
     path: '/debts',
     getParentRoute: () => PortfolioPortfolioIdRouteRoute,
   } as any)
+const PortfolioPortfolioIdVaultRoute =
+  PortfolioPortfolioIdVaultRouteImport.update({
+    id: '/vault',
+    path: '/vault',
+    getParentRoute: () => PortfolioPortfolioIdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
+  '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -166,6 +174,7 @@ export interface FileRoutesByTo {
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
+  '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -188,6 +197,7 @@ export interface FileRoutesById {
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
+  '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
     | '/portfolio/$portfolioId/debts'
+    | '/portfolio/$portfolioId/vault'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -229,6 +240,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
     | '/portfolio/$portfolioId/debts'
+    | '/portfolio/$portfolioId/vault'
   id:
     | '__root__'
     | '/'
@@ -250,6 +262,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
     | '/portfolio/$portfolioId/debts'
+    | '/portfolio/$portfolioId/vault'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioPortfolioIdDebtsRouteImport
       parentRoute: typeof PortfolioPortfolioIdRouteRoute
     }
+    '/portfolio/$portfolioId/vault': {
+      id: '/portfolio/$portfolioId/vault'
+      path: '/vault'
+      fullPath: '/portfolio/$portfolioId/vault'
+      preLoaderRoute: typeof PortfolioPortfolioIdVaultRouteImport
+      parentRoute: typeof PortfolioPortfolioIdRouteRoute
+    }
   }
 }
 
@@ -442,6 +462,7 @@ interface PortfolioPortfolioIdRouteRouteChildren {
   PortfolioPortfolioIdAssetsRoute: typeof PortfolioPortfolioIdAssetsRoute
   PortfolioPortfolioIdDashboardRoute: typeof PortfolioPortfolioIdDashboardRoute
   PortfolioPortfolioIdDebtsRoute: typeof PortfolioPortfolioIdDebtsRoute
+  PortfolioPortfolioIdVaultRoute: typeof PortfolioPortfolioIdVaultRoute
 }
 
 const PortfolioPortfolioIdRouteRouteChildren: PortfolioPortfolioIdRouteRouteChildren =
@@ -449,6 +470,7 @@ const PortfolioPortfolioIdRouteRouteChildren: PortfolioPortfolioIdRouteRouteChil
     PortfolioPortfolioIdAssetsRoute: PortfolioPortfolioIdAssetsRoute,
     PortfolioPortfolioIdDashboardRoute: PortfolioPortfolioIdDashboardRoute,
     PortfolioPortfolioIdDebtsRoute: PortfolioPortfolioIdDebtsRoute,
+    PortfolioPortfolioIdVaultRoute: PortfolioPortfolioIdVaultRoute,
   }
 
 const PortfolioPortfolioIdRouteRouteWithChildren =

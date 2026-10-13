@@ -40,7 +40,7 @@ export function AccessSelect({
           aria-hidden
         />
       </PopoverTrigger>
-      <PopoverContent align="start" sideOffset={4} className="w-(--radix-popover-trigger-width) rounded-xl p-1">
+      <PopoverContent align="start" sideOffset={4} className="w-(--radix-popover-trigger-width)">
         <Row label="Select All" checked={all ? true : some ? 'indeterminate' : false} onChange={(on) => onChange(on ? ALL_SECTIONS : [])} />
         {SECTIONS.map((s) => (
           <Row key={s.key} label={s.label} checked={value.includes(s.key)} onChange={(on) => toggle(s.key, on)} />
