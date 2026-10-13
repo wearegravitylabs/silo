@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { ExportDialog } from '@/components/export-dialog'
 import {
   AddDebtSheet,
+  DebtPanel,
   debtFoldersQuery,
   debtsOverviewQuery,
   debtsQuery,
@@ -63,12 +64,16 @@ function DebtsPage() {
   const portfolio = usePortfolio(portfolioId)
   const folders = useDebtFolders(portfolioId)
   const [exporting, setExporting] = useState(false)
+  // The opened debt outlives `open` so the panel can animate closed; `n` gives each opening a fresh panel.
+  const [panel, setPanel] = useState<{ id: string; addingRule: boolean; open: boolean; n: number } | null>(null)
+  const openPanel = (id: string, addingRule: boolean) => setPanel((p) => ({ id, addingRule, open: true, n: (p?.n ?? 0) + 1 }))
 
   const folderId = search.folder ?? folders[0]?.id ?? null
   const { data: debts = [], isPending, isPlaceholderData } = useDebts(portfolioId, folderId)
   const setSearch = (patch: Partial<DebtsSearch>) => navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
   const setFolder = (folder: string) => setSearch({ folder })
   const setCreating = (create: boolean) => setSearch({ create: create || undefined })
+  const opened = panel && debts.find((d) => d.id === panel.id)
 
   return (
     <DebtsShell>
@@ -80,7 +85,25 @@ function DebtsPage() {
       />
       <FolderTabs folders={folders} selectedId={folderId} onSelect={setFolder} portfolioId={portfolioId} folderType="debt" />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
-      <DebtTable key={folderId} debts={debts} loading={isPending} dimmed={isPlaceholderData} />
+      <DebtTable
+        key={folderId}
+        debts={debts}
+        loading={isPending}
+        dimmed={isPlaceholderData}
+        onView={(debt) => openPanel(debt.id, false)}
+        onAddRule={(debt) => openPanel(debt.id, true)}
+      />
+      {panel && opened && (
+        <DebtPanel
+          key={panel.n}
+          debt={opened}
+          portfolioId={portfolioId}
+          folderName={folders.find((f) => f.id === (opened.folder_id ?? folderId))?.name}
+          open={panel.open}
+          onOpenChange={(open) => setPanel((p) => p && { ...p, open })}
+          addingRule={panel.addingRule}
+        />
+      )}
       <AddDebtSheet portfolioId={portfolioId} folderId={folderId} open={!!search.create} onOpenChange={setCreating} />
       {/* TODO: generate the file once there's an export endpoint; UI only for now. */}
       <ExportDialog title="Export Debt" open={exporting} onOpenChange={setExporting} />

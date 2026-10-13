@@ -1,5 +1,5 @@
 // Temporary debts, used by api.ts until the Debts page is wired to the backend. Mirrors the design.
-import type { Debt, DebtFolder, DebtsOverview } from './types'
+import type { Debt, DebtDocument, DebtFolder, DebtHistoryEntry, DebtNote, DebtRule, DebtsOverview } from './types'
 
 const CURRENCY = 'USD'
 const CREATED = '2026-01-01T00:00:00Z'
@@ -70,3 +70,68 @@ export const defaultDebtFolder = (portfolioId: string): DebtFolder => ({
   created_at: CREATED,
   updated_at: CREATED,
 })
+
+// ─── Detail panel seeds (House Down Payment, as in the design); other debts start empty ──
+
+export const MOCK_HISTORY: DebtHistoryEntry[] = [
+  {
+    id: 'h1',
+    debt_id: 'd1',
+    kind: 'initial',
+    date: '2026-02-12',
+    balance: 10_000,
+    previous: null,
+    created_at: '2026-02-12T09:00:00Z',
+  },
+]
+
+/** A day relative to today, as YYYY-MM-DD — seeded rules stay current whenever the demo runs. */
+const dayFromToday = (days: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export const MOCK_RULES: DebtRule[] = [
+  {
+    id: 'r1',
+    debt_id: 'd1',
+    action: 'payment',
+    amount: 100,
+    frequency: 'daily',
+    start_date: dayFromToday(-14),
+    end_date: dayFromToday(46),
+    is_active: true,
+    created_at: '2026-02-28T09:00:00Z',
+  },
+  {
+    id: 'r2',
+    debt_id: 'd1',
+    action: 'add',
+    amount: 100,
+    frequency: 'weekly',
+    start_date: dayFromToday(-14),
+    end_date: dayFromToday(46),
+    is_active: true,
+    created_at: '2026-02-27T09:00:00Z',
+  },
+]
+
+const NOTE_TEXT = 'I believe it will outperform by Q4 2026, and has a long-term return potential'
+
+export const MOCK_NOTES: DebtNote[] = [
+  {
+    id: 'n1',
+    debt_id: 'd1',
+    title: 'Why I bought this?',
+    content: NOTE_TEXT,
+    tags: ['Strategy', 'Long-Term'],
+    created_at: '2026-03-04T12:00:00Z',
+  },
+  { id: 'n2', debt_id: 'd1', title: '', content: NOTE_TEXT, tags: ['Strategy', 'Long-Term'], created_at: '2026-03-04T11:00:00Z' },
+  { id: 'n3', debt_id: 'd1', title: '', content: NOTE_TEXT, tags: [], created_at: '2026-03-04T10:00:00Z' },
+]
+
+export const MOCK_DOCUMENTS: DebtDocument[] = [
+  { id: 'doc1', debt_id: 'd1', file_name: 'debt-document.docx', file_size: 445 * 1024, uploaded_at: '2026-03-04T12:00:00Z' },
+]

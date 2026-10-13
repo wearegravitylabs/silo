@@ -50,30 +50,3 @@ function ChangeLine({ trend, nw, description }: { trend: keyof typeof TREND; nw:
     </p>
   )
 }
-
-/** 1D · 1M · 3M · YTD · 1Y · All, under the chart. */
-export function PeriodTabs({
-  period,
-  onPeriod,
-  className,
-}: {
-  period: DashboardPeriod
-  onPeriod: (p: DashboardPeriod) => void
-  className?: string
-}) {
-  return (
-    <div className={cn('flex items-center justify-center gap-1', className)} role="group" aria-label="Chart period">
-      {PERIODS.map(({ label }) => (
-        <button
-          key={label}
-          type="button"
-          aria-pressed={label === period}
-          onClick={() => onPeriod(label)}
-          className="h-6 min-w-8 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:font-semibold aria-pressed:text-foreground"
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-}

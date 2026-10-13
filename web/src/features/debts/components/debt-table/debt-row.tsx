@@ -4,14 +4,26 @@ import { ChangeBadge } from '@/components/change-badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { DEBT_ICONS, DEBT_TYPE_LABELS, debtIconId, FREQUENCY_LABELS } from '../../constants'
+import { DEBT_TYPE_LABELS, FREQUENCY_LABELS } from '../../constants'
 import type { Debt } from '../../types'
+import { DebtIconDisc } from '../debt-icon-disc'
 import { DebtRowMenu } from './debt-row-menu'
 
 /** One 72px debt row: type disc, name (+ attention flag), schedule, 1M change, value with interest note, ⋯ menu. */
-export function DebtRow({ debt, selected, onSelect }: { debt: Debt; selected: boolean; onSelect: (selected: boolean) => void }) {
+export function DebtRow({
+  debt,
+  selected,
+  onSelect,
+  onView,
+  onAddRule,
+}: {
+  debt: Debt
+  selected: boolean
+  onSelect: (selected: boolean) => void
+  onView?: () => void
+  onAddRule?: () => void
+}) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const Icon = DEBT_ICONS[debtIconId(debt)]
   const schedule = debt.has_schedule && debt.frequency ? FREQUENCY_LABELS[debt.frequency] : '--'
 
   return (
@@ -21,9 +33,7 @@ export function DebtRow({ debt, selected, onSelect }: { debt: Debt; selected: bo
       </td>
       <td>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-destructive-light/60 bg-destructive-subtle text-destructive">
-            <Icon className="size-4" aria-hidden />
-          </span>
+          <DebtIconDisc debt={debt} />
           <div className="flex min-w-0 flex-col gap-1">
             <span className="flex min-w-0 items-center gap-1.5 font-medium text-foreground">
               <span className="truncate">{debt.name}</span>
@@ -46,7 +56,7 @@ export function DebtRow({ debt, selected, onSelect }: { debt: Debt; selected: bo
         </div>
       </td>
       <td className="pr-3 text-right md:pr-4">
-        <DebtRowMenu name={debt.name} onOpenChange={setMenuOpen} />
+        <DebtRowMenu name={debt.name} onOpenChange={setMenuOpen} onView={onView} onAddRule={onAddRule} />
       </td>
     </tr>
   )

@@ -29,7 +29,8 @@ export function payoffDate({
   return { kind: 'date', date: addPeriods(from, frequency, periods) }
 }
 
-function addPeriods(from: Date, frequency: PaymentFrequency, n: number) {
+/** `from` moved forward by n payment periods. */
+export function addPeriods(from: Date, frequency: PaymentFrequency, n: number) {
   const d = new Date(from)
   switch (frequency) {
     case 'daily':

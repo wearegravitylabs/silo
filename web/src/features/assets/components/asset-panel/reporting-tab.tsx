@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useUpdateAsset } from '../../queries'
 import type { AssetItem } from '../../types'
-import { TabBody } from './tab-layout'
+import { TabBody } from '@/components/panel-layout'
 
 const CLASSIFICATIONS = [
   { value: 'cash', label: 'Investable', desc: 'Cash (Checking, Savings, Money Market)' },

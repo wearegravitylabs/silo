@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { CurrencyFlag } from '@/components/currency-flag'
 import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { LineChart } from '@/components/line-chart'
+import { PeriodTabs } from '@/components/period-tabs'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { DashboardChartPoint, DashboardCurrencyAssets, DashboardNetWorth, DashboardPeriod } from '../../types'
 import { NetWorthIcon } from '../shared/icons'
-import { LineChart } from '../shared/line-chart'
-import { NetWorthTotal, PeriodTabs } from '../shared/net-worth-summary'
+import { NetWorthTotal } from '../shared/net-worth-summary'
 
 /**
  * Expanded Total Net Worth: total and change, a taller chart, then every currency with its assets.
@@ -38,8 +39,8 @@ export function NetWorthModal({
         </DialogHeader>
         <DialogBody className="flex flex-col pb-5">
           <NetWorthTotal nw={nw} period={period} />
-          <LineChart points={chartPoints} currency={nw.currency} className="mt-4 h-50" />
-          <PeriodTabs period={period} onPeriod={onPeriod} className="mt-3" />
+          <LineChart points={chartPoints} currency={nw.currency} label="Net worth" className="mt-4 h-50" />
+          <PeriodTabs value={period} onChange={onPeriod} className="mt-3" />
           <CurrencyBreakdown currencies={nw.by_currency} className="mt-4" />
         </DialogBody>
       </DialogContent>

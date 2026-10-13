@@ -34,7 +34,21 @@ const SORT_VALUE: Record<SortKey, (d: Debt) => string | number | null> = {
  * Filterable, sortable, paginated debt list for one folder. `loading` shows skeleton rows; `dimmed` while another folder loads.
  * Any change to filters, search, sort or page size goes back to page 1. Select-all covers the rows on the current page.
  */
-export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?: boolean; dimmed?: boolean }) {
+export function DebtTable({
+  debts,
+  loading,
+  dimmed,
+  onView,
+  onAddRule,
+}: {
+  debts: Debt[]
+  loading?: boolean
+  dimmed?: boolean
+  /** Row menu → View details */
+  onView?: (debt: Debt) => void
+  /** Row menu → Add Auto-pilot */
+  onAddRule?: (debt: Debt) => void
+}) {
   const [types, setTypesState] = useState<string[]>([])
   const [schedules, setSchedulesState] = useState<string[]>([])
   const [search, setSearchState] = useState('')
@@ -168,7 +182,14 @@ export function DebtTable({ debts, loading, dimmed }: { debts: Debt[]; loading?:
                 {loading
                   ? Array.from({ length: 4 }, (_, i) => <SkeletonRow key={i} />)
                   : rows.map((debt) => (
-                      <DebtRow key={debt.id} debt={debt} selected={selected.has(debt.id)} onSelect={(on) => toggleOne(debt.id, on)} />
+                      <DebtRow
+                        key={debt.id}
+                        debt={debt}
+                        selected={selected.has(debt.id)}
+                        onSelect={(on) => toggleOne(debt.id, on)}
+                        onView={onView && (() => onView(debt))}
+                        onAddRule={onAddRule && (() => onAddRule(debt))}
+                      />
                     ))}
               </tbody>
             )}

@@ -1,19 +1,50 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import type { DashboardChartPoint } from '../../types'
+
+export interface ChartPoint {
+  /** YYYY-MM-DD, or a full ISO timestamp for intraday points */
+  date: string
+  value: number
+}
 
 const PAD = { t: 16, r: 4, b: 24, l: 4 } // room for the glow below the line
 const TIP_HALF = 56 // keeps the tooltip inside the chart near the edges
 const TIP_ROOM = 64 // below this many px from the top, the tooltip drops under the point
 
 /**
- * Smooth net-worth line with a soft glow beneath it; brand blue when the period ends up, red when down.
- * Hover, touch-drag or arrow keys pick a point: crosshair, dot, value + date tooltip, and the line fades after it.
- * Fills its box: size it with className (e.g. h-50, or flex-1 inside a fixed-height card).
+ * Smooth money-over-time line. Hover, touch-drag or arrow keys pick a point: guide line(s), dot, value + date
+ * tooltip, and the line fades after it. Fills its box: size it with className (e.g. h-50, or flex-1 in a fixed card).
+ *
+ * - `tone`: 'trend' is brand blue when the period ends up and red when down (net worth); 'danger' is always red (debts).
+ * - `fill`: 'glow' is a soft blurred shadow under the line; 'area' a gradient fill down to the bottom.
+ * - `guides`: 'xy' crosshair, or 'x' a vertical line only. `startDot` marks the first point.
  */
-export function LineChart({ points, currency, className }: { points: DashboardChartPoint[]; currency: string; className?: string }) {
+export function LineChart({
+  points,
+  currency,
+  tone = 'trend',
+  fill = 'glow',
+  guides = 'xy',
+  startDot = false,
+  valueDecimals = 0,
+  label = 'Value',
+  className,
+}: {
+  points: ChartPoint[]
+  currency: string
+  tone?: 'trend' | 'danger'
+  fill?: 'glow' | 'area'
+  guides?: 'xy' | 'x'
+  startDot?: boolean
+  /** Decimals in the tooltip amount */
+  valueDecimals?: number
+  /** What the line measures, for screen readers ("Net worth", "Balance") */
+  label?: string
+  className?: string
+}) {
   const glowId = useId()
+  const areaId = useId()
   const beforeId = useId()
   const afterId = useId()
   const ref = useRef<HTMLDivElement>(null)
@@ -33,6 +64,8 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
   const ch = Math.max(height - PAD.t - PAD.b, 0)
   const xy = points.map((p, i): [number, number] => [PAD.l + (i / last) * cw, PAD.t + ch - ((p.value - min) / range) * ch])
   const line = smoothPath(xy)
+  const area = `${line} L${xy[last][0].toFixed(1)},${height} L${xy[0][0].toFixed(1)},${height} Z`
+  const money = (value: number) => formatMoney(value, currency, { decimals: valueDecimals })
 
   // A new period can have fewer points than the one hovered.
   const i = active == null ? null : Math.min(active, last)
@@ -55,15 +88,19 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
 
   const series = (
     <>
-      <path
-        d={line}
-        stroke="currentColor"
-        strokeWidth="4"
-        fill="none"
-        opacity="0.25"
-        transform="translate(0 8)"
-        filter={`url(#${glowId})`}
-      />
+      {fill === 'glow' ? (
+        <path
+          d={line}
+          stroke="currentColor"
+          strokeWidth="4"
+          fill="none"
+          opacity="0.25"
+          transform="translate(0 8)"
+          filter={`url(#${glowId})`}
+        />
+      ) : (
+        <path d={area} fill={`url(#${areaId})`} />
+      )}
       <path d={line} stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </>
   )
@@ -72,7 +109,7 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
     <div
       ref={ref}
       tabIndex={0}
-      aria-label="Net worth chart. Use the arrow keys to read values."
+      aria-label={`${label} chart. Use the arrow keys to read values.`}
       onPointerMove={(e) => pick(e.clientX)}
       onPointerDown={(e) => pick(e.clientX)}
       onPointerLeave={() => setActive(null)}
@@ -80,7 +117,7 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
       onBlur={() => setActive(null)}
       className={cn(
         'relative w-full touch-pan-y rounded-md outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/40',
-        up ? 'text-primary-dark' : 'text-destructive',
+        tone === 'trend' && up ? 'text-primary-dark' : 'text-destructive',
         className,
       )}
     >
@@ -90,12 +127,16 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
           height={height}
           className="block"
           role="img"
-          aria-label={`Net worth trend, ${up ? 'up' : 'down'} over the period`}
+          aria-label={`${label} trend, ${up ? 'up' : 'down'} over the period`}
         >
           <defs>
             <filter id={glowId} x="-5%" y="-20%" width="110%" height="160%">
               <feGaussianBlur stdDeviation="6" />
             </filter>
+            <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="currentColor" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+            </linearGradient>
             <clipPath id={beforeId}>
               <rect width={cx} height={height} />
             </clipPath>
@@ -110,7 +151,7 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
             <>
               <g className="stroke-line" strokeWidth="1" shapeRendering="crispEdges">
                 <line x1={cx} x2={cx} y1={0} y2={height} />
-                <line x1={0} x2={width} y1={cy} y2={cy} />
+                {guides === 'xy' && <line x1={0} x2={width} y1={cy} y2={cy} />}
               </g>
               <g clipPath={`url(#${beforeId})`}>{series}</g>
               <g clipPath={`url(#${afterId})`} opacity="0.25">
@@ -119,6 +160,7 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
               <circle cx={cx} cy={cy} r="4.5" className="fill-white" stroke="currentColor" strokeWidth="1.5" />
             </>
           )}
+          {startDot && <circle cx={xy[0][0]} cy={xy[0][1]} r="4" fill="currentColor" className="stroke-white" strokeWidth="1.5" />}
         </svg>
       )}
 
@@ -131,12 +173,12 @@ export function LineChart({ points, currency, className }: { points: DashboardCh
             transform: `translate(-50%, ${cy < TIP_ROOM ? '12px' : 'calc(-100% - 12px)'})`,
           }}
         >
-          <span className="text-xs leading-5 font-semibold text-white">{formatMoney(point.value, currency, { decimals: 0 })}</span>
+          <span className="text-xs leading-5 font-semibold text-white">{money(point.value)}</span>
           <span className="text-[0.6875rem] leading-4 text-white/60">{formatPointDate(point.date)}</span>
         </div>
       )}
       <span className="sr-only" aria-live="polite">
-        {point && `${formatMoney(point.value, currency, { decimals: 0 })}, ${formatPointDate(point.date)}`}
+        {point && `${money(point.value)}, ${formatPointDate(point.date)}`}
       </span>
     </div>
   )

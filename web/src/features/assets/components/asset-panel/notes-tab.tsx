@@ -5,7 +5,7 @@ import { useAssetNotes, useNoteMutations } from '../../queries'
 import type { AssetItem, AssetNote } from '../../types'
 import { NoteDialog } from './note-dialog'
 import { PencilIcon, TrashIcon } from './panel-icons'
-import { TabBody, TabCta, TabEmpty, TabListSkeleton } from './tab-layout'
+import { TabBody, TabCta, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 
 /** Note tab: list, add, edit and delete notes on this asset. */
 export function NotesTab({ asset, portfolioId }: { asset: AssetItem; portfolioId: string }) {

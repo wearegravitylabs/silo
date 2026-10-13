@@ -96,14 +96,6 @@ export interface DashboardResponse {
   last_synced_at: string
 }
 
-/** Chart periods, and how the change line describes each ("Past Month"). */
-export const PERIODS = [
-  { label: '1D', description: 'Past Day' },
-  { label: '1M', description: 'Past Month' },
-  { label: '3M', description: 'Past 3 Months' },
-  { label: 'YTD', description: 'Year to Date' },
-  { label: '1Y', description: 'Past Year' },
-  { label: 'All', description: 'All Time' },
-] as const
-
-export type DashboardPeriod = (typeof PERIODS)[number]['label']
+/** Chart periods are shared app-wide (src/lib/periods). */
+export { CHART_PERIODS as PERIODS } from '@/lib/periods'
+export type { ChartPeriod as DashboardPeriod } from '@/lib/periods'

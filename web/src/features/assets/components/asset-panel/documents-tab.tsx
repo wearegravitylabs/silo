@@ -5,7 +5,7 @@ import { getDocumentDownloadUrl } from '../../api'
 import { useAssetDocuments, useDocumentMutations } from '../../queries'
 import type { AssetDocument, AssetItem } from '../../types'
 import { DownloadIcon, FileIcon, TrashIcon, UploadIcon } from './panel-icons'
-import { TabBody, TabCta, TabEmpty, TabListSkeleton } from './tab-layout'
+import { TabBody, TabCta, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 
 /** Documents tab: upload, download and delete files attached to this asset. */
 export function DocumentsTab({ asset, portfolioId }: { asset: AssetItem; portfolioId: string }) {

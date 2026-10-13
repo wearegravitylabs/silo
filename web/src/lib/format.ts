@@ -47,6 +47,12 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+/** "Mar 4, 2026" for a plain YYYY-MM-DD day, read as a local day (not UTC midnight, which can show the day before). */
+export function formatDay(day: string): string {
+  const [y, m, d] = day.slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
 /** "JAN 5, 2026 – ongoing" */
 export function formatDateRange(start: string, end?: string | null): string {
   const upper = (d: string) => formatDate(d).toUpperCase()
@@ -57,4 +63,20 @@ export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / 1048576).toFixed(1)} MB`
+}
+
+/** Compact size for file lists: "820B", "445KB", "1.2MB". */
+export function formatFileSizeShort(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1048576) return `${Math.round(bytes / 1024)}KB`
+  return `${(bytes / 1048576).toFixed(1).replace(/\.0$/, '')}MB`
+}
+
+/** The narrow symbol for a currency: "$", "₦", "€". */
+export function currencySymbol(currency: string): string {
+  return (
+    new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+      .formatToParts(0)
+      .find((p) => p.type === 'currency')?.value ?? currency
+  )
 }

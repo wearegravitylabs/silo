@@ -67,3 +67,63 @@ export interface DebtFolder {
   created_at: string
   updated_at: string
 }
+
+// ─── Detail panel (none of this is in the API yet) ───────────────────────────
+
+/** One balance change: the starting balance, a manual adjustment, or a repayment. */
+export interface DebtHistoryEntry {
+  id: string
+  debt_id: string
+  kind: 'initial' | 'adjustment' | 'repayment'
+  /** YYYY-MM-DD */
+  date: string
+  /** Balance after this entry */
+  balance: number
+  /** Balance before it; null for the initial entry */
+  previous: number | null
+  created_at: string
+}
+
+/** A recurring Auto-Pilot rule: pay the debt down, or add to it. */
+export interface DebtRule {
+  id: string
+  debt_id: string
+  action: 'payment' | 'add'
+  amount: number
+  frequency: PaymentFrequency
+  /** YYYY-MM-DD */
+  start_date: string
+  end_date: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface DebtRuleInput {
+  amount: number
+  frequency: PaymentFrequency
+  start_date: string
+  end_date: string | null
+}
+
+export interface DebtNote {
+  id: string
+  debt_id: string
+  title: string
+  content: string
+  tags: string[]
+  created_at: string
+}
+
+export interface DebtNoteInput {
+  title: string
+  content: string
+  tags: string[]
+}
+
+export interface DebtDocument {
+  id: string
+  debt_id: string
+  file_name: string
+  file_size: number
+  uploaded_at: string
+}

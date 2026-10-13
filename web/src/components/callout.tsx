@@ -6,9 +6,13 @@ import { cn } from '@/lib/utils'
 const VARIANTS = {
   info: { box: 'bg-accent', title: 'text-foreground', body: 'text-muted-foreground', icon: 'fill-muted-foreground text-accent' },
   error: { box: 'bg-destructive-subtle', title: 'text-destructive', body: 'text-destructive', icon: 'text-destructive' },
+  notice: { box: 'bg-info-subtle', title: 'text-info', body: 'text-info', icon: 'fill-info text-info-subtle' },
 }
 
-/** Notice card: icon, title, supporting text ("Payoff Calculation"). `info` is grey, `error` pink with red text. */
+/**
+ * Notice card: icon, title, optional supporting text ("Payoff Calculation"). `info` is grey, `error` pink with red
+ * text, `notice` light blue with blue text ("Current Balance: $ 10,500.00"). A title-only callout centres its icon.
+ */
 export function Callout({
   variant = 'info',
   title,
@@ -22,11 +26,14 @@ export function Callout({
 }) {
   const v = VARIANTS[variant]
   return (
-    <div role={variant === 'error' ? 'alert' : 'status'} className={cn('flex animate-rise gap-3 rounded-xl px-4 py-3.5', v.box, className)}>
+    <div
+      role={variant === 'error' ? 'alert' : 'status'}
+      className={cn('flex animate-rise gap-3 rounded-xl px-4 py-3.5', !children && 'items-center', v.box, className)}
+    >
       {variant === 'error' ? (
-        <AlertTriangleIcon className={cn('mt-0.5 size-4 shrink-0', v.icon)} />
+        <AlertTriangleIcon className={cn('size-4 shrink-0', children && 'mt-0.5', v.icon)} />
       ) : (
-        <InfoIcon className={cn('mt-0.5 size-4 shrink-0', v.icon)} aria-hidden />
+        <InfoIcon className={cn('size-4 shrink-0', children && 'mt-0.5', v.icon)} aria-hidden />
       )}
       <div className="flex min-w-0 flex-col gap-1">
         <p className={cn('font-medium', v.title)}>{title}</p>

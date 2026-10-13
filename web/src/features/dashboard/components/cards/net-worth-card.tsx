@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Card } from '@/components/ui/card'
+import { LineChart } from '@/components/line-chart'
+import { PeriodTabs } from '@/components/period-tabs'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { DashboardChartPoint, DashboardNetWorth, DashboardPeriod } from '../../types'
 import { CardHead } from '../shared/card-head'
 import { NetWorthIcon } from '../shared/icons'
-import { LineChart } from '../shared/line-chart'
-import { NetWorthTotal, PeriodTabs } from '../shared/net-worth-summary'
+import { NetWorthTotal } from '../shared/net-worth-summary'
 import { NetWorthModal } from './net-worth-modal'
 
 /** Series colour per currency; anything else is neutral grey. */
@@ -57,8 +58,8 @@ export function NetWorthCard({
 
       {/* The chart takes whatever height the card leaves: 200px when stacked, the rest of the 404px row when side by side. */}
       <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-4">
-        <LineChart points={chartPoints} currency={nw.currency} className="h-50 @4xl:h-auto @4xl:min-h-0 @4xl:flex-1" />
-        <PeriodTabs period={period} onPeriod={onPeriod} className="mt-3" />
+        <LineChart points={chartPoints} currency={nw.currency} label="Net worth" className="h-50 @4xl:h-auto @4xl:min-h-0 @4xl:flex-1" />
+        <PeriodTabs value={period} onChange={onPeriod} className="mt-3" />
       </div>
 
       <NetWorthModal open={expanded} onOpenChange={setExpanded} nw={nw} chartPoints={chartPoints} period={period} onPeriod={onPeriod} />
