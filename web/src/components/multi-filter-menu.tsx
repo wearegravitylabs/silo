@@ -18,6 +18,7 @@ export function MultiFilterMenu({
   options,
   values,
   onChange,
+  allLabel,
   className,
   contentClassName,
 }: {
@@ -25,11 +26,20 @@ export function MultiFilterMenu({
   options: MultiFilterOption[]
   values: string[]
   onChange: (values: string[]) => void
+  /** Shown when every option is ticked, e.g. "All Scenarios" */
+  allLabel?: string
   className?: string
   contentClassName?: string
 }) {
   const picked = options.filter((o) => values.includes(o.value))
-  const text = picked.length === 0 ? label : picked.length === 1 ? picked[0].label : `${picked[0].label} +${picked.length - 1}`
+  const text =
+    allLabel && picked.length === options.length
+      ? allLabel
+      : picked.length === 0
+        ? label
+        : picked.length === 1
+          ? picked[0].label
+          : `${picked[0].label} +${picked.length - 1}`
 
   const toggle = (value: string, on: boolean) =>
     onChange(options.map((o) => o.value).filter((v) => (v === value ? on : values.includes(v))))

@@ -97,9 +97,9 @@ export function DataTable<K extends string>({
   label,
   columns,
   view,
-  filters,
-  search,
-  onSearch,
+  toolbarStart,
+  toolbarEnd,
+  selectHeader,
   loading,
   dimmed,
   skeleton,
@@ -112,9 +112,11 @@ export function DataTable<K extends string>({
   label: string
   columns: DataColumn<K>[]
   view: TableView<K>
-  filters?: ReactNode
-  search: string
-  onSearch: (value: string) => void
+  /** Toolbar, left and right (e.g. filters | <TableSearch>) */
+  toolbarStart?: ReactNode
+  toolbarEnd?: ReactNode
+  /** Replaces the header's select-all checkbox (e.g. a toggle-all switch) */
+  selectHeader?: ReactNode
   loading?: boolean
   dimmed?: boolean
   skeleton: ReactNode
@@ -128,14 +130,8 @@ export function DataTable<K extends string>({
   return (
     <section className="mx-4 mb-6 flex min-h-0 flex-1 flex-col md:mx-10 md:mb-10" aria-label={label}>
       <div className={cn('flex shrink-0 flex-wrap items-center justify-between gap-2 py-4', toolbarClassName)}>
-        <div className="flex items-center gap-2">{filters}</div>
-        <SearchInput
-          value={search}
-          onChange={onSearch}
-          label={`Search ${noun}`}
-          placeholder="Search.."
-          className="w-full bg-accent md:w-100"
-        />
+        <div className="flex items-center gap-2 max-md:w-full">{toolbarStart}</div>
+        <div className="flex items-center gap-2 max-md:w-full">{toolbarEnd}</div>
       </div>
 
       <div
@@ -158,12 +154,14 @@ export function DataTable<K extends string>({
             <thead className="sticky top-0 z-1 bg-surface">
               <tr className="h-12 text-left text-xs font-medium text-muted-foreground">
                 <th className="pl-3 font-medium md:pl-4">
-                  <Checkbox
-                    checked={view.allChecked}
-                    onCheckedChange={view.toggleAll}
-                    disabled={!!empty}
-                    aria-label={`Select all ${noun}`}
-                  />
+                  {selectHeader ?? (
+                    <Checkbox
+                      checked={view.allChecked}
+                      onCheckedChange={view.toggleAll}
+                      disabled={!!empty}
+                      aria-label={`Select all ${noun}`}
+                    />
+                  )}
                 </th>
                 {columns.map(({ key, label, align, hideOnMobile }) => (
                   <th
@@ -213,6 +211,11 @@ export function DataTable<K extends string>({
       </div>
     </section>
   )
+}
+
+/** The table's search box: full width on mobile, 400px from md. */
+export function TableSearch({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
+  return <SearchInput value={value} onChange={onChange} label={label} placeholder="Search.." className="w-full bg-accent md:w-100" />
 }
 
 /** Row checkbox cell, matching the header's select-all column. */

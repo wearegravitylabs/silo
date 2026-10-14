@@ -155,7 +155,13 @@ function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioI
             collapsed={collapsed}
           />
           <NavLink to="/portfolio/$portfolioId/vault" portfolioId={portfolioId} icon={<LockIcon />} label="Vault" collapsed={collapsed} />
-          <NavPlaceholder icon={<ChevronsRightIcon />} label="Projections" collapsed={collapsed} />
+          <NavLink
+            to="/portfolio/$portfolioId/projections"
+            portfolioId={portfolioId}
+            icon={<ChevronsRightIcon />}
+            label="Projections"
+            collapsed={collapsed}
+          />
         </nav>
       </div>
 
@@ -320,6 +326,7 @@ function NavLink({
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/debts'
     | '/portfolio/$portfolioId/vault'
+    | '/portfolio/$portfolioId/projections'
   portfolioId: string
   icon: ReactNode
   label: string
@@ -403,15 +410,5 @@ function AskSiloAiButton({ collapsed }: { collapsed: boolean }) {
       <AiSparkleIcon />
       {!collapsed && <span className="pl-1 text-foreground">Ask Silo AI</span>}
     </button>
-  )
-}
-
-/** Section that isn't built yet: same look, not clickable. */
-function NavPlaceholder({ icon, label, collapsed }: { icon: ReactNode; label: string; collapsed: boolean }) {
-  return (
-    <span aria-disabled="true" title={`${label} — coming soon`} className={cn(navItem(collapsed), 'cursor-default hover:bg-transparent')}>
-      {icon}
-      {!collapsed && <span className="pl-1 text-foreground">{label}</span>}
-    </span>
   )
 }

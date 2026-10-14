@@ -30,6 +30,9 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
   )
 }
 
+// Long lists scroll; these chevrons show there's more above or below.
+const scrollButton = 'flex h-4 shrink-0 cursor-default items-center justify-center text-muted-foreground'
+
 /** Drops below the trigger at its exact width. */
 function SelectContent({
   className,
@@ -52,7 +55,13 @@ function SelectContent({
         )}
         {...props}
       >
+        <SelectPrimitive.ScrollUpButton className={scrollButton}>
+          <ChevronDownIcon className="size-2.5 rotate-180" />
+        </SelectPrimitive.ScrollUpButton>
         <SelectPrimitive.Viewport className="flex flex-col gap-0.5">{children}</SelectPrimitive.Viewport>
+        <SelectPrimitive.ScrollDownButton className={scrollButton}>
+          <ChevronDownIcon className="size-2.5" />
+        </SelectPrimitive.ScrollDownButton>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
   )

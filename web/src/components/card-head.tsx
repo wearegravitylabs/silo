@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Tooltip } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { ExpandIcon } from './icons'
+import { ExpandIcon } from '@/components/icons'
 
 /**
  * Card title row (46px): icon + title (+ optional badge), expand affordance or custom content on the right.

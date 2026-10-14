@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
+import { CardHead } from '@/components/card-head'
 import { ChevronDownIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -7,7 +8,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { MOVER_WINDOWS, type DashboardMover, type MoverWindow } from '../../types'
-import { CardHead } from '../shared/card-head'
 import { MoversIcon } from '../shared/icons'
 import { PlaceholderRow } from '../shared/placeholder-row'
 

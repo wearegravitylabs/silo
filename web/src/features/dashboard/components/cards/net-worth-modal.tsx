@@ -6,7 +6,7 @@ import { PeriodTabs } from '@/components/period-tabs'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { DashboardChartPoint, DashboardCurrencyAssets, DashboardNetWorth, DashboardPeriod } from '../../types'
-import { NetWorthIcon } from '../shared/icons'
+import { NetWorthIcon } from '@/components/icons'
 import { NetWorthTotal } from '../shared/net-worth-summary'
 
 /**

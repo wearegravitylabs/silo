@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { DownloadIcon, Trash2Icon } from 'lucide-react'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { DataTable, SelectCell, useTableView, type DataColumn } from '@/components/data-table'
+import { DataTable, TableSearch, SelectCell, useTableView, type DataColumn } from '@/components/data-table'
 import { FileTypeIcon } from '@/components/file-type-icon'
 import { DotsIcon } from '@/components/icons'
 import { MultiFilterMenu } from '@/components/multi-filter-menu'
@@ -58,8 +58,6 @@ export function VaultTable({ portfolioId, documents, loading }: { portfolioId: s
         label="Documents"
         columns={COLUMNS}
         view={view}
-        search={search}
-        onSearch={view.firstPage(setSearch)}
         loading={loading}
         skeleton={Array.from({ length: 4 }, (_, i) => (
           <SkeletonRow key={i} />
@@ -73,7 +71,8 @@ export function VaultTable({ portfolioId, documents, loading }: { portfolioId: s
         }
         footer={!loading && !none}
         toolbarClassName="py-6"
-        filters={<MultiFilterMenu label="Document Type" options={typeOptions} values={types} onChange={view.firstPage(setTypes)} />}
+        toolbarEnd={<TableSearch value={search} onChange={view.firstPage(setSearch)} label="Search documents" />}
+        toolbarStart={<MultiFilterMenu label="Document Type" options={typeOptions} values={types} onChange={view.firstPage(setTypes)} />}
       >
         {view.rows.map((doc) => (
           <DocumentRow

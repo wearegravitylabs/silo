@@ -24,6 +24,8 @@
   --color-brand: #1620ff; /* logo */
   --color-highlight: #bbe03b; /* lime accent */
   --color-highlight-light: #e5f7a0;
+  --color-highlight-bright: #e0ff73; /* projections intro track */
+  --color-highlight-dark: #5c7813; /* projections intro dot + year */
   --color-ring: #044ffa;
   --color-night: #071160; /* auth quote panel */
   --color-sky: #b3dfff;

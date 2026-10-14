@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { CardHead } from '@/components/card-head'
 import { CurrencyFlag } from '@/components/currency-flag'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { DashboardAllocItem, DashboardResponse } from '../../types'
-import { CardHead } from '../shared/card-head'
 import { PieIcon } from '../shared/icons'
 
 const ROWS = 4 // each column always shows 4 rows; missing ones are grey placeholders

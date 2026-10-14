@@ -23,17 +23,20 @@ export function formatMoney(value: number, currency = 'USD', { spaced = true, de
     .join('')
 }
 
-/** Short money for tight spaces: "₦1k", "$2.5M" (narrow symbol, one decimal at most). */
-export function formatCompactMoney(value: number, currency = 'USD') {
-  return new Intl.NumberFormat('en-US', {
+/** Short money for tight spaces: "₦1k", "$2.5M" (narrow symbol, one decimal by default; `decimals: 2` → "$1.03M", `spaced` → "$ 1.03M"). */
+export function formatCompactMoney(value: number, currency = 'USD', { decimals = 1, spaced = false } = {}) {
+  const text = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
     currencyDisplay: 'narrowSymbol',
     notation: 'compact',
-    maximumFractionDigits: 1,
+    minimumFractionDigits: decimals > 1 ? decimals : 0,
+    maximumFractionDigits: decimals,
   })
-    .format(value)
-    .replace(/K$/, 'k')
+    .formatToParts(value)
+    .map((p) => (p.type === 'currency' && spaced ? `${p.value} ` : p.value))
+    .join('')
+  return text.replace(/K$/, 'k')
 }
 
 /** Flag emoji for an ISO 4217 code; most codes start with the ISO 3166-1 country code. */

@@ -3,6 +3,7 @@ import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
+import { ProjectionsIntro } from '@/features/projections'
 import { VaultSetupDialog } from '@/features/vault'
 import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
@@ -136,6 +137,8 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     label: 'Create Vault Password',
     render: () => <VaultSetupDialog portfolioId="dev" open onOpenChange={noop} defaultStep={1} />,
   },
+
+  { group: 'Projections', id: 'projections-intro', label: 'Intro', render: () => <ProjectionsIntro open onOpenChange={noop} /> },
 
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },
   {

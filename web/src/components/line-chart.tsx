@@ -185,7 +185,7 @@ export function LineChart({
 }
 
 /** "10 Jan, 2025"; intraday timestamps give "10 Jan, 14:00". Plain dates are read as local days, not UTC midnight. */
-function formatPointDate(date: string) {
+export function formatPointDate(date: string) {
   const intraday = date.includes('T')
   const [y, m, d] = date.slice(0, 10).split('-').map(Number)
   const day = intraday ? new Date(date) : new Date(y, m - 1, d)
@@ -195,7 +195,7 @@ function formatPointDate(date: string) {
 }
 
 /** Catmull-Rom spline through the points, as cubic Béziers. */
-function smoothPath(pts: [number, number][]) {
+export function smoothPath(pts: [number, number][]) {
   let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
   for (let i = 0; i < pts.length - 1; i++) {
     const [x0, y0] = pts[i - 1] ?? pts[i]
@@ -210,7 +210,7 @@ function smoothPath(pts: [number, number][]) {
 }
 
 /** Live size of an element, so the chart draws in real pixels (crisp 1.5px stroke, round glow). */
-function useSize(ref: React.RefObject<HTMLElement | null>) {
+export function useSize(ref: React.RefObject<HTMLElement | null>) {
   const [size, setSize] = useState({ width: 0, height: 0 })
   useEffect(() => {
     const el = ref.current

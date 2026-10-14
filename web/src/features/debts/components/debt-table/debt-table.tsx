@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DataTable, useTableView, type DataColumn } from '@/components/data-table'
+import { DataTable, TableSearch, useTableView, type DataColumn } from '@/components/data-table'
 import { MultiFilterMenu, type MultiFilterOption } from '@/components/multi-filter-menu'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -80,8 +80,6 @@ export function DebtTable({
       label="Debts"
       columns={COLUMNS}
       view={view}
-      search={search}
-      onSearch={view.firstPage(setSearch)}
       loading={loading}
       dimmed={dimmed}
       skeleton={Array.from({ length: 4 }, (_, i) => (
@@ -95,7 +93,8 @@ export function DebtTable({
             : { title: 'No result found', body: 'We couldn’t find any result based on the filter' }
       }
       footer={!loading && !none}
-      filters={
+      toolbarEnd={<TableSearch value={search} onChange={view.firstPage(setSearch)} label="Search debts" />}
+      toolbarStart={
         <>
           <MultiFilterMenu label="Debt Type" options={DEBT_TYPE_FILTER_OPTIONS} values={types} onChange={view.firstPage(setTypes)} />
           <MultiFilterMenu label="Payment Schedule" options={scheduleOptions} values={schedules} onChange={view.firstPage(setSchedules)} />
