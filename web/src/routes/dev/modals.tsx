@@ -3,6 +3,7 @@ import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
+import { VaultSetupDialog } from '@/features/vault'
 import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
 import { cn } from '@/lib/utils'
@@ -121,6 +122,19 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     id: 'welcome-command-bar',
     label: 'AI Command Bar',
     render: () => <WelcomeModal open onOpenChange={noop} defaultStep={1} />,
+  },
+
+  {
+    group: 'Vault',
+    id: 'vault-intro',
+    label: 'Secure Vault',
+    render: () => <VaultSetupDialog portfolioId="dev" open onOpenChange={noop} />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-password',
+    label: 'Create Vault Password',
+    render: () => <VaultSetupDialog portfolioId="dev" open onOpenChange={noop} defaultStep={1} />,
   },
 
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },

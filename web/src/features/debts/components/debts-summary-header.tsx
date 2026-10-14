@@ -23,7 +23,7 @@ export function DebtsSummaryHeader({
   return (
     <PageHeader
       eyebrow="Debts"
-      className="items-center px-4 pt-5 md:px-10"
+      className="items-center px-4 pt-5 pb-5 md:px-10"
       title={
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <h1 className="font-heading font-bold tracking-[-0.3px]">{formatMoney(overview.total, overview.currency)}</h1>

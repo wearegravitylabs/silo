@@ -65,11 +65,12 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`
 }
 
-/** Compact size for file lists: "820B", "445KB", "1.2MB". */
-export function formatFileSizeShort(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`
-  if (bytes < 1048576) return `${Math.round(bytes / 1024)}KB`
-  return `${(bytes / 1048576).toFixed(1).replace(/\.0$/, '')}MB`
+/** Compact size for file lists: "820B", "445KB", "1.2MB" — or "445 KB" with `spaced`. */
+export function formatFileSizeShort(bytes: number, { spaced = false } = {}): string {
+  const sp = spaced ? ' ' : ''
+  if (bytes < 1024) return `${bytes}${sp}B`
+  if (bytes < 1048576) return `${Math.round(bytes / 1024)}${sp}KB`
+  return `${(bytes / 1048576).toFixed(1).replace(/\.0$/, '')}${sp}MB`
 }
 
 /** The narrow symbol for a currency: "$", "₦", "€". */

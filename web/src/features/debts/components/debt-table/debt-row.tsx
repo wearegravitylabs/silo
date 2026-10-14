@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FlagIcon } from 'lucide-react'
 import { ChangeBadge } from '@/components/change-badge'
-import { Checkbox } from '@/components/ui/checkbox'
+import { SelectCell } from '@/components/data-table'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { DEBT_TYPE_LABELS, FREQUENCY_LABELS } from '../../constants'
@@ -28,9 +28,7 @@ export function DebtRow({
 
   return (
     <tr className={cn('h-18 transition-colors', (menuOpen || selected) && 'bg-surface')}>
-      <td className="pl-3 md:pl-4">
-        <Checkbox checked={selected} onCheckedChange={(v) => onSelect(v === true)} aria-label={`Select ${debt.name}`} />
-      </td>
+      <SelectCell checked={selected} onChange={onSelect} label={`Select ${debt.name}`} />
       <td>
         <div className="flex min-w-0 items-center gap-2">
           <DebtIconDisc debt={debt} />

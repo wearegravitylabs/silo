@@ -1,14 +1,4 @@
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useDeleteAsset } from '../../queries'
 import type { AssetItem } from '../../types'
 
@@ -28,34 +18,16 @@ export function DeleteAssetDialog({
   const { mutate: remove, isPending } = useDeleteAsset(portfolioId, asset.id)
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent role="alertdialog">
-        <DialogHeader>
-          <DialogTitle>Delete {asset.name}?</DialogTitle>
-        </DialogHeader>
-        <DialogBody>
-          <DialogDescription>
-            Are you sure you want to delete <strong className="font-semibold text-foreground">{asset.name}</strong>? This will permanently
-            remove the asset and all its associated data including history, notes, and documents. This action cannot be undone.
-          </DialogDescription>
-        </DialogBody>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="secondary" size="xs">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button
-            variant="destructive"
-            size="xs"
-            loading={isPending}
-            loadingText="Deleting…"
-            onClick={() => remove(undefined, { onSuccess: onDeleted })}
-          >
-            Delete Asset
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={`Delete ${asset.name}?`}
+      confirmLabel="Delete Asset"
+      pending={isPending}
+      onConfirm={() => remove(undefined, { onSuccess: onDeleted })}
+    >
+      Are you sure you want to delete <strong className="font-semibold text-foreground">{asset.name}</strong>? This will permanently remove
+      the asset and all its associated data including history, notes, and documents. This action cannot be undone.
+    </ConfirmDialog>
   )
 }

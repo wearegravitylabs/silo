@@ -3,6 +3,7 @@ import { DownloadIcon, Trash2Icon, UploadIcon } from 'lucide-react'
 import { FileTypeIcon } from '@/components/file-type-icon'
 import { TabBody, TabCta, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 import { Button } from '@/components/ui/button'
+import { downloadUrl } from '@/lib/download'
 import { formatFileSizeShort } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { getDebtDocumentUrl } from '../../api'
@@ -18,12 +19,7 @@ export function DocumentsTab({ debt, portfolioId }: { debt: Debt; portfolioId: s
 
   const uploadAll = (files: FileList | null) => Array.from(files ?? []).forEach((file) => upload.mutate(file))
 
-  const download = async (doc: DebtDocument) => {
-    const url = await getDebtDocumentUrl(doc)
-    const link = Object.assign(document.createElement('a'), { href: url, download: doc.file_name })
-    link.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
+  const download = async (doc: DebtDocument) => downloadUrl(await getDebtDocumentUrl(doc), doc.file_name)
 
   return (
     <div

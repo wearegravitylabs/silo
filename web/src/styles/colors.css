@@ -27,6 +27,7 @@
   --color-ring: #044ffa;
   --color-night: #071160; /* auth quote panel */
   --color-sky: #b3dfff;
+  --color-sky-subtle: #ecf7ff; /* vault lock disc */
   --color-mint: #0ddf86; /* premium gem: highlight → mint → primary-dark */
   --color-artwork: #8090b3; /* upgrade modal building */
   --color-artwork-shadow: #0b2660;
@@ -68,6 +69,7 @@
   /* File-type badges (document lists) */
   --color-file-word: #185abd;
   --color-file-excel: #107c41;
+  --color-file-pdf: #b30c00;
 
   /* Folder tab badges, cycled in order */
   --color-folder-1: #1a56db;
