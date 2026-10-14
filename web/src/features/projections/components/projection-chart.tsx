@@ -5,13 +5,11 @@ import { MultiFilterMenu } from '@/components/multi-filter-menu'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { METRIC_LABELS, projectionMoney, SCENARIO_COLORS } from '../constants'
+import { fillTint, METRIC_LABELS, projectionMoney } from '../constants'
 import type { ProjectionMetric, ProjectionPoint, Scenario } from '../types'
 
 const PAD_BOTTOM = 20
 const PAD_BELOW_LEGEND = 14 // room between the legend row and the highest point
-// Strength of each scenario's fill: dark colours need less to read as the same faint tint.
-const FILL_TINT: Partial<Record<Scenario['color'], number>> = { 'primary-dark': 2, highlight: 5 }
 const TIP_HALF = 72 // keeps the tooltip inside the card near the edges
 
 export interface ChartSeries {
@@ -91,13 +89,13 @@ export function ProjectionChart({
                 <path
                   key={scenario.id}
                   d={`${smoothPath(points.map((p, k) => [x(k), y(p.value)]))} L${width},${height} L0,${height} Z`}
-                  className={SCENARIO_COLORS[scenario.color].text}
-                  style={{ fill: `color-mix(in srgb, currentColor ${FILL_TINT[scenario.color] ?? 4}%, var(--color-background))` }}
+                  // Light colours need a stronger tint to read as the same faint fill
+                  style={{ fill: `color-mix(in srgb, ${scenario.color} ${fillTint(scenario.color)}%, var(--color-background))` }}
                 />
               ))}
             {i != null && <line x1={x(i)} x2={x(i)} y1={top - 8} y2={height} className="stroke-line" shapeRendering="crispEdges" />}
             {[...series].reverse().map(({ scenario, points }) => (
-              <g key={scenario.id} className={SCENARIO_COLORS[scenario.color].text}>
+              <g key={scenario.id} style={{ color: scenario.color }}>
                 <path
                   d={smoothPath(points.map((p, k) => [x(k), y(p.value)]))}
                   stroke="currentColor"
@@ -122,7 +120,7 @@ export function ProjectionChart({
             {series.map(({ scenario, points }) => (
               <span key={scenario.id} className="flex items-center justify-between gap-3 text-xs leading-5 text-white">
                 <span className="flex items-center gap-1.5 text-white/80">
-                  <span className={cn('size-1.5 rounded-full', SCENARIO_COLORS[scenario.color].bg)} />
+                  <span className="size-1.5 rounded-full" style={{ background: scenario.color }} />
                   {scenario.name}
                 </span>
                 <span className="font-semibold">{projectionMoney(points[i].value, currency, 0)}</span>
@@ -137,7 +135,7 @@ export function ProjectionChart({
         <dl className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
           {series.map(({ scenario, points }) => (
             <div key={scenario.id} className="flex items-stretch gap-2.5">
-              <span className={cn('w-1 shrink-0 rounded-full', SCENARIO_COLORS[scenario.color].bg)} />
+              <span className="w-1 shrink-0 rounded-full" style={{ background: scenario.color }} />
               <div className="flex flex-col gap-1.5 py-0.5">
                 <dt className="text-xs leading-4 text-muted-foreground">{scenario.name}</dt>
                 <dd className="text-foreground">{projectionMoney(points.at(-1)?.value ?? 0, currency, 0)}</dd>

@@ -3,7 +3,7 @@ import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
-import { ProjectionsIntro } from '@/features/projections'
+import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions } from '@/features/projections'
 import { VaultSetupDialog } from '@/features/vault'
 import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
@@ -139,6 +139,27 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
   },
 
   { group: 'Projections', id: 'projections-intro', label: 'Intro', render: () => <ProjectionsIntro open onOpenChange={noop} /> },
+  {
+    group: 'Projections',
+    id: 'projections-add-rule',
+    label: 'Add New Rule',
+    render: () => (
+      <AddRuleSheet scenarioName="Scenario A" open onOpenChange={noop} onAdd={noop} currency="USD" options={ruleOptions([], [])} />
+    ),
+  },
+  {
+    group: 'Projections',
+    id: 'projections-edit-scenario',
+    label: 'Edit Scenario',
+    render: () => (
+      <EditScenarioDialog
+        scenario={{ id: 'b', portfolio_id: 'demo', name: 'Scenario B', color: 'var(--color-highlight)' }}
+        open
+        onOpenChange={noop}
+        onSave={noop}
+      />
+    ),
+  },
 
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },
   {

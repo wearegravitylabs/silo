@@ -1,29 +1,29 @@
-export type ScenarioColor = 'primary-dark' | 'highlight' | 'chart-2' | 'warning' | 'folder-2' | 'folder-6'
+import type { RuleTemplateId } from './templates'
 
 /** A what-if: its own rules, drawn in its own colour. */
 export interface Scenario {
   id: string
   portfolio_id: string
   name: string
-  color: ScenarioColor
+  /** Any CSS colour: a swatch's `var(--color-…)` or a custom `#RRGGBB` */
+  color: string
 }
 
-/** What a growth rule moves. */
-export type RuleTarget = 'investable_assets' | 'stocks' | 'non_investable_assets' | 'debts'
-
-/** "Value of Stocks to change by 5% per year" (growth) or "Inflation rate is 8% per year" (inflation). */
+/** One filled-in rule template, e.g. "All assets grow at 6% annually" → { template: 'portfolio_growth', values: { rate: '6' } }. */
 export interface ProjectionRule {
   id: string
   scenario_id: string
-  kind: 'growth' | 'inflation'
-  /** Growth rules only */
-  target?: RuleTarget
-  rate_pct: number
+  template: RuleTemplateId
+  /** Slot key → value as text (numbers unformatted, dates ISO, choices their option value) */
+  values: Record<string, string>
   enabled: boolean
 }
 
+/** What a projection category holds. */
+export type Category = 'investable_assets' | 'stocks' | 'non_investable_assets' | 'debts'
+
 /** Today's balances the projection starts from, per category. */
-export type Balances = Record<RuleTarget, number>
+export type Balances = Record<Category, number>
 
 export interface ProjectionState {
   currency: string

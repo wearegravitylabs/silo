@@ -35,7 +35,7 @@ export function ExportDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="font-sans">{title}</DialogTitle>
         </DialogHeader>
         <DialogBody className="flex flex-col pb-5">
           <p id="export-type" className="font-medium text-foreground">

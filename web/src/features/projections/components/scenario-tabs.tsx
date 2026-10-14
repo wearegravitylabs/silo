@@ -5,8 +5,8 @@ import { DotsIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
-import { SCENARIO_COLORS } from '../constants'
 import type { Scenario } from '../types'
+import { EditScenarioDialog } from './edit-scenario-dialog'
 
 /**
  * Scenario strip under the chart: value at the horizon over the name, underlined in the scenario's colour (faded when
@@ -17,6 +17,7 @@ export function ScenarioTabs({
   values,
   activeId,
   onSelect,
+  onEdit,
   onDelete,
   deleting,
 }: {
@@ -25,9 +26,11 @@ export function ScenarioTabs({
   values: Record<string, string>
   activeId: string
   onSelect: (id: string) => void
+  onEdit: (id: string, patch: { name: string; color: string }) => void
   onDelete: (id: string, done: () => void) => void
   deleting?: boolean
 }) {
+  const [editing, setEditing] = useState<Scenario | null>(null)
   const [confirming, setConfirming] = useState<Scenario | null>(null)
 
   return (
@@ -54,8 +57,7 @@ export function ScenarioTabs({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-40">
-                  {/* TODO: Edit Scenario isn't designed yet. */}
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setEditing(s)}>
                     <PencilIcon className="size-4" />
                     Edit Scenario
                   </DropdownMenuItem>
@@ -67,7 +69,8 @@ export function ScenarioTabs({
               </DropdownMenu>
               <span
                 aria-hidden
-                className={cn('absolute inset-x-0 -bottom-px h-0.5', SCENARIO_COLORS[s.color].bg, !active && 'opacity-50')}
+                style={{ background: s.color }}
+                className={cn('absolute inset-x-0 -bottom-px h-0.5', !active && 'opacity-50')}
               />
             </div>
           )
@@ -85,6 +88,17 @@ export function ScenarioTabs({
         </svg>
       </button>
 
+      {editing && (
+        <EditScenarioDialog
+          scenario={editing}
+          open={!!editing}
+          onOpenChange={(open) => !open && setEditing(null)}
+          onSave={(patch) => {
+            onEdit(editing.id, patch)
+            setEditing(null)
+          }}
+        />
+      )}
       <ConfirmDialog
         open={!!confirming}
         onOpenChange={(open) => !open && setConfirming(null)}
@@ -94,7 +108,7 @@ export function ScenarioTabs({
         pending={deleting}
         onConfirm={() => confirming && onDelete(confirming.id, () => setConfirming(null))}
       >
-        You’re about to delete {confirming?.name} and its rules. This action cannot be undone
+        You’re about to delete “{confirming?.name}” scenario. This action cannot be undone
       </ConfirmDialog>
     </div>
   )

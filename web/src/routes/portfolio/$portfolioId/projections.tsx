@@ -2,16 +2,21 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ExportDialog } from '@/components/export-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useAssets } from '@/features/assets'
+import { useDebts } from '@/features/debts'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import {
+  AddRuleSheet,
   DEFAULT_HORIZON,
   monthsUntil,
+  newRule,
   project,
   ProjectionChart,
   projectionMoney,
   ProjectionsHeader,
   ProjectionsIntro,
   projectionsQuery,
+  ruleOptions,
   RulesTable,
   ScenarioTabs,
   TimestampGrid,
@@ -31,6 +36,10 @@ interface ProjectionsSearch {
 }
 
 const THIS_YEAR = new Date().getFullYear()
+const EXPORT_FORMATS = [
+  { value: 'pdf', label: 'PDF' },
+  { value: 'jpeg', label: 'JPEG' },
+]
 const LONGEST_TIMESTAMP = TIMESTAMPS.at(-1)!.months
 
 export const Route = createFileRoute('/portfolio/$portfolioId/projections')({
@@ -59,10 +68,22 @@ function ProjectionsPage() {
   const navigate = Route.useNavigate()
   const { base_currency: currency } = usePortfolio(portfolioId)
   const state = useProjections(portfolioId, currency)
-  const { toggle, removeRule, removeScenario, seenIntro } = useProjectionMutations(portfolioId)
+  const { toggle, addRule, updateRule, removeRule, updateScenario, removeScenario, seenIntro } = useProjectionMutations(portfolioId)
+  // Blanks that name an asset or a debt pick from the portfolio's own.
+  const { data: assets = [] } = useAssets(portfolioId, null)
+  const { data: debts = [] } = useDebts(portfolioId, null)
+  const options = useMemo(
+    () =>
+      ruleOptions(
+        assets.map((a) => ({ value: a.id, label: a.name })),
+        debts.map((d) => ({ value: d.id, label: d.name })),
+      ),
+    [assets, debts],
+  )
   const [metric, setMetric] = useState<ProjectionMetric>('net_worth')
   const [shown, setShown] = useState<string[] | null>(null) // null: every scenario
   const [exporting, setExporting] = useState(false)
+  const [adding, setAdding] = useState(false)
 
   const setSearch = (patch: Partial<ProjectionsSearch>) => navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
   const horizon = search.to ?? THIS_YEAR + DEFAULT_HORIZON
@@ -123,6 +144,7 @@ function ProjectionsPage() {
           values={Object.fromEntries(state.scenarios.map((s) => [s.id, projectionMoney(at(s.id), currency, 0)]))}
           activeId={active.id}
           onSelect={(scenario) => setSearch({ scenario })}
+          onEdit={(id, patch) => updateScenario.mutate({ id, ...patch })}
           onDelete={(id, done) => removeScenario.mutate(id, { onSuccess: done })}
           deleting={removeScenario.isPending}
         />
@@ -130,14 +152,26 @@ function ProjectionsPage() {
         <RulesTable
           key={active.id}
           rules={state.rules.filter((r) => r.scenario_id === active.id)}
+          currency={currency}
+          options={options}
           onToggle={(ids, enabled) => toggle.mutate({ ids, enabled })}
+          onChange={(id, values) => updateRule.mutate({ id, values })}
           onDelete={(id) => removeRule.mutate(id)}
+          onAdd={() => setAdding(true)}
           onExport={() => setExporting(true)}
+        />
+        <AddRuleSheet
+          scenarioName={active.name}
+          open={adding}
+          onOpenChange={setAdding}
+          onAdd={(template, values) => addRule.mutate(newRule(active.id, template, values))}
+          currency={currency}
+          options={options}
         />
 
         <ProjectionsIntro open={!state.intro_seen} onOpenChange={(open) => !open && seenIntro.mutate()} />
         {/* TODO: generate the file once there's an export endpoint; UI only for now. */}
-        <ExportDialog title="Export Projection" open={exporting} onOpenChange={setExporting} />
+        <ExportDialog title="Export Projection" formats={EXPORT_FORMATS} open={exporting} onOpenChange={setExporting} />
       </div>
     </div>
   )
