@@ -1,4 +1,4 @@
-import type { OnboardInput, UpdateProfileInput, User } from './types'
+import type { NotificationChannels, OnboardInput, UpdateProfileInput, User } from './types'
 
 // TODO: mocked until the app runs against the backend. Real call: api<User>('/users/me')
 const MOCK_USER: User = {
@@ -83,4 +83,16 @@ export const requestDeletionCode = async (): Promise<void> => {
 // TODO: mocked. Real call: api('/users/me', { method: 'DELETE', body: { code } })
 export const deleteAccount = async (_code: string): Promise<void> => {
   await delay(1000)
+}
+
+const MOCK_CHANNELS: NotificationChannels = { email: true, in_app: true }
+
+// TODO: mocked. Real call: api<NotificationChannels>('/users/me/notification-settings')
+export const getNotificationChannels = () => Promise.resolve({ ...MOCK_CHANNELS })
+
+// TODO: mocked. Real call: api<NotificationChannels>('/users/me/notification-settings', { method: 'PATCH', body: patch })
+export const updateNotificationChannels = async (patch: Partial<NotificationChannels>): Promise<NotificationChannels> => {
+  await delay(400)
+  Object.assign(MOCK_CHANNELS, patch)
+  return { ...MOCK_CHANNELS }
 }

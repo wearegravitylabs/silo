@@ -28,3 +28,9 @@ export function getUserInitials(user: Pick<User, 'first_name' | 'last_name'> | n
   if (!user) return '?'
   return `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || '?'
 }
+
+/** Where the user is notified. */
+export interface NotificationChannels {
+  email: boolean
+  in_app: boolean
+}
