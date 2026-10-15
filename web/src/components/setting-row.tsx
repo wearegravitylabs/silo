@@ -2,11 +2,25 @@ import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 /** A setting's title and one-line explanation ("Accent Colour / Choose your accent colour"). */
-export function SettingHeading({ title, description, id }: { title: string; description: string; id?: string }) {
+export function SettingHeading({
+  title,
+  description,
+  badge,
+  id,
+}: {
+  title: string
+  description: string
+  /** Small chip after the title ("Soon") */
+  badge?: ReactNode
+  id?: string
+}) {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <h2 id={id} className="font-sans text-sm leading-5.5 font-medium tracking-normal">
+      <h2 id={id} className="flex flex-wrap items-center gap-1.5 font-sans text-sm leading-5.5 font-medium tracking-normal">
         {title}
+        {badge && (
+          <span className="rounded-md border border-line bg-accent px-1.5 text-xs leading-5 font-medium text-foreground">{badge}</span>
+        )}
       </h2>
       <p className="leading-5.5">{description}</p>
     </div>

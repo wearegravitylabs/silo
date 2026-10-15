@@ -66,3 +66,20 @@ export const deleteVaultDocument = (portfolioId: string, docId: string) => {
   files.delete(docId)
   return later(null)
 }
+
+// Changing the password proves it's you first: a link + code go to the account email, the code is checked, then
+// the new password is set. TODO: no endpoints yet. Mock: any 6-digit code works except "000000".
+const MOCK_INVALID_CODE = '000000'
+const fail = (message: string) => new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), DELAY))
+
+export const requestVaultPasswordChange = (_portfolioId: string) => later(null)
+
+export const verifyVaultPasswordCode = (_portfolioId: string, code: string) =>
+  code === MOCK_INVALID_CODE ? fail('Invalid code, please try again!') : later(null)
+
+export const changeVaultPassword = (portfolioId: string, code: string, password: string): Promise<VaultStatus> => {
+  if (code === MOCK_INVALID_CODE) return fail('Invalid code, please try again!')
+  passwords.set(portfolioId, password)
+  unlocked.delete(portfolioId) // re-enter the new password next time
+  return later({ has_password: true, unlocked: false })
+}

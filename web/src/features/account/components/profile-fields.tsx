@@ -1,9 +1,8 @@
 import { useId, useState } from 'react'
-import { PencilIcon } from 'lucide-react'
 import { CountryPhoneInput } from '@/components/country-phone-input'
 import { FormField } from '@/components/form-field'
+import { ReadOnlyField } from '@/components/read-only-field'
 import { Input } from '@/components/ui/input'
-import { InputGroup, InputGroupInput } from '@/components/ui/input-group'
 import { ChangeEmailDialog } from './change-email-dialog'
 import type { ProfileDraft, ProfileErrors } from './use-profile-draft'
 
@@ -56,17 +55,14 @@ export function ProfileFields({
         </div>
 
         <FormField label="Email Address" htmlFor={`${id}-email`}>
-          <InputGroup className="bg-accent">
-            <InputGroupInput id={`${id}-email`} type="email" value={email} readOnly className="cursor-default text-subtle" />
-            <button
-              type="button"
-              onClick={() => setChangingEmail(true)}
-              aria-label="Change email address"
-              className="mr-2 flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
-            >
-              <PencilIcon className="size-3.5" />
-            </button>
-          </InputGroup>
+          <ReadOnlyField
+            id={`${id}-email`}
+            type="email"
+            value={email}
+            onEdit={() => setChangingEmail(true)}
+            editLabel="Change email address"
+            className="bg-accent"
+          />
         </FormField>
 
         <FormField label="Phone number" htmlFor={`${id}-phone`} error={errors.phoneNumber}>

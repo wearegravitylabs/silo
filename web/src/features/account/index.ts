@@ -2,6 +2,7 @@ export { ChangeEmailDialog, type ChangeEmailView } from './components/change-ema
 export { DeleteAccountDialog } from './components/delete-account-dialog'
 export { NotificationSettings } from './components/notification-settings'
 export { ProfileSettings } from './components/profile-settings'
+export { TwoFactorSetting, ViewerInviteAccessSetting } from './components/security-settings'
 export { UserAvatar } from './components/user-avatar'
 export { meQuery, useMe, useOnboard, useUpgradePlan } from './queries'
 export type { User } from './types'

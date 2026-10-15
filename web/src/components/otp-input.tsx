@@ -9,6 +9,7 @@ interface OtpInputProps {
   className?: string
 }
 
+/** One box per digit: typing moves on, Backspace moves back, pasting fills them all. Red outline with `hasError`. */
 export function OtpInput({ value, onChange, length = 6, hasError = false, className }: OtpInputProps) {
   const refs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -67,7 +68,7 @@ export function OtpInput({ value, onChange, length = 6, hasError = false, classN
           aria-invalid={hasError || undefined}
           className={cn(
             'size-12 rounded-xl bg-surface text-center font-heading text-xl leading-7 font-bold transition-colors outline-none placeholder:text-subtle',
-            hasError ? 'border-2 border-destructive text-destructive' : 'border border-transparent text-foreground focus:border-primary',
+            hasError ? 'border-2 border-destructive text-foreground' : 'border border-transparent text-foreground focus:border-primary',
           )}
         />
       ))}

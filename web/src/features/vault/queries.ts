@@ -1,5 +1,15 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { createVaultPassword, deleteVaultDocument, getVaultStatus, listVaultDocuments, unlockVault, uploadVaultDocument } from './api'
+import {
+  changeVaultPassword,
+  createVaultPassword,
+  deleteVaultDocument,
+  getVaultStatus,
+  listVaultDocuments,
+  requestVaultPasswordChange,
+  unlockVault,
+  uploadVaultDocument,
+  verifyVaultPasswordCode,
+} from './api'
 import type { VaultStatus } from './types'
 
 export const vaultKeys = {
@@ -35,5 +45,18 @@ export const useVaultDocumentMutations = (portfolioId: string) => {
   return {
     upload: useMutation({ mutationFn: (file: File) => uploadVaultDocument(portfolioId, file), onSuccess: refetch }),
     remove: useMutation({ mutationFn: (docId: string) => deleteVaultDocument(portfolioId, docId), onSuccess: refetch }),
+  }
+}
+
+/** Change Vault Password: send the code, check it, then set the new password (which locks the vault). */
+export const useVaultPasswordChange = (portfolioId: string) => {
+  const qc = useQueryClient()
+  return {
+    request: useMutation({ mutationFn: () => requestVaultPasswordChange(portfolioId) }),
+    verify: useMutation({ mutationFn: (code: string) => verifyVaultPasswordCode(portfolioId, code) }),
+    change: useMutation({
+      mutationFn: ({ code, password }: { code: string; password: string }) => changeVaultPassword(portfolioId, code, password),
+      onSuccess: (status) => qc.setQueryData(vaultKeys.status(portfolioId), status),
+    }),
   }
 }

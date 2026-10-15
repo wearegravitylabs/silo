@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { FormHeading } from '@/components/form-field'
 import { Logo } from '@/components/logo'
+import { OtpInput } from '@/components/otp-input'
 import { Button } from '@/components/ui/button'
-import { OtpInput } from './otp-input'
 
 const CODE_RE = /^\d{6}$/
 

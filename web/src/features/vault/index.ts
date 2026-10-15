@@ -1,4 +1,6 @@
+export { ChangeVaultPasswordDialog, type ChangeVaultPasswordStep } from './components/change-vault-password-dialog'
 export { VaultHeader } from './components/vault-header'
+export { VaultPasswordSetting } from './components/vault-password-setting'
 export { VaultSetupDialog } from './components/vault-setup-dialog'
 export { VaultTable } from './components/vault-table'
 export { VaultUnlock } from './components/vault-unlock'

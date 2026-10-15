@@ -5,7 +5,7 @@ import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
 import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions, SlotDialog, slotsOf } from '@/features/projections'
-import { VaultSetupDialog } from '@/features/vault'
+import { ChangeVaultPasswordDialog, VaultSetupDialog } from '@/features/vault'
 import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
 import { cn } from '@/lib/utils'
@@ -152,6 +152,79 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     id: 'vault-password',
     label: 'Create Vault Password',
     render: () => <VaultSetupDialog portfolioId="dev" open onOpenChange={noop} defaultStep={1} />,
+  },
+
+  {
+    group: 'Vault',
+    id: 'vault-change-intro',
+    label: 'Change Password — verify',
+    render: () => <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-code',
+    label: 'Change Password — code',
+    render: () => <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} defaultStep="code" />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-code-filled',
+    label: 'Change Password — code entered',
+    render: () => (
+      <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} defaultStep="code" defaultCode="123456" />
+    ),
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-code-invalid',
+    label: 'Change Password — invalid code',
+    render: () => (
+      <ChangeVaultPasswordDialog
+        portfolioId="demo"
+        email={MY_EMAIL}
+        open
+        onOpenChange={noop}
+        defaultStep="code"
+        defaultCode="123456"
+        defaultCodeError="Invalid code, please try again!"
+      />
+    ),
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-password',
+    label: 'Change Password — new',
+    render: () => <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} defaultStep="password" />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-password-filled',
+    label: 'Change Password — filled',
+    render: () => (
+      <ChangeVaultPasswordDialog
+        portfolioId="demo"
+        email={MY_EMAIL}
+        open
+        onOpenChange={noop}
+        defaultStep="password"
+        defaultPassword="supersecret"
+      />
+    ),
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-password-short',
+    label: 'Change Password — too short',
+    render: () => (
+      <ChangeVaultPasswordDialog
+        portfolioId="demo"
+        email={MY_EMAIL}
+        open
+        onOpenChange={noop}
+        defaultStep="password"
+        defaultPassword="secret"
+      />
+    ),
   },
 
   { group: 'Projections', id: 'projections-intro', label: 'Intro', render: () => <ProjectionsIntro open onOpenChange={noop} /> },

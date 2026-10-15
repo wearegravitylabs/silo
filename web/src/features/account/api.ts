@@ -1,4 +1,4 @@
-import type { NotificationChannels, OnboardInput, UpdateProfileInput, User } from './types'
+import type { NotificationChannels, OnboardInput, UpdateProfileInput, User, ViewerInviteAccess } from './types'
 
 // TODO: mocked until the app runs against the backend. Real call: api<User>('/users/me')
 const MOCK_USER: User = {
@@ -95,4 +95,16 @@ export const updateNotificationChannels = async (patch: Partial<NotificationChan
   await delay(400)
   Object.assign(MOCK_CHANNELS, patch)
   return { ...MOCK_CHANNELS }
+}
+
+let MOCK_INVITE_ACCESS: ViewerInviteAccess = 'sign_up'
+
+// TODO: mocked. Real call: api<{ viewer_invite_access: ViewerInviteAccess }>('/users/me/security-settings')
+export const getViewerInviteAccess = () => Promise.resolve(MOCK_INVITE_ACCESS)
+
+// TODO: mocked. Real call: api('/users/me/security-settings', { method: 'PATCH', body: { viewer_invite_access } })
+export const updateViewerInviteAccess = async (access: ViewerInviteAccess): Promise<ViewerInviteAccess> => {
+  await delay(400)
+  MOCK_INVITE_ACCESS = access
+  return access
 }

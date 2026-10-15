@@ -34,3 +34,6 @@ export interface NotificationChannels {
   email: boolean
   in_app: boolean
 }
+
+/** How invited viewers get into a portfolio: make an account first, or open it straight from the invite. */
+export type ViewerInviteAccess = 'sign_up' | 'no_sign_up'
