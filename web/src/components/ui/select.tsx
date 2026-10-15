@@ -77,17 +77,32 @@ function SelectContent({
   )
 }
 
-function SelectItem({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) {
+/**
+ * One option. `icon` and `description` show in the list only — the trigger shows just the label
+ * ("Viewer", not "👁 Viewer / View-only access").
+ */
+function SelectItem({
+  className,
+  children,
+  icon,
+  description,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Item> & { icon?: React.ReactNode; description?: React.ReactNode }) {
   return (
     <SelectPrimitive.Item
       className={cn(
         'flex cursor-pointer items-center rounded-lg px-3 py-1.5 leading-5.5 text-foreground outline-none select-none',
         'data-highlighted:bg-accent data-disabled:pointer-events-none data-disabled:opacity-50',
+        (icon || description) && 'grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-1 py-2',
         className,
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {icon && <span className="flex text-muted-foreground [&_svg]:size-4">{icon}</span>}
+      <span className={cn(!icon && description && 'col-span-2')}>
+        <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      </span>
+      {description && <span className="col-start-2 text-xs leading-5 text-muted-foreground">{description}</span>}
     </SelectPrimitive.Item>
   )
 }

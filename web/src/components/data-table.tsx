@@ -106,6 +106,7 @@ export function DataTable<K extends string>({
   empty,
   footer,
   toolbarClassName,
+  className,
   children,
 }: {
   /** Plural noun for the table and its controls, e.g. "Debts" */
@@ -123,12 +124,14 @@ export function DataTable<K extends string>({
   empty: { title: string; body: string } | null
   footer: boolean
   toolbarClassName?: string
+  /** e.g. drop the page margins ("mx-0 md:mx-0") when the page pads itself */
+  className?: string
   children: ReactNode
 }) {
   const noun = label.toLowerCase()
 
   return (
-    <section className="mx-4 mb-6 flex min-h-0 flex-1 flex-col md:mx-10 md:mb-10" aria-label={label}>
+    <section className={cn('mx-4 mb-6 flex min-h-0 flex-1 flex-col md:mx-10 md:mb-10', className)} aria-label={label}>
       <div className={cn('flex shrink-0 flex-wrap items-center justify-between gap-2 py-4', toolbarClassName)}>
         <div className="flex items-center gap-2 max-md:w-full">{toolbarStart}</div>
         <div className="flex items-center gap-2 max-md:w-full">{toolbarEnd}</div>
@@ -213,9 +216,27 @@ export function DataTable<K extends string>({
   )
 }
 
-/** The table's search box: full width on mobile, 400px from md. */
-export function TableSearch({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) {
-  return <SearchInput value={value} onChange={onChange} label={label} placeholder="Search.." className="w-full bg-accent md:w-100" />
+/** The table's search box: full width on mobile, 400px from md (resize with className, e.g. "md:w-71"). */
+export function TableSearch({
+  value,
+  onChange,
+  label,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  label: string
+  className?: string
+}) {
+  return (
+    <SearchInput
+      value={value}
+      onChange={onChange}
+      label={label}
+      placeholder="Search.."
+      className={cn('w-full bg-accent md:w-100', className)}
+    />
+  )
 }
 
 /** Row checkbox cell, matching the header's select-all column. */

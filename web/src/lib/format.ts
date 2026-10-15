@@ -56,6 +56,12 @@ export function formatDay(day: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+/** "2026-03-12" → "12 Mar 2026" */
+export function formatDayMonthYear(day: string): string {
+  const [y, m, d] = day.slice(0, 10).split('-').map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 /** "JAN 5, 2026 – ongoing" */
 export function formatDateRange(start: string, end?: string | null): string {
   const upper = (d: string) => formatDate(d).toUpperCase()

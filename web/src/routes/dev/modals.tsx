@@ -6,7 +6,15 @@ import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
 import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions, SlotDialog, slotsOf } from '@/features/projections'
 import { ChangeVaultPasswordDialog, VaultSetupDialog } from '@/features/vault'
-import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
+import {
+  InvitePartnerDialog,
+  ManageAccessDialog,
+  MOCK_MEMBERS,
+  RevokeMemberDialog,
+  ShareModal,
+  type Member,
+  type ShareOwner,
+} from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
 import { cn } from '@/lib/utils'
 
@@ -23,6 +31,7 @@ const SOME = ['dashboard', 'assets', 'debts', 'projections'] as const
 const noop = () => {}
 const MY_EMAIL = 'john.doe@yahoo.com'
 const NEW_EMAIL = 'john.doe@gmail.com'
+const INVITEE = 'kehinde.odetola@gmail.com'
 
 /** One rule blank's modal, frozen open: the template and slot key pick which. */
 const blank = (template: Parameters<typeof slotsOf>[0], key: string, value = '') => (
@@ -298,6 +307,55 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     id: 'delete-ready',
     label: 'Delete Account — ready',
     render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" defaultAcknowledged />,
+  },
+
+  {
+    group: 'Partners',
+    id: 'partner-invite-empty',
+    label: 'Invite — empty',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-invite-typed',
+    label: 'Invite — typed',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} initial={{ email: INVITEE }} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-invite-access-open',
+    label: 'Invite — access type open',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} initial={{ email: INVITEE }} defaultSelectOpen />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-invite-filled',
+    label: 'Invite — filled',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} initial={{ email: INVITEE, role: 'viewer' }} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-edit-invite',
+    label: 'Edit Invite',
+    render: () => <InvitePartnerDialog mode="edit" open onOpenChange={noop} onSubmit={noop} initial={MOCK_MEMBERS[1]} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-manage',
+    label: 'Manage Access',
+    render: () => <ManageAccessDialog member={MOCK_MEMBERS[0]} open onOpenChange={noop} onSave={noop} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-revoke-access',
+    label: 'Revoke Access',
+    render: () => <RevokeMemberDialog member={MOCK_MEMBERS[0]} open onOpenChange={noop} onConfirm={noop} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-revoke-invite',
+    label: 'Revoke Invite',
+    render: () => <RevokeMemberDialog member={MOCK_MEMBERS[1]} open onOpenChange={noop} onConfirm={noop} />,
   },
 
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },

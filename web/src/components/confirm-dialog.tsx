@@ -22,6 +22,9 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   pending,
   onConfirm,
+  size,
+  position,
+  descriptionClassName,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -33,15 +36,21 @@ export function ConfirmDialog({
   cancelLabel?: string
   pending?: boolean
   onConfirm: () => void
+  /** Dialog width (default md, 426px) */
+  size?: 'sm' | 'md'
+  /** `high`: 48px from the top instead of 104px */
+  position?: 'default' | 'high'
+  /** e.g. larger body text ("text-sm leading-5.5") */
+  descriptionClassName?: string
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent role="alertdialog">
+      <DialogContent role="alertdialog" size={size} position={position}>
         <DialogHeader>
           <DialogTitle className="font-sans">{title}</DialogTitle>
         </DialogHeader>
         <DialogBody>
-          <DialogDescription>{children}</DialogDescription>
+          <DialogDescription className={descriptionClassName}>{children}</DialogDescription>
         </DialogBody>
         <DialogFooter>
           <DialogClose asChild>

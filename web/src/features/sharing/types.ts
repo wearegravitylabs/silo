@@ -14,6 +14,15 @@ export interface Member {
   /** `invited`: the invite is sent but not accepted yet. */
   status: 'active' | 'invited'
   sections: SectionKey[]
+  /** When they accepted ("2026-03-26"); unset while invited */
+  joined_at?: string
+}
+
+/** Who to invite (or re-invite) and what they get. */
+export interface MemberInput {
+  email: string
+  role: AccessRole
+  sections: SectionKey[]
 }
 
 /** Fixed starting state for the dev gallery: what's typed, which menu is open, a copied link. */

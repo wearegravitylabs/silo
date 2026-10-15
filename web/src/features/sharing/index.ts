@@ -1,2 +1,8 @@
 export { ShareModal, type ShareTab, type ShareView } from './components/share-modal'
 export type { Member, SharePreview, ShareOwner } from './types'
+export { InvitePartnerDialog } from './components/invite-partner-dialog'
+export { ManageAccessDialog } from './components/manage-access-dialog'
+export { PartnersSettings } from './components/partners-settings'
+export { RevokeMemberDialog } from './components/revoke-member-dialog'
+export { MOCK_MEMBERS, PARTNER_FEATURES } from './mock-data'
+export { membersQuery } from './queries'
