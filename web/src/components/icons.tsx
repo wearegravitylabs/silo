@@ -230,3 +230,16 @@ export function ExpandIcon({ className, ...props }: IconProps) {
     </Svg>
   )
 }
+
+export function CalendarIcon({ className, ...props }: IconProps) {
+  return (
+    <Svg viewBox="0 0 16 16" className={cn('size-3.5', className)} {...props}>
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M5 1.5a.75.75 0 0 1 .75.75V3h4.5V2.25a.75.75 0 0 1 1.5 0V3H13A1.5 1.5 0 0 1 14.5 4.5v9A1.5 1.5 0 0 1 13 15H3A1.5 1.5 0 0 1 1.5 13.5v-9A1.5 1.5 0 0 1 3 3h1.25V2.25A.75.75 0 0 1 5 1.5ZM3 6v7.5h10V6H3Z"
+      />
+    </Svg>
+  )
+}

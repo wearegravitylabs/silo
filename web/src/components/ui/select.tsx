@@ -9,8 +9,16 @@ const Select = SelectPrimitive.Root
 const SelectValue = SelectPrimitive.Value
 const SelectGroup = SelectPrimitive.Group
 
-/** 40px field matching <Input>: surface fill, blue border while open or focused, red via aria-invalid. */
-function SelectTrigger({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Trigger>) {
+/**
+ * 40px field matching <Input>: surface fill, blue border while open or focused, red via aria-invalid.
+ * `icon` replaces the turning chevron (e.g. a calendar for a year field).
+ */
+function SelectTrigger({
+  className,
+  children,
+  icon,
+  ...props
+}: React.ComponentProps<typeof SelectPrimitive.Trigger> & { icon?: React.ReactNode }) {
   return (
     <SelectPrimitive.Trigger
       className={cn(
@@ -24,7 +32,9 @@ function SelectTrigger({ className, children, ...props }: React.ComponentProps<t
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+        {icon ?? (
+          <ChevronDownIcon className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+        )}
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )

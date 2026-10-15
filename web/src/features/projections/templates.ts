@@ -1,7 +1,8 @@
 // The rule catalogue behind Add New Rule: each template is a sentence of text and blanks ("slots").
-// Slot values are stored as text; `source` names the option list a choice slot picks from.
+// Slot values are stored as text; `source` names the option list a select or list blank picks from.
 
-export type SlotKind = 'percent' | 'money' | 'number' | 'year' | 'date' | 'choice'
+/** How a blank is filled: a typed field, a dropdown, or a searchable list of cards. */
+export type SlotEditor = 'percent' | 'money' | 'number' | 'year' | 'date' | 'select' | 'list'
 
 export type OptionSource =
   | 'category' // value_change targets
@@ -15,9 +16,12 @@ export type OptionSource =
 
 export interface Slot {
   key: string
-  kind: SlotKind
+  editor: SlotEditor
   /** Shown while empty: "X%", "$X", "time frame" */
   placeholder: string
+  /** The field label in its modal ("Value", "Time Frame"); list modals have none */
+  label?: string
+  /** The option list for select and list blanks */
   source?: OptionSource
   /** Percent slots that may go below zero ("Debts to change by -2%") */
   signed?: boolean
@@ -36,40 +40,54 @@ export interface RuleTemplate {
   parts: Part[]
 }
 
-const pct = (key = 'rate', extra?: Partial<Slot>): Slot => ({ key, kind: 'percent', placeholder: 'X%', ...extra })
-const money = (key = 'amount'): Slot => ({ key, kind: 'money', placeholder: '$X' })
-const choice = (key: string, source: OptionSource, placeholder: string): Slot => ({ key, kind: 'choice', source, placeholder })
-const date = (key = 'date'): Slot => ({ key, kind: 'date', placeholder: 'date' })
-const frequency = (placeholder = 'frequency') => choice('frequency', 'frequency', placeholder)
+const pct = (key = 'rate', extra?: Partial<Slot>): Slot => ({ key, editor: 'percent', label: 'Value', placeholder: 'X%', ...extra })
+const money = (key = 'amount'): Slot => ({ key, editor: 'money', label: 'Value', placeholder: '$X' })
+const count = (key: string): Slot => ({ key, editor: 'number', label: 'Value', placeholder: 'X' })
+const select = (key: string, source: OptionSource, label: string, placeholder: string): Slot => ({
+  key,
+  editor: 'select',
+  source,
+  label,
+  placeholder,
+})
+const list = (key: string, source: OptionSource, placeholder: string): Slot => ({ key, editor: 'list', source, placeholder })
+const date = (key = 'date'): Slot => ({ key, editor: 'date', label: 'Date', placeholder: 'date' })
+const year = (): Slot => ({ key: 'year', editor: 'year', label: 'Year', placeholder: 'year' })
+const frequency = (placeholder = 'frequency') => select('frequency', 'frequency', 'Time Frame', placeholder)
 
 export const RULE_TEMPLATES = {
   // The default scenario's rules (not offered in Add New Rule)
   value_change: {
     tab: 'growth',
-    parts: ['Value of ', choice('target', 'category', 'category'), ' to change by ', pct('rate', { signed: true, suffix: ' per year' })],
+    parts: [
+      'Value of ',
+      select('target', 'category', 'Category', 'category'),
+      ' to change by ',
+      pct('rate', { signed: true, suffix: ' per year' }),
+    ],
   },
 
   portfolio_growth: { tab: 'growth', section: 'Portfolio Wide Growth', parts: ['All assets grow at ', pct(), ' annually'] },
   asset_type_growth: {
     tab: 'growth',
     section: 'By Asset Type',
-    parts: [choice('asset_type', 'asset_type', 'This asset type'), ' appreciate at ', pct(), ' ', frequency('time frame')],
+    parts: [list('asset_type', 'asset_type', 'This asset type'), ' appreciate at ', pct(), ' ', frequency('time frame')],
   },
   asset_growth: {
     tab: 'growth',
     section: 'Individual Asset',
-    parts: [choice('asset', 'asset', 'Specific asset'), ' grows at ', pct(), ' ', frequency('time frame')],
+    parts: [list('asset', 'asset', 'Specific asset'), ' grows at ', pct(), ' ', frequency('time frame')],
   },
   target_value: {
     tab: 'growth',
     section: 'Target Value',
-    parts: [choice('asset', 'asset', 'Asset'), ' reaches ', money('target'), ' by ', { key: 'year', kind: 'year', placeholder: 'year' }],
+    parts: [list('asset', 'asset', 'Asset'), ' reaches ', money('target'), ' by ', year()],
   },
 
   interest_accrual: {
     tab: 'debt',
     section: 'Interest Accrual',
-    parts: [pct(), ' annual interest on ', choice('debt', 'debt_scope', 'all debts / specific debt')],
+    parts: [pct(), ' annual interest on ', list('debt', 'debt_scope', 'all debts / specific debt')],
   },
   regular_payment: {
     tab: 'debt',
@@ -80,31 +98,18 @@ export const RULE_TEMPLATES = {
   debt_free_goal: {
     tab: 'debt',
     section: 'Debt-Free Goal',
-    parts: [
-      'Eliminate all debt within ',
-      { key: 'count', kind: 'number', placeholder: 'X' },
-      ' ',
-      choice('unit', 'duration_unit', 'months / year'),
-    ],
+    parts: ['Eliminate all debt within ', count('count'), ' ', select('unit', 'duration_unit', 'Duration', 'months / year')],
   },
 
   employment_income: {
     tab: 'income',
     section: 'Employment Income',
-    parts: [
-      money(),
-      ' ',
-      frequency(),
-      ', increases ',
-      pct('raise'),
-      ' annually until age ',
-      { key: 'age', kind: 'number', placeholder: 'X' },
-    ],
+    parts: [money(), ' ', frequency(), ', increases ', pct('raise'), ' annually until age ', count('age')],
   },
   asset_income: {
     tab: 'income',
     section: 'Asset-Generated Income',
-    parts: [money(), ' ', frequency(), ' from ', choice('asset', 'asset', 'asset')],
+    parts: [money(), ' ', frequency(), ' from ', list('asset', 'asset', 'asset')],
   },
   one_time_income: { tab: 'income', section: 'One-Time Events', parts: [money(), ' expected ', date()] },
   future_income: { tab: 'income', section: 'Future Income', parts: [money(), ' ', frequency(), ' starting ', date()] },
@@ -112,17 +117,17 @@ export const RULE_TEMPLATES = {
   regular_expense: {
     tab: 'spending',
     section: 'Regular Expenses',
-    parts: [money(), ' ', frequency(), ' for ', choice('category', 'expense_category', 'category')],
+    parts: [money(), ' ', frequency(), ' for ', select('category', 'expense_category', 'Category', 'category')],
   },
   asset_cost: {
     tab: 'spending',
     section: 'Asset Costs',
-    parts: [money(), ' ', frequency(), ' for ', choice('asset', 'asset', 'asset'), ' upkeep'],
+    parts: [money(), ' ', frequency(), ' for ', list('asset', 'asset', 'asset'), ' upkeep'],
   },
   management_fee: {
     tab: 'spending',
     section: 'Management Fees',
-    parts: [pct(), ' of ', choice('scope', 'fee_scope', 'portfolio/asset'), ' annually'],
+    parts: [pct(), ' of ', list('scope', 'fee_scope', 'portfolio/asset'), ' annually'],
   },
   planned_purchase: { tab: 'spending', section: 'Planned Purchases', parts: [money(), ' by ', date()] },
   future_obligation: { tab: 'spending', section: 'Future Obligations', parts: [money(), ' ', frequency(), ' starting ', date()] },

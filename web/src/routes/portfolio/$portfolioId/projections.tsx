@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ExportDialog } from '@/components/export-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAssets } from '@/features/assets'
-import { useDebts } from '@/features/debts'
+import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetLogo, useAssets } from '@/features/assets'
+import { DEBT_TYPE_LABELS, DebtIconDisc, useDebts } from '@/features/debts'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import {
   AddRuleSheet,
@@ -74,10 +74,22 @@ function ProjectionsPage() {
   const { data: debts = [] } = useDebts(portfolioId, null)
   const options = useMemo(
     () =>
-      ruleOptions(
-        assets.map((a) => ({ value: a.id, label: a.name })),
-        debts.map((d) => ({ value: d.id, label: d.name })),
-      ),
+      ruleOptions({
+        assetTypeIcons: Object.fromEntries(ASSET_TYPES.map((t) => [t.id, t.icon])),
+        assets: assets.map((a) => ({
+          value: a.id,
+          label: a.name,
+          description: ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type,
+          icon: <AssetLogo asset={a} className="size-10 bg-background" />,
+        })),
+        debts: debts.map((d) => ({
+          value: d.id,
+          label: d.name,
+          description: DEBT_TYPE_LABELS[d.debt_type],
+          icon: <DebtIconDisc debt={d} />,
+        })),
+        allDebtsIcon: <DebtIconDisc debt={{ debt_type: 'manual', icon: null }} />,
+      }),
     [assets, debts],
   )
   const [metric, setMetric] = useState<ProjectionMetric>('net_worth')

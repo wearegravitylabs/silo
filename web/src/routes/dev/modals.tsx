@@ -3,7 +3,7 @@ import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
-import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions } from '@/features/projections'
+import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions, SlotDialog, slotsOf } from '@/features/projections'
 import { VaultSetupDialog } from '@/features/vault'
 import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
@@ -20,6 +20,19 @@ const TAIWO: Member = {
 const TYPED = 'taiwo.odetola@gmail.com'
 const SOME = ['dashboard', 'assets', 'debts', 'projections'] as const
 const noop = () => {}
+
+/** One rule blank's modal, frozen open: the template and slot key pick which. */
+const blank = (template: Parameters<typeof slotsOf>[0], key: string, value = '') => (
+  <SlotDialog
+    slot={slotsOf(template).find((s) => s.key === key)!}
+    value={value}
+    open
+    onOpenChange={noop}
+    onSave={noop}
+    currency="USD"
+    options={ruleOptions()}
+  />
+)
 
 /** Every modal state, in design order. Each renders the real component, frozen. */
 const STATES: { group: string; id: string; label: string; render: () => ReactNode }[] = [
@@ -143,10 +156,17 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     group: 'Projections',
     id: 'projections-add-rule',
     label: 'Add New Rule',
-    render: () => (
-      <AddRuleSheet scenarioName="Scenario A" open onOpenChange={noop} onAdd={noop} currency="USD" options={ruleOptions([], [])} />
-    ),
+    render: () => <AddRuleSheet scenarioName="Scenario A" open onOpenChange={noop} onAdd={noop} currency="USD" options={ruleOptions()} />,
   },
+  { group: 'Projections', id: 'blank-percent', label: 'Value — percent', render: () => blank('portfolio_growth', 'rate') },
+  { group: 'Projections', id: 'blank-money', label: 'Value — money', render: () => blank('target_value', 'target', '95') },
+  { group: 'Projections', id: 'blank-number', label: 'Value — number', render: () => blank('debt_free_goal', 'count') },
+  { group: 'Projections', id: 'blank-time-frame', label: 'Time Frame', render: () => blank('asset_type_growth', 'frequency') },
+  { group: 'Projections', id: 'blank-duration', label: 'Duration', render: () => blank('debt_free_goal', 'unit') },
+  { group: 'Projections', id: 'blank-category', label: 'Category', render: () => blank('regular_expense', 'category') },
+  { group: 'Projections', id: 'blank-year', label: 'Year', render: () => blank('target_value', 'year') },
+  { group: 'Projections', id: 'blank-date', label: 'Date', render: () => blank('one_time_income', 'date') },
+  { group: 'Projections', id: 'blank-asset-type', label: 'Asset type', render: () => blank('asset_type_growth', 'asset_type') },
   {
     group: 'Projections',
     id: 'projections-edit-scenario',

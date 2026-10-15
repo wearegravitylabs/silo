@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { formatCompactMoney, formatDay, formatMoney } from '@/lib/format'
 import { RULE_TEMPLATES, type OptionSource, type Part, type Slot } from './templates'
 import type { Category, ProjectionMetric, ProjectionRule } from './types'
@@ -5,8 +6,13 @@ import type { Category, ProjectionMetric, ProjectionRule } from './types'
 export interface RuleOption {
   value: string
   label: string
+  /** Under the label in list modals ("Stock", "Mortgage") */
+  description?: string
+  icon?: ReactNode
+  /** How it reads in a sentence when that differs from the label ("annually", "Stock tickers") */
+  text?: string
 }
-/** Every option list a choice slot can pick from; `asset` and `debt` come from the portfolio. */
+/** Every option list a select or list blank can pick from. */
 export type RuleOptions = Record<OptionSource, RuleOption[]>
 
 const opts = (entries: Record<string, string>) => Object.entries(entries).map(([value, label]) => ({ value, label }))
@@ -18,50 +24,83 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   debts: 'Debts',
 }
 
-/** The fixed lists; the route adds the portfolio's assets and debts. */
-export const STATIC_OPTIONS: Omit<RuleOptions, 'asset' | 'debt_scope' | 'fee_scope'> = {
+/** Asset type ids (as in Add Asset) → [label in the picker, how it reads in a sentence]. The route adds the icons. */
+export const ASSET_TYPE_PICKER: Record<string, [label: string, text: string]> = {
+  stock_ticker: ['Stocks Tickers', 'Stock tickers'],
+  crypto_ticker: ['Crypto Tickers', 'Crypto tickers'],
+  real_estate: ['Real Estate', 'Real estate'],
+  domain: ['Domains', 'Domains'],
+  physical: ['Physical Valuables', 'Physical valuables'],
+  venture_capital: ['Venture Capital', 'Venture capital'],
+  business: ['Business', 'Business'],
+  bank: ['Bank Connections', 'Bank connections'],
+  crypto_wallet: ['Crypto Exchanges/Wallet', 'Crypto exchanges/wallets'],
+  manual: ['Manual Assets', 'Manual assets'],
+}
+
+/** The fixed lists; asset types, assets and debts come from the portfolio (see `ruleOptions`). */
+const STATIC_OPTIONS = {
   category: opts(CATEGORY_LABELS),
-  asset_type: opts({
-    investable_assets: 'Investable Assets',
-    stocks: 'Stocks',
-    crypto: 'Crypto',
-    real_estate: 'Real Estate',
-    non_investable_assets: 'Non Investable Assets',
-  }),
-  frequency: opts({ weekly: 'weekly', monthly: 'monthly', quarterly: 'quarterly', yearly: 'per year' }),
-  duration_unit: opts({ months: 'months', years: 'years' }),
+  frequency: [
+    { value: 'daily', label: 'Daily', text: 'daily' },
+    { value: 'weekly', label: 'Weekly', text: 'weekly' },
+    { value: 'monthly', label: 'Monthly', text: 'monthly' },
+    { value: 'yearly', label: 'Yearly', text: 'annually' },
+  ],
+  duration_unit: [
+    { value: 'months', label: 'Months', text: 'months' },
+    { value: 'years', label: 'Years', text: 'years' },
+  ],
   expense_category: opts({
     housing: 'Housing',
-    food: 'Food',
-    transport: 'Transport',
-    utilities: 'Utilities',
+    food: 'Food & groceries',
+    transportation: 'Transportation',
     healthcare: 'Healthcare',
-    education: 'Education',
+    insurance: 'Insurance',
+    utilities: 'Utilities',
+    subscriptions: 'Subscriptions',
     entertainment: 'Entertainment',
+    education: 'Education',
     other: 'Other',
   }),
 }
 
-/** Full option lists from the portfolio's assets and debts. */
-export function ruleOptions(assets: RuleOption[], debts: RuleOption[]): RuleOptions {
+/**
+ * Every option list. `assetTypes` maps an asset type id to its icon; `assets` and `debts` are the portfolio's own,
+ * already shaped as options (icon + type). `allDebtsIcon` marks the "All Debts" choice.
+ */
+export function ruleOptions({
+  assetTypeIcons = {},
+  assets = [],
+  debts = [],
+  allDebtsIcon,
+}: {
+  assetTypeIcons?: Record<string, ReactNode>
+  assets?: RuleOption[]
+  debts?: RuleOption[]
+  allDebtsIcon?: ReactNode
+} = {}): RuleOptions {
   return {
     ...STATIC_OPTIONS,
+    asset_type: Object.entries(ASSET_TYPE_PICKER).map(([value, [label, text]]) => ({ value, label, text, icon: assetTypeIcons[value] })),
     asset: assets,
-    debt_scope: [{ value: 'all', label: 'all debts' }, ...debts],
-    fee_scope: [{ value: 'portfolio', label: 'portfolio' }, ...assets],
+    debt_scope: [{ value: 'all', label: 'All Debts', text: 'all debts', icon: allDebtsIcon }, ...debts],
+    fee_scope: [{ value: 'portfolio', label: 'Portfolio', text: 'portfolio' }, ...assets],
   }
 }
 
-/** A filled slot as it reads in the sentence ("7% per year", "$500", "monthly", "Mar 4, 2030"). */
+/** A filled slot as it reads in the sentence ("7% per year", "$500", "annually", "Mar 4, 2030"). */
 export function slotText(slot: Slot, value: string, currency: string, options: Partial<RuleOptions>) {
+  const option = slot.source && options[slot.source]?.find((o) => o.value === value)
   const text = {
     percent: `${value}%`,
     money: formatMoney(Number(value), currency, { spaced: false, decimals: Number(value) % 1 ? 2 : 0 }),
     number: value,
     year: value,
     date: formatDay(value),
-    choice: options[slot.source!]?.find((o) => o.value === value)?.label ?? value,
-  }[slot.kind]
+    select: option ? (option.text ?? option.label) : value,
+    list: option ? (option.text ?? option.label) : value,
+  }[slot.editor]
   return text + (slot.suffix ?? '')
 }
 
