@@ -1,3 +1,6 @@
+export { ChangeEmailDialog, type ChangeEmailView } from './components/change-email-dialog'
+export { DeleteAccountDialog } from './components/delete-account-dialog'
+export { ProfileSettings } from './components/profile-settings'
 export { UserAvatar } from './components/user-avatar'
 export { meQuery, useMe, useOnboard, useUpgradePlan } from './queries'
 export type { User } from './types'

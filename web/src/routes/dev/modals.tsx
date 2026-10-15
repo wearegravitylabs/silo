@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
+import { ChangeEmailDialog, DeleteAccountDialog } from '@/features/account'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
@@ -20,6 +21,8 @@ const TAIWO: Member = {
 const TYPED = 'taiwo.odetola@gmail.com'
 const SOME = ['dashboard', 'assets', 'debts', 'projections'] as const
 const noop = () => {}
+const MY_EMAIL = 'john.doe@yahoo.com'
+const NEW_EMAIL = 'john.doe@gmail.com'
 
 /** One rule blank's modal, frozen open: the template and slot key pick which. */
 const blank = (template: Parameters<typeof slotsOf>[0], key: string, value = '') => (
@@ -179,6 +182,49 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
         onSave={noop}
       />
     ),
+  },
+
+  {
+    group: 'Profile',
+    id: 'email-empty',
+    label: 'Change Email — empty',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} />,
+  },
+  {
+    group: 'Profile',
+    id: 'email-typed',
+    label: 'Change Email — typed',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} defaultEmail={NEW_EMAIL} />,
+  },
+  {
+    group: 'Profile',
+    id: 'email-available',
+    label: 'Change Email — no account',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} defaultEmail={NEW_EMAIL} defaultView="available" />,
+  },
+  {
+    group: 'Profile',
+    id: 'email-exists',
+    label: 'Existing Account Found',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} defaultEmail={NEW_EMAIL} defaultView="exists" />,
+  },
+  {
+    group: 'Profile',
+    id: 'delete-empty',
+    label: 'Delete Account — empty',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} />,
+  },
+  {
+    group: 'Profile',
+    id: 'delete-code',
+    label: 'Delete Account — code entered',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" />,
+  },
+  {
+    group: 'Profile',
+    id: 'delete-ready',
+    label: 'Delete Account — ready',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" defaultAcknowledged />,
   },
 
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },

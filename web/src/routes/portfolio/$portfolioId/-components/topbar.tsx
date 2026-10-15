@@ -7,7 +7,7 @@ import { AiSparkleIcon, RefreshIcon, SearchIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useSiloAiPanel } from '@/stores/silo-ai-store'
-import { SidebarMenuButton } from './sidebar'
+import { SidebarMenuButton } from '@/routes/-components/sidebar-frame'
 
 /** App header (pinned by the shell): menu (mobile), search (⌘K palette) with Silo AI, last sync, currency, user, Share. */
 export function Topbar({ portfolioId }: { portfolioId: string }) {

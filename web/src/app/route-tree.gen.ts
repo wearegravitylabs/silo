@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './../routes/__root'
 import { Route as IndexRouteImport } from './../routes/index'
 import { Route as AuthRouteRouteImport } from './../routes/_auth/route'
 import { Route as OnboardingRouteRouteImport } from './../routes/onboarding/route'
+import { Route as SettingsRouteRouteImport } from './../routes/settings/route'
 import { Route as AuthLoginRouteImport } from './../routes/_auth/login'
 import { Route as AuthSignUpRouteImport } from './../routes/_auth/sign-up'
 import { Route as AuthVerifyEmailRouteImport } from './../routes/_auth/verify-email'
@@ -25,6 +26,13 @@ import { Route as OnboardingPortfolioRouteImport } from './../routes/onboarding/
 import { Route as OnboardingProfileRouteImport } from './../routes/onboarding/profile'
 import { Route as OnboardingRequestSentRouteImport } from './../routes/onboarding/request-sent'
 import { Route as PortfolioPortfolioIdRouteRouteImport } from './../routes/portfolio/$portfolioId/route'
+import { Route as SettingsIndexRouteImport } from './../routes/settings/index'
+import { Route as SettingsBillingRouteImport } from './../routes/settings/billing'
+import { Route as SettingsNotificationsRouteImport } from './../routes/settings/notifications'
+import { Route as SettingsPartnersRouteImport } from './../routes/settings/partners'
+import { Route as SettingsPreferencesRouteImport } from './../routes/settings/preferences'
+import { Route as SettingsProfileRouteImport } from './../routes/settings/profile'
+import { Route as SettingsSecurityRouteImport } from './../routes/settings/security'
 import { Route as PortfolioPortfolioIdAssetsRouteImport } from './../routes/portfolio/$portfolioId/assets'
 import { Route as PortfolioPortfolioIdDashboardRouteImport } from './../routes/portfolio/$portfolioId/dashboard'
 import { Route as PortfolioPortfolioIdDebtsRouteImport } from './../routes/portfolio/$portfolioId/debts'
@@ -43,6 +51,11 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRouteRoute = SettingsRouteRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
@@ -111,6 +124,41 @@ const PortfolioPortfolioIdRouteRoute =
     path: '/portfolio/$portfolioId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsBillingRoute = SettingsBillingRouteImport.update({
+  id: '/billing',
+  path: '/billing',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsPartnersRoute = SettingsPartnersRouteImport.update({
+  id: '/partners',
+  path: '/partners',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsPreferencesRoute = SettingsPreferencesRouteImport.update({
+  id: '/preferences',
+  path: '/preferences',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsProfileRoute = SettingsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
+const SettingsSecurityRoute = SettingsSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
 const PortfolioPortfolioIdAssetsRoute =
   PortfolioPortfolioIdAssetsRouteImport.update({
     id: '/assets',
@@ -145,6 +193,7 @@ const PortfolioPortfolioIdVaultRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/onboarding': typeof OnboardingRouteRouteWithChildren
+  '/settings': typeof SettingsRouteRouteWithChildren
   '/portfolio/$portfolioId': typeof PortfolioPortfolioIdRouteRouteWithChildren
   '/login': typeof AuthLoginRoute
   '/sign-up': typeof AuthSignUpRoute
@@ -157,7 +206,14 @@ export interface FileRoutesByFullPath {
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
   '/onboarding/request-sent': typeof OnboardingRequestSentRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/partners': typeof SettingsPartnersRoute
+  '/settings/preferences': typeof SettingsPreferencesRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
@@ -178,7 +234,14 @@ export interface FileRoutesByTo {
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
   '/onboarding/request-sent': typeof OnboardingRequestSentRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/partners': typeof SettingsPartnersRoute
+  '/settings/preferences': typeof SettingsPreferencesRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/onboarding': typeof OnboardingIndexRoute
+  '/settings': typeof SettingsIndexRoute
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
@@ -190,6 +253,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
   '/onboarding': typeof OnboardingRouteRouteWithChildren
+  '/settings': typeof SettingsRouteRouteWithChildren
   '/portfolio/$portfolioId': typeof PortfolioPortfolioIdRouteRouteWithChildren
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/sign-up': typeof AuthSignUpRoute
@@ -202,7 +266,14 @@ export interface FileRoutesById {
   '/onboarding/portfolio': typeof OnboardingPortfolioRoute
   '/onboarding/profile': typeof OnboardingProfileRoute
   '/onboarding/request-sent': typeof OnboardingRequestSentRoute
+  '/settings/billing': typeof SettingsBillingRoute
+  '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/partners': typeof SettingsPartnersRoute
+  '/settings/preferences': typeof SettingsPreferencesRoute
+  '/settings/profile': typeof SettingsProfileRoute
+  '/settings/security': typeof SettingsSecurityRoute
   '/onboarding/': typeof OnboardingIndexRoute
+  '/settings/': typeof SettingsIndexRoute
   '/portfolio/$portfolioId/assets': typeof PortfolioPortfolioIdAssetsRoute
   '/portfolio/$portfolioId/dashboard': typeof PortfolioPortfolioIdDashboardRoute
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
@@ -214,6 +285,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/onboarding'
+    | '/settings'
     | '/portfolio/$portfolioId'
     | '/login'
     | '/sign-up'
@@ -226,7 +298,14 @@ export interface FileRouteTypes {
     | '/onboarding/portfolio'
     | '/onboarding/profile'
     | '/onboarding/request-sent'
+    | '/settings/billing'
+    | '/settings/notifications'
+    | '/settings/partners'
+    | '/settings/preferences'
+    | '/settings/profile'
+    | '/settings/security'
     | '/onboarding/'
+    | '/settings/'
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
     | '/portfolio/$portfolioId/debts'
@@ -247,7 +326,14 @@ export interface FileRouteTypes {
     | '/onboarding/portfolio'
     | '/onboarding/profile'
     | '/onboarding/request-sent'
+    | '/settings/billing'
+    | '/settings/notifications'
+    | '/settings/partners'
+    | '/settings/preferences'
+    | '/settings/profile'
+    | '/settings/security'
     | '/onboarding'
+    | '/settings'
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
     | '/portfolio/$portfolioId/debts'
@@ -258,6 +344,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/onboarding'
+    | '/settings'
     | '/portfolio/$portfolioId'
     | '/_auth/login'
     | '/_auth/sign-up'
@@ -270,7 +357,14 @@ export interface FileRouteTypes {
     | '/onboarding/portfolio'
     | '/onboarding/profile'
     | '/onboarding/request-sent'
+    | '/settings/billing'
+    | '/settings/notifications'
+    | '/settings/partners'
+    | '/settings/preferences'
+    | '/settings/profile'
+    | '/settings/security'
     | '/onboarding/'
+    | '/settings/'
     | '/portfolio/$portfolioId/assets'
     | '/portfolio/$portfolioId/dashboard'
     | '/portfolio/$portfolioId/debts'
@@ -282,6 +376,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
+  SettingsRouteRoute: typeof SettingsRouteRouteWithChildren
   PortfolioPortfolioIdRouteRoute: typeof PortfolioPortfolioIdRouteRouteWithChildren
   DevModalsRoute: typeof DevModalsRoute
   DevSiloAiRoute: typeof DevSiloAiRoute
@@ -309,6 +404,13 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth/login': {
@@ -402,6 +504,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioPortfolioIdRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/': {
+      id: '/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/billing': {
+      id: '/settings/billing'
+      path: '/billing'
+      fullPath: '/settings/billing'
+      preLoaderRoute: typeof SettingsBillingRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/notifications': {
+      id: '/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/partners': {
+      id: '/settings/partners'
+      path: '/partners'
+      fullPath: '/settings/partners'
+      preLoaderRoute: typeof SettingsPartnersRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/preferences': {
+      id: '/settings/preferences'
+      path: '/preferences'
+      fullPath: '/settings/preferences'
+      preLoaderRoute: typeof SettingsPreferencesRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/profile': {
+      id: '/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof SettingsProfileRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
+    '/settings/security': {
+      id: '/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof SettingsSecurityRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
     '/portfolio/$portfolioId/assets': {
       id: '/portfolio/$portfolioId/assets'
       path: '/assets'
@@ -478,6 +629,30 @@ const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
   OnboardingRouteRouteChildren,
 )
 
+interface SettingsRouteRouteChildren {
+  SettingsBillingRoute: typeof SettingsBillingRoute
+  SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsPartnersRoute: typeof SettingsPartnersRoute
+  SettingsPreferencesRoute: typeof SettingsPreferencesRoute
+  SettingsProfileRoute: typeof SettingsProfileRoute
+  SettingsSecurityRoute: typeof SettingsSecurityRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
+  SettingsBillingRoute: SettingsBillingRoute,
+  SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsPartnersRoute: SettingsPartnersRoute,
+  SettingsPreferencesRoute: SettingsPreferencesRoute,
+  SettingsProfileRoute: SettingsProfileRoute,
+  SettingsSecurityRoute: SettingsSecurityRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(
+  SettingsRouteRouteChildren,
+)
+
 interface PortfolioPortfolioIdRouteRouteChildren {
   PortfolioPortfolioIdAssetsRoute: typeof PortfolioPortfolioIdAssetsRoute
   PortfolioPortfolioIdDashboardRoute: typeof PortfolioPortfolioIdDashboardRoute
@@ -504,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
+  SettingsRouteRoute: SettingsRouteRouteWithChildren,
   PortfolioPortfolioIdRouteRoute: PortfolioPortfolioIdRouteRouteWithChildren,
   DevModalsRoute: DevModalsRoute,
   DevSiloAiRoute: DevSiloAiRoute,

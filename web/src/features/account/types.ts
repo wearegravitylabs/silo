@@ -22,6 +22,8 @@ export interface OnboardInput {
   phone_country_code: string
 }
 
+export type UpdateProfileInput = OnboardInput
+
 export function getUserInitials(user: Pick<User, 'first_name' | 'last_name'> | null | undefined) {
   if (!user) return '?'
   return `${user.first_name?.[0] ?? ''}${user.last_name?.[0] ?? ''}`.toUpperCase() || '?'
