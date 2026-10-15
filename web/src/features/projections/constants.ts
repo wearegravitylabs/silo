@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { resolveColor } from '@/lib/colors'
 import { formatCompactMoney, formatDay, formatMoney } from '@/lib/format'
 import { RULE_TEMPLATES, type OptionSource, type Part, type Slot } from './templates'
 import type { Category, ProjectionMetric, ProjectionRule } from './types'
@@ -122,16 +123,9 @@ export const SCENARIO_SWATCHES = [
   'var(--color-scenario-purple)',
 ]
 
-/** A `var(--color-x)` resolved to its hex ("#bbe03b"); other colours unchanged. */
-export function resolveColor(color: string) {
-  const name = color.match(/^var\((--[\w-]+)\)$/)?.[1]
-  return name ? getComputedStyle(document.documentElement).getPropertyValue(name).trim() : color
-}
-
 /** Light colours need a stronger tint to read as the same faint fill (lime 5%, navy 2%). */
 export function fillTint(color: string) {
   const hex = resolveColor(color).replace('#', '')
-  if (!/^[\da-f]{6}$/i.test(hex)) return 4
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 ? 5 : 2
 }
