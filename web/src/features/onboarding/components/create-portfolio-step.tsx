@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { FieldError } from '@/components/field-error'
 import { FormField, FormHeading } from '@/components/form-field'
-import { ChevronDownIcon } from '@/components/icons'
+import { ChevronDownIcon, InfoDotIcon } from '@/components/icons'
 import { SearchList } from '@/components/search-list'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -126,14 +126,5 @@ function CurrencySelect({ value, onChange }: { value: string; onChange: (code: s
         />
       </PopoverContent>
     </Popover>
-  )
-}
-
-function InfoDotIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="size-3 shrink-0">
-      <circle cx="12" cy="12" r="10" className="fill-subtle" />
-      <path d="M12 16v-4M12 8h.01" className="stroke-white" strokeWidth="2" strokeLinecap="round" />
-    </svg>
   )
 }

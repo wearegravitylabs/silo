@@ -65,8 +65,9 @@ function SettingsSidebarContent({ collapsed, drawer }: { collapsed: boolean; dra
           {portfolios.map((p) => (
             <Link
               key={p.id}
-              to="/portfolio/$portfolioId/dashboard"
+              to="/settings/portfolios/$portfolioId"
               params={{ portfolioId: p.id }}
+              replace
               title={collapsed ? p.name : undefined}
               className={navItemClass(collapsed)}
             >

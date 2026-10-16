@@ -12,7 +12,7 @@ const AVATARS = {
 } as const
 
 export type AvatarId = keyof typeof AVATARS
-const AVATAR_IDS = Object.keys(AVATARS) as AvatarId[]
+export const AVATAR_IDS = Object.keys(AVATARS) as AvatarId[]
 
 const PREFIX = 'avatar:'
 

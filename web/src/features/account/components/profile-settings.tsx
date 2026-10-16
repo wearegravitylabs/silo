@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { DangerZone } from '@/components/danger-zone'
+import { DangerZone, DangerZoneItem } from '@/components/danger-zone'
 import { Button } from '@/components/ui/button'
 import { UnsavedChangesBar } from '@/components/unsaved-changes-bar'
 import { DELETE_ACCOUNT_WARNING } from '../constants'
@@ -32,16 +32,17 @@ export function ProfileSettings({ user }: { user: User }) {
         <ProfileFields email={user.email} draft={draft} errors={errors} onChange={change} onSubmit={save} />
       </div>
 
-      <DangerZone
-        className="mt-10 mb-10"
-        title="Delete Account"
-        description={DELETE_ACCOUNT_WARNING}
-        action={
-          <Button variant="destructive-subtle" size="xs" onClick={startDeletion}>
-            Delete Account
-          </Button>
-        }
-      />
+      <DangerZone className="mt-10 mb-10">
+        <DangerZoneItem
+          title="Delete Account"
+          description={DELETE_ACCOUNT_WARNING}
+          action={
+            <Button variant="destructive-subtle" size="xs" onClick={startDeletion}>
+              Delete Account
+            </Button>
+          }
+        />
+      </DangerZone>
       <DeleteAccountDialog open={deleting} onOpenChange={setDeleting} email={user.email} />
 
       <UnsavedChangesBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />

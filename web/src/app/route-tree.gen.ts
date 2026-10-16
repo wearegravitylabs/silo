@@ -38,6 +38,7 @@ import { Route as PortfolioPortfolioIdDashboardRouteImport } from './../routes/p
 import { Route as PortfolioPortfolioIdDebtsRouteImport } from './../routes/portfolio/$portfolioId/debts'
 import { Route as PortfolioPortfolioIdProjectionsRouteImport } from './../routes/portfolio/$portfolioId/projections'
 import { Route as PortfolioPortfolioIdVaultRouteImport } from './../routes/portfolio/$portfolioId/vault'
+import { Route as SettingsPortfoliosPortfolioIdRouteImport } from './../routes/settings/portfolios.$portfolioId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -189,6 +190,12 @@ const PortfolioPortfolioIdVaultRoute =
     path: '/vault',
     getParentRoute: () => PortfolioPortfolioIdRouteRoute,
   } as any)
+const SettingsPortfoliosPortfolioIdRoute =
+  SettingsPortfoliosPortfolioIdRouteImport.update({
+    id: '/portfolios/$portfolioId',
+    path: '/portfolios/$portfolioId',
+    getParentRoute: () => SettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
   '/portfolio/$portfolioId/projections': typeof PortfolioPortfolioIdProjectionsRoute
   '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
+  '/settings/portfolios/$portfolioId': typeof SettingsPortfoliosPortfolioIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -247,6 +255,7 @@ export interface FileRoutesByTo {
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
   '/portfolio/$portfolioId/projections': typeof PortfolioPortfolioIdProjectionsRoute
   '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
+  '/settings/portfolios/$portfolioId': typeof SettingsPortfoliosPortfolioIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -279,6 +288,7 @@ export interface FileRoutesById {
   '/portfolio/$portfolioId/debts': typeof PortfolioPortfolioIdDebtsRoute
   '/portfolio/$portfolioId/projections': typeof PortfolioPortfolioIdProjectionsRoute
   '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
+  '/settings/portfolios/$portfolioId': typeof SettingsPortfoliosPortfolioIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/debts'
     | '/portfolio/$portfolioId/projections'
     | '/portfolio/$portfolioId/vault'
+    | '/settings/portfolios/$portfolioId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -339,6 +350,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/debts'
     | '/portfolio/$portfolioId/projections'
     | '/portfolio/$portfolioId/vault'
+    | '/settings/portfolios/$portfolioId'
   id:
     | '__root__'
     | '/'
@@ -370,6 +382,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/debts'
     | '/portfolio/$portfolioId/projections'
     | '/portfolio/$portfolioId/vault'
+    | '/settings/portfolios/$portfolioId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -588,6 +601,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortfolioPortfolioIdVaultRouteImport
       parentRoute: typeof PortfolioPortfolioIdRouteRoute
     }
+    '/settings/portfolios/$portfolioId': {
+      id: '/settings/portfolios/$portfolioId'
+      path: '/portfolios/$portfolioId'
+      fullPath: '/settings/portfolios/$portfolioId'
+      preLoaderRoute: typeof SettingsPortfoliosPortfolioIdRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
   }
 }
 
@@ -637,6 +657,7 @@ interface SettingsRouteRouteChildren {
   SettingsProfileRoute: typeof SettingsProfileRoute
   SettingsSecurityRoute: typeof SettingsSecurityRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
+  SettingsPortfoliosPortfolioIdRoute: typeof SettingsPortfoliosPortfolioIdRoute
 }
 
 const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
@@ -647,6 +668,7 @@ const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
   SettingsProfileRoute: SettingsProfileRoute,
   SettingsSecurityRoute: SettingsSecurityRoute,
   SettingsIndexRoute: SettingsIndexRoute,
+  SettingsPortfoliosPortfolioIdRoute: SettingsPortfoliosPortfolioIdRoute,
 }
 
 const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(

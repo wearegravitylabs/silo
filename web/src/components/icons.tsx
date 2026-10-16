@@ -243,3 +243,13 @@ export function CalendarIcon({ className, ...props }: IconProps) {
     </Svg>
   )
 }
+
+/** Filled info dot for field hints ("This is the currency you mostly operate with"). */
+export function InfoDotIcon({ className, ...props }: IconProps) {
+  return (
+    <Svg viewBox="0 0 24 24" className={cn('size-3', className)} {...props}>
+      <circle cx="12" cy="12" r="10" className="fill-subtle" />
+      <path d="M12 16v-4M12 8h.01" className="stroke-white" strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  )
+}

@@ -11,15 +11,16 @@ export function SettingsPage({
   wide = false,
   children,
 }: {
-  title: string
-  description: string
+  /** May lead with an icon (a portfolio's face) */
+  title: ReactNode
+  description: ReactNode
   wide?: boolean
   children?: ReactNode
 }) {
   return (
     <div className={cn('mx-auto flex w-full flex-1 flex-col px-4 pt-8 pb-6 md:pt-17 md:pb-24', wide ? 'md:px-10' : 'max-w-136 sm:px-0')}>
       <header className="mb-10 flex flex-col gap-1.5">
-        <h1 className="font-sans text-xl leading-7 font-semibold tracking-normal">{title}</h1>
+        <h1 className="flex items-center gap-2 font-sans text-xl leading-7 font-semibold tracking-normal">{title}</h1>
         <p className="text-xs leading-5">{description}</p>
       </header>
       {children}
