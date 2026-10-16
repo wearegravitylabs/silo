@@ -68,9 +68,15 @@ const removeMockPortfolio = (id: string) => {
   MOCK_PORTFOLIOS.splice(MOCK_PORTFOLIOS.indexOf(findPortfolio(id)), 1)
 }
 
-// TODO: mocked. Real call: api(`/portfolios/${id}`, { method: 'DELETE' })
-export const deletePortfolio = async (id: string) => {
-  await delay(600)
+/** Emails the owner the code that confirms deleting a portfolio. */
+// TODO: mocked. Real call: api(`/portfolios/${id}/deletion-code`, { method: 'POST' })
+export const requestPortfolioDeletionCode = async (_id: string) => {
+  await delay(400)
+}
+
+// TODO: mocked. Real call: api(`/portfolios/${id}`, { method: 'DELETE', body: { code } })
+export const deletePortfolio = async ({ id }: { id: string; code: string }) => {
+  await delay(800)
   removeMockPortfolio(id)
 }
 

@@ -7,6 +7,7 @@ import {
   listCurrencies,
   leavePortfolio,
   listPortfolios,
+  requestPortfolioDeletionCode,
   requestToJoin,
   updatePortfolio,
 } from './api'
@@ -50,6 +51,8 @@ export const useDeletePortfolio = () => {
   const qc = useQueryClient()
   return useMutation({ mutationFn: deletePortfolio, onSuccess: () => void qc.invalidateQueries({ queryKey: portfoliosQuery.queryKey }) })
 }
+
+export const useRequestPortfolioDeletionCode = () => useMutation({ mutationFn: requestPortfolioDeletionCode })
 
 export const useLeavePortfolio = () => {
   const qc = useQueryClient()

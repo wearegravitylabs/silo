@@ -4,6 +4,7 @@ import { ChangeEmailDialog, DeleteAccountDialog } from '@/features/account'
 import { UpgradeModal } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
+import { DeletePortfolioDialog, LeavePortfolioDialog } from '@/features/portfolios'
 import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions, SlotDialog, slotsOf } from '@/features/projections'
 import { ChangeVaultPasswordDialog, VaultSetupDialog } from '@/features/vault'
 import {
@@ -307,6 +308,43 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     id: 'delete-ready',
     label: 'Delete Account — ready',
     render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" defaultAcknowledged />,
+  },
+
+  {
+    group: 'Portfolio',
+    id: 'portfolio-leave',
+    label: 'Leave Portfolio',
+    render: () => <LeavePortfolioDialog open onOpenChange={noop} portfolioName="Retirement" onConfirm={noop} />,
+  },
+  {
+    group: 'Portfolio',
+    id: 'portfolio-delete-empty',
+    label: 'Delete Portfolio — empty',
+    render: () => <DeletePortfolioDialog open onOpenChange={noop} portfolioName="Retirement" email={MY_EMAIL} onConfirm={noop} />,
+  },
+  {
+    group: 'Portfolio',
+    id: 'portfolio-delete-code',
+    label: 'Delete Portfolio — code entered',
+    render: () => (
+      <DeletePortfolioDialog open onOpenChange={noop} portfolioName="Retirement" email={MY_EMAIL} onConfirm={noop} defaultCode="123456" />
+    ),
+  },
+  {
+    group: 'Portfolio',
+    id: 'portfolio-delete-ready',
+    label: 'Delete Portfolio — ready',
+    render: () => (
+      <DeletePortfolioDialog
+        open
+        onOpenChange={noop}
+        portfolioName="Retirement"
+        email={MY_EMAIL}
+        onConfirm={noop}
+        defaultCode="123456"
+        defaultAcknowledged
+      />
+    ),
   },
 
   {

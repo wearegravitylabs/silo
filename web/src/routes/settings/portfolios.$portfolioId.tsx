@@ -25,6 +25,7 @@ function PortfolioSettingsPage() {
         <PortfolioSettings
           key={portfolio.id}
           portfolio={portfolio}
+          email={me.email}
           isOwner={portfolio.user_id === me.id}
           canLeave={portfolios.length > 1}
           nextPortfolioId={portfolios.find((p) => p.id !== portfolio.id)?.id}

@@ -1,19 +1,21 @@
 import { useId, useState, type ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DangerZone, DangerZoneItem } from '@/components/danger-zone'
 import { FormField } from '@/components/form-field'
 import { InfoDotIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { toastDone } from '@/components/ui/sonner'
 import { Tooltip } from '@/components/ui/tooltip'
 import { UnsavedChangesBar } from '@/components/unsaved-changes-bar'
 import { portfolioUrl } from '../lib'
-import { useDeletePortfolio, useLeavePortfolio } from '../queries'
+import { useDeletePortfolio, useLeavePortfolio, useRequestPortfolioDeletionCode } from '../queries'
 import type { Portfolio } from '../types'
 import { AvatarPopoverPicker } from './avatar-popover-picker'
 import { CurrencyField } from './currency-field'
+import { DeletePortfolioDialog } from './delete-portfolio-dialog'
+import { LeavePortfolioDialog } from './leave-portfolio-dialog'
 import { usePortfolioDraft } from './use-portfolio-draft'
 
 // Locked fields read as grey fills, not dimmed (Figma, partner view).
@@ -28,11 +30,14 @@ const LAST_PORTFOLIO_HINT = 'You need to be a partner of at least one portfolio'
  */
 export function PortfolioSettings({
   portfolio,
+  email,
   isOwner,
   canLeave,
   nextPortfolioId,
 }: {
   portfolio: Portfolio
+  /** Where the deletion code goes */
+  email: string
   isOwner: boolean
   /** False when it's the user's only portfolio: Leave and Delete are locked */
   canLeave: boolean
@@ -43,6 +48,7 @@ export function PortfolioSettings({
   const [confirming, setConfirming] = useState<'leave' | 'delete' | null>(null)
   const leave = useLeavePortfolio()
   const remove = useDeletePortfolio()
+  const requestCode = useRequestPortfolioDeletionCode()
   const navigate = useNavigate()
   const id = useId()
 
@@ -54,20 +60,28 @@ export function PortfolioSettings({
   const confirmLeave = () =>
     leave.mutate(portfolio.id, {
       onSuccess: () => {
-        toast.success(`You left ${portfolio.name}`)
+        toastDone('You have left the portfolio successfully!')
         goOn()
       },
       onError: () => toast.error('Couldn’t leave this portfolio. Try again.'),
     })
 
-  const confirmDelete = () =>
-    remove.mutate(portfolio.id, {
-      onSuccess: () => {
-        toast.success(`${portfolio.name} has been deleted`)
-        goOn()
+  const startDeletion = () => {
+    setConfirming('delete')
+    requestCode.mutate(portfolio.id, { onError: () => toast.error('Couldn’t send the deletion code. Try again.') })
+  }
+
+  // A rejected code shows in the dialog.
+  const confirmDelete = (code: string) =>
+    remove.mutate(
+      { id: portfolio.id, code },
+      {
+        onSuccess: () => {
+          toastDone('Portfolio has been deleted successfully')
+          goOn()
+        },
       },
-      onError: () => toast.error('Couldn’t delete this portfolio. Try again.'),
-    })
+    )
 
   return (
     <>
@@ -141,7 +155,7 @@ export function PortfolioSettings({
             description="Permanently delete this portfolio and all its data"
             action={
               <LockedHint locked={!canLeave}>
-                <Button variant="destructive-subtle" size="xs" disabled={!canLeave} onClick={() => setConfirming('delete')}>
+                <Button variant="destructive-subtle" size="xs" disabled={!canLeave} onClick={startDeletion}>
                   Delete Portfolio
                 </Button>
               </LockedHint>
@@ -150,28 +164,23 @@ export function PortfolioSettings({
         )}
       </DangerZone>
 
-      <ConfirmDialog
+      <LeavePortfolioDialog
         open={confirming === 'leave'}
         onOpenChange={(open) => !open && setConfirming(null)}
-        title="Leave Portfolio"
-        confirmLabel="Leave Portfolio"
-        pendingLabel="Leaving…"
+        portfolioName={portfolio.name}
         pending={leave.isPending}
         onConfirm={confirmLeave}
-      >
-        You’ll lose access to {portfolio.name} straight away. To come back, its owner will have to invite you again.
-      </ConfirmDialog>
-      <ConfirmDialog
+      />
+      <DeletePortfolioDialog
         open={confirming === 'delete'}
         onOpenChange={(open) => !open && setConfirming(null)}
-        title="Delete Portfolio"
-        confirmLabel="Delete Portfolio"
+        portfolioName={portfolio.name}
+        email={email}
         pending={remove.isPending}
+        invalid={remove.isError}
+        onReset={remove.reset}
         onConfirm={confirmDelete}
-      >
-        This permanently deletes {portfolio.name} with all its assets, debts, documents and projections, for you and every partner. It can’t
-        be undone.
-      </ConfirmDialog>
+      />
 
       <UnsavedChangesBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />
     </>

@@ -1,9 +1,9 @@
-import { Toaster as Sonner, type ToasterProps } from 'sonner'
+import { toast, Toaster as Sonner, type ToasterProps } from 'sonner'
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon, XIcon } from 'lucide-react'
 
 /**
- * App toasts, top right. Solid status colour with white text (success green, error red); others are white cards.
- * Every toast has a ✕. Call with `toast.success('…')` from 'sonner'.
+ * App toasts, top right. Solid status colour with white text (success green, error red), dark for `toastDone`;
+ * others are white cards. Every toast has a ✕. Call with `toast.success('…')` from 'sonner'.
  */
 const Toaster = (props: ToasterProps) => (
   <Sonner
@@ -26,6 +26,8 @@ const Toaster = (props: ToasterProps) => (
           'flex w-full items-center gap-3 rounded-lg border border-border bg-popover px-4 py-3 font-medium text-popover-foreground shadow-elevated sm:w-99',
         success: 'border-transparent bg-success text-white',
         error: 'border-transparent bg-destructive text-white',
+        // Only toastDone uses the info type
+        info: 'border-transparent bg-foreground text-background',
         icon: 'flex shrink-0',
         content: 'min-w-0 flex-1',
         description: 'text-xs font-normal opacity-80',
@@ -37,4 +39,7 @@ const Toaster = (props: ToasterProps) => (
   />
 )
 
-export { Toaster }
+/** Dark toast with a tick, for a finished step that took something away ("You have left the portfolio successfully!"). */
+const toastDone = (message: string) => toast.info(message, { icon: <CircleCheckIcon className="size-4 fill-background text-foreground" /> })
+
+export { Toaster, toastDone }

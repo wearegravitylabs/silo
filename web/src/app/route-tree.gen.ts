@@ -39,6 +39,7 @@ import { Route as PortfolioPortfolioIdDebtsRouteImport } from './../routes/portf
 import { Route as PortfolioPortfolioIdProjectionsRouteImport } from './../routes/portfolio/$portfolioId/projections'
 import { Route as PortfolioPortfolioIdVaultRouteImport } from './../routes/portfolio/$portfolioId/vault'
 import { Route as SettingsPortfoliosPortfolioIdRouteImport } from './../routes/settings/portfolios.$portfolioId'
+import { Route as SettingsPortfoliosNewRouteImport } from './../routes/settings/portfolios.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -196,6 +197,11 @@ const SettingsPortfoliosPortfolioIdRoute =
     path: '/portfolios/$portfolioId',
     getParentRoute: () => SettingsRouteRoute,
   } as any)
+const SettingsPortfoliosNewRoute = SettingsPortfoliosNewRouteImport.update({
+  id: '/portfolios/new',
+  path: '/portfolios/new',
+  getParentRoute: () => SettingsRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -227,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/portfolio/$portfolioId/projections': typeof PortfolioPortfolioIdProjectionsRoute
   '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
   '/settings/portfolios/$portfolioId': typeof SettingsPortfoliosPortfolioIdRoute
+  '/settings/portfolios/new': typeof SettingsPortfoliosNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -256,6 +263,7 @@ export interface FileRoutesByTo {
   '/portfolio/$portfolioId/projections': typeof PortfolioPortfolioIdProjectionsRoute
   '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
   '/settings/portfolios/$portfolioId': typeof SettingsPortfoliosPortfolioIdRoute
+  '/settings/portfolios/new': typeof SettingsPortfoliosNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -289,6 +297,7 @@ export interface FileRoutesById {
   '/portfolio/$portfolioId/projections': typeof PortfolioPortfolioIdProjectionsRoute
   '/portfolio/$portfolioId/vault': typeof PortfolioPortfolioIdVaultRoute
   '/settings/portfolios/$portfolioId': typeof SettingsPortfoliosPortfolioIdRoute
+  '/settings/portfolios/new': typeof SettingsPortfoliosNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -322,6 +331,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/projections'
     | '/portfolio/$portfolioId/vault'
     | '/settings/portfolios/$portfolioId'
+    | '/settings/portfolios/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/projections'
     | '/portfolio/$portfolioId/vault'
     | '/settings/portfolios/$portfolioId'
+    | '/settings/portfolios/new'
   id:
     | '__root__'
     | '/'
@@ -383,6 +394,7 @@ export interface FileRouteTypes {
     | '/portfolio/$portfolioId/projections'
     | '/portfolio/$portfolioId/vault'
     | '/settings/portfolios/$portfolioId'
+    | '/settings/portfolios/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -608,6 +620,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPortfoliosPortfolioIdRouteImport
       parentRoute: typeof SettingsRouteRoute
     }
+    '/settings/portfolios/new': {
+      id: '/settings/portfolios/new'
+      path: '/portfolios/new'
+      fullPath: '/settings/portfolios/new'
+      preLoaderRoute: typeof SettingsPortfoliosNewRouteImport
+      parentRoute: typeof SettingsRouteRoute
+    }
   }
 }
 
@@ -658,6 +677,7 @@ interface SettingsRouteRouteChildren {
   SettingsSecurityRoute: typeof SettingsSecurityRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
   SettingsPortfoliosPortfolioIdRoute: typeof SettingsPortfoliosPortfolioIdRoute
+  SettingsPortfoliosNewRoute: typeof SettingsPortfoliosNewRoute
 }
 
 const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
@@ -669,6 +689,7 @@ const SettingsRouteRouteChildren: SettingsRouteRouteChildren = {
   SettingsSecurityRoute: SettingsSecurityRoute,
   SettingsIndexRoute: SettingsIndexRoute,
   SettingsPortfoliosPortfolioIdRoute: SettingsPortfoliosPortfolioIdRoute,
+  SettingsPortfoliosNewRoute: SettingsPortfoliosNewRoute,
 }
 
 const SettingsRouteRouteWithChildren = SettingsRouteRoute._addFileChildren(

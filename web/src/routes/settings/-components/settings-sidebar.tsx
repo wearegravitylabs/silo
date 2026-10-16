@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { Link, useCanGoBack, useRouter } from '@tanstack/react-router'
+import { Link, useCanGoBack, useParams, useRouter } from '@tanstack/react-router'
 import { BellIcon, ChevronLeftIcon, CreditCardIcon, KeyRoundIcon, PlusIcon, SlidersHorizontalIcon, UserIcon, UsersIcon } from 'lucide-react'
 import { AvatarFace, avatarIdFromImageUrl, usePortfolios } from '@/features/portfolios'
 import { cn } from '@/lib/utils'
@@ -38,6 +38,8 @@ export function SettingsSidebar() {
 
 function SettingsSidebarContent({ collapsed, drawer }: { collapsed: boolean; drawer: boolean }) {
   const portfolios = usePortfolios()
+  // The portfolio page you're on, so Create a portfolio can lead back to it
+  const { portfolioId } = useParams({ strict: false })
 
   return (
     <div className="flex h-full w-full flex-col gap-3 overflow-y-auto">
@@ -75,7 +77,13 @@ function SettingsSidebarContent({ collapsed, drawer }: { collapsed: boolean; dra
               <NavLabel collapsed={collapsed}>{p.name}</NavLabel>
             </Link>
           ))}
-          <Link to="/onboarding/portfolio" title={collapsed ? 'Create a portfolio' : undefined} className={navItemClass(collapsed)}>
+          <Link
+            to="/settings/portfolios/new"
+            search={{ from: portfolioId }}
+            replace
+            title={collapsed ? 'Create a portfolio' : undefined}
+            className={navItemClass(collapsed)}
+          >
             <PlusIcon />
             <NavLabel collapsed={collapsed}>Create a portfolio</NavLabel>
           </Link>
