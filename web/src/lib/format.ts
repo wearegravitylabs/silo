@@ -56,10 +56,13 @@ export function formatDay(day: string): string {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-/** "2026-03-12" → "12 Mar 2026" */
-export function formatDayMonthYear(day: string): string {
+/** "2026-03-12" → "12 Mar 2026", or "12 Mar, 2026" with `comma` (billing dates) */
+export function formatDayMonthYear(day: string, { comma = false } = {}): string {
   const [y, m, d] = day.slice(0, 10).split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const date = new Date(y, m - 1, d)
+  // en-US: three-letter months ("Sep", not en-GB's "Sept")
+  if (comma) return `${d} ${date.toLocaleDateString('en-US', { month: 'short' })}, ${y}`
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 /** "JAN 5, 2026 – ongoing" */

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
 import { ChangeEmailDialog, DeleteAccountDialog } from '@/features/account'
-import { UpgradeModal } from '@/features/billing'
+import { EndTrialDialog, InvoicePanel, shiftDay, today, UpgradeModal, type Invoice } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
 import { WelcomeModal } from '@/features/dashboard'
 import { DeletePortfolioDialog, LeavePortfolioDialog } from '@/features/portfolios'
@@ -33,6 +33,22 @@ const noop = () => {}
 const MY_EMAIL = 'john.doe@yahoo.com'
 const NEW_EMAIL = 'john.doe@gmail.com'
 const INVITEE = 'kehinde.odetola@gmail.com'
+
+/** An invoice's panel, frozen open: paid, or unpaid and due `dueInDays` from today. */
+const invoicePanel = ({ paid = false, dueInDays = 0 }: { paid?: boolean; dueInDays?: number }) => {
+  const day = shiftDay(today(), { days: paid ? -19 : dueInDays })
+  const invoice: Invoice = {
+    id: 'inv',
+    number: '01FGMZ-001',
+    plan_name: 'Premium Plan',
+    amount: 28_000,
+    currency: 'NGN',
+    due_date: day,
+    paid_at: paid ? day : null,
+    payment_method: paid ? 'MASTERCARD 1025' : null,
+  }
+  return <InvoicePanel invoice={invoice} open onOpenChange={noop} onPay={noop} onDownload={noop} />
+}
 
 /** One rule blank's modal, frozen open: the template and slot key pick which. */
 const blank = (template: Parameters<typeof slotsOf>[0], key: string, value = '') => (
@@ -409,6 +425,23 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     label: 'Yearly — USD',
     render: () => <UpgradeModal open onOpenChange={noop} defaultCycle="yearly" defaultCurrency="USD" />,
   },
+  {
+    group: 'Upgrade',
+    id: 'upgrade-current',
+    label: 'Premium — current plan',
+    render: () => <UpgradeModal open onOpenChange={noop} currentCycle="monthly" />,
+  },
+
+  {
+    group: 'Billing',
+    id: 'billing-end-trial',
+    label: 'End Trial',
+    render: () => <EndTrialDialog open onOpenChange={noop} trialDays={7} onConfirm={noop} />,
+  },
+  { group: 'Billing', id: 'invoice-paid', label: 'Invoice — paid', render: () => invoicePanel({ paid: true }) },
+  { group: 'Billing', id: 'invoice-upcoming', label: 'Invoice — upcoming', render: () => invoicePanel({ dueInDays: 11 }) },
+  { group: 'Billing', id: 'invoice-due-today', label: 'Invoice — due today', render: () => invoicePanel({ dueInDays: 0 }) },
+  { group: 'Billing', id: 'invoice-overdue', label: 'Invoice — overdue', render: () => invoicePanel({ dueInDays: -12 }) },
 ]
 
 /**

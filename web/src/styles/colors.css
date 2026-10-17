@@ -145,6 +145,7 @@
   --color-info-subtle: #e9f3fe;
   --color-warning: #f07f22;
   --color-warning-light: #fad7ba;
+  --color-warning-subtle: #fef3ea; /* notice strips (subscription expired) */
   --color-destructive-light: #fac1ba;
 
   /* Data viz (allocation bars), darkest first */
@@ -199,6 +200,7 @@
   --color-destructive-subtle: color-mix(in srgb, var(--color-destructive) 16%, var(--background));
   --color-success-subtle: color-mix(in srgb, var(--color-success) 16%, var(--background));
   --color-info-subtle: color-mix(in srgb, var(--color-info) 16%, var(--background));
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 16%, var(--background));
   --color-sky-subtle: color-mix(in srgb, var(--color-sky) 16%, var(--background));
   --color-chart-4: color-mix(in srgb, var(--color-chart-2) 45%, var(--background));
   --color-chart-5: color-mix(in srgb, var(--color-chart-2) 25%, var(--background));

@@ -1,16 +1,13 @@
-import { useId, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { FramedCard } from '@/components/framed-card'
 import { cn } from '@/lib/utils'
 
-/** "DANGER ZONE" frame for irreversible actions: grey card with the label, holding one or more <DangerZoneItem>s. */
+/** "DANGER ZONE" frame for irreversible actions, holding one or more <DangerZoneItem>s. */
 export function DangerZone({ className, children }: { className?: string; children: ReactNode }) {
-  const labelId = useId()
   return (
-    <section aria-labelledby={labelId} className={cn('flex flex-col rounded-xl border bg-surface', className)}>
-      <h2 id={labelId} className="px-4 py-1.25 font-sans text-eyebrow">
-        Danger Zone
-      </h2>
-      <div className="-mx-px -mb-px flex flex-col gap-0.5">{children}</div>
-    </section>
+    <FramedCard label="Danger Zone" className={className}>
+      {children}
+    </FramedCard>
   )
 }
 

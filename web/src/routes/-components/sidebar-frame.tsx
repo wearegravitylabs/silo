@@ -9,9 +9,15 @@ import { useSidebarStore } from '@/stores/sidebar-store'
 
 /**
  * Desktop: sticky column that collapses to an icon rail. Below lg: a drawer opened by <SidebarMenuButton>.
- * `children` renders the content for either place.
+ * `children` renders the content for either place. `className` styles the desktop column (e.g. h-full).
  */
-export function SidebarFrame({ children }: { children: (state: { collapsed: boolean; drawer: boolean }) => ReactNode }) {
+export function SidebarFrame({
+  className,
+  children,
+}: {
+  className?: string
+  children: (state: { collapsed: boolean; drawer: boolean }) => ReactNode
+}) {
   const { collapsed, mobileOpen, setMobileOpen } = useSidebarStore()
   const { pathname } = useLocation()
 
@@ -24,6 +30,7 @@ export function SidebarFrame({ children }: { children: (state: { collapsed: bool
         className={cn(
           'sticky top-0 hidden h-dvh shrink-0 overflow-hidden bg-surface transition-[width] duration-200 ease-in-out lg:flex',
           collapsed ? 'w-16' : 'w-67',
+          className,
         )}
       >
         {children({ collapsed, drawer: false })}

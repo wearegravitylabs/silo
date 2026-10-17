@@ -13,6 +13,7 @@ import { PREMIUM_FEATURES, PREMIUM_MONTHLY, premiumPrice, YEARLY_DISCOUNT, type 
 /**
  * Premium upsell: billing cycle and currency, price, Upgrade Plan, what's included — beside the brand
  * artwork. The artwork hides on small screens. Upgrade Plan reports through onUpgrade; `upgrading` shows progress.
+ * On Premium, `currentCycle` turns that cycle's button into a quiet "Current Plan".
  */
 export function UpgradeModal({
   open,
@@ -21,6 +22,7 @@ export function UpgradeModal({
   defaultCycle = 'monthly',
   onUpgrade,
   upgrading = false,
+  currentCycle,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -29,9 +31,12 @@ export function UpgradeModal({
   onUpgrade?: (plan: { currency: string; cycle: BillingCycle }) => void
   /** The upgrade is in progress: Upgrade Plan shows a spinner. */
   upgrading?: boolean
+  /** The cycle already paid for (Premium) */
+  currentCycle?: BillingCycle
 }) {
   const [cycle, setCycle] = useState<BillingCycle>(defaultCycle)
   const [currency, setCurrency] = useState(defaultCurrency in PREMIUM_MONTHLY ? defaultCurrency : 'NGN')
+  const isCurrent = cycle === currentCycle
   const price = formatMoney(premiumPrice(currency, cycle), currency, { spaced: false, decimals: 0 })
 
   return (
@@ -87,15 +92,21 @@ export function UpgradeModal({
             <span className="text-xs leading-5 text-muted-foreground">per {cycle === 'monthly' ? 'month' : 'year'}</span>
           </div>
 
-          <Button
-            size="lg"
-            loading={upgrading}
-            loadingText="Upgrading…"
-            onClick={() => onUpgrade?.({ currency, cycle })}
-            className="mt-6 w-full rounded-lg"
-          >
-            Upgrade Plan
-          </Button>
+          {isCurrent ? (
+            <Button variant="secondary" size="lg" disabled className="mt-6 w-full rounded-lg not-aria-busy:disabled:opacity-100">
+              Current Plan
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              loading={upgrading}
+              loadingText="Upgrading…"
+              onClick={() => onUpgrade?.({ currency, cycle })}
+              className="mt-6 w-full rounded-lg"
+            >
+              Upgrade Plan
+            </Button>
+          )}
 
           <ul className="mt-6 flex flex-col gap-3">
             {PREMIUM_FEATURES.map((feature) => (

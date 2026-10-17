@@ -32,8 +32,8 @@ const SECTIONS: { label?: string; items: { to: SettingsPath; icon: ReactNode; la
 ]
 
 /** Settings navigation: Back, account pages, administration, your portfolios. Collapses like the app sidebar. */
-export function SettingsSidebar() {
-  return <SidebarFrame>{(state) => <SettingsSidebarContent {...state} />}</SidebarFrame>
+export function SettingsSidebar({ className }: { className?: string }) {
+  return <SidebarFrame className={className}>{(state) => <SettingsSidebarContent {...state} />}</SidebarFrame>
 }
 
 function SettingsSidebarContent({ collapsed, drawer }: { collapsed: boolean; drawer: boolean }) {
