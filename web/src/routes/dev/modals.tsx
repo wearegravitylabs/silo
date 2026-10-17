@@ -1,8 +1,21 @@
 import type { ReactNode } from 'react'
 import { createFileRoute, Link, notFound } from '@tanstack/react-router'
-import { UpgradeModal } from '@/features/billing'
+import { ChangeEmailDialog, DeleteAccountDialog } from '@/features/account'
+import { EndTrialDialog, InvoicePanel, shiftDay, today, UpgradeModal, type Invoice } from '@/features/billing'
 import { CommandPalette } from '@/features/command-palette'
-import { ShareModal, type Member, type ShareOwner } from '@/features/sharing'
+import { WelcomeModal } from '@/features/dashboard'
+import { DeletePortfolioDialog, LeavePortfolioDialog } from '@/features/portfolios'
+import { AddRuleSheet, EditScenarioDialog, ProjectionsIntro, ruleOptions, SlotDialog, slotsOf } from '@/features/projections'
+import { ChangeVaultPasswordDialog, VaultSetupDialog } from '@/features/vault'
+import {
+  InvitePartnerDialog,
+  ManageAccessDialog,
+  MOCK_MEMBERS,
+  RevokeMemberDialog,
+  ShareModal,
+  type Member,
+  type ShareOwner,
+} from '@/features/sharing'
 import { PreviewMode } from '@/components/ui/preview-mode'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +30,38 @@ const TAIWO: Member = {
 const TYPED = 'taiwo.odetola@gmail.com'
 const SOME = ['dashboard', 'assets', 'debts', 'projections'] as const
 const noop = () => {}
+const MY_EMAIL = 'john.doe@yahoo.com'
+const NEW_EMAIL = 'john.doe@gmail.com'
+const INVITEE = 'kehinde.odetola@gmail.com'
+
+/** An invoice's panel, frozen open: paid, or unpaid and due `dueInDays` from today. */
+const invoicePanel = ({ paid = false, dueInDays = 0 }: { paid?: boolean; dueInDays?: number }) => {
+  const day = shiftDay(today(), { days: paid ? -19 : dueInDays })
+  const invoice: Invoice = {
+    id: 'inv',
+    number: '01FGMZ-001',
+    plan_name: 'Premium Plan',
+    amount: 28_000,
+    currency: 'NGN',
+    due_date: day,
+    paid_at: paid ? day : null,
+    payment_method: paid ? 'MASTERCARD 1025' : null,
+  }
+  return <InvoicePanel invoice={invoice} open onOpenChange={noop} onPay={noop} onDownload={noop} />
+}
+
+/** One rule blank's modal, frozen open: the template and slot key pick which. */
+const blank = (template: Parameters<typeof slotsOf>[0], key: string, value = '') => (
+  <SlotDialog
+    slot={slotsOf(template).find((s) => s.key === key)!}
+    value={value}
+    open
+    onOpenChange={noop}
+    onSave={noop}
+    currency="USD"
+    options={ruleOptions()}
+  />
+)
 
 /** Every modal state, in design order. Each renders the real component, frozen. */
 const STATES: { group: string; id: string; label: string; render: () => ReactNode }[] = [
@@ -114,6 +159,259 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     render: () => <CommandPalette open onOpenChange={noop} defaultText="add" />,
   },
 
+  { group: 'Welcome', id: 'welcome-video', label: 'Welcome to Silo', render: () => <WelcomeModal open onOpenChange={noop} /> },
+  {
+    group: 'Welcome',
+    id: 'welcome-command-bar',
+    label: 'AI Command Bar',
+    render: () => <WelcomeModal open onOpenChange={noop} defaultStep={1} />,
+  },
+
+  {
+    group: 'Vault',
+    id: 'vault-intro',
+    label: 'Secure Vault',
+    render: () => <VaultSetupDialog portfolioId="dev" open onOpenChange={noop} />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-password',
+    label: 'Create Vault Password',
+    render: () => <VaultSetupDialog portfolioId="dev" open onOpenChange={noop} defaultStep={1} />,
+  },
+
+  {
+    group: 'Vault',
+    id: 'vault-change-intro',
+    label: 'Change Password — verify',
+    render: () => <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-code',
+    label: 'Change Password — code',
+    render: () => <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} defaultStep="code" />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-code-filled',
+    label: 'Change Password — code entered',
+    render: () => (
+      <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} defaultStep="code" defaultCode="123456" />
+    ),
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-code-invalid',
+    label: 'Change Password — invalid code',
+    render: () => (
+      <ChangeVaultPasswordDialog
+        portfolioId="demo"
+        email={MY_EMAIL}
+        open
+        onOpenChange={noop}
+        defaultStep="code"
+        defaultCode="123456"
+        defaultCodeError="Invalid code, please try again!"
+      />
+    ),
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-password',
+    label: 'Change Password — new',
+    render: () => <ChangeVaultPasswordDialog portfolioId="demo" email={MY_EMAIL} open onOpenChange={noop} defaultStep="password" />,
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-password-filled',
+    label: 'Change Password — filled',
+    render: () => (
+      <ChangeVaultPasswordDialog
+        portfolioId="demo"
+        email={MY_EMAIL}
+        open
+        onOpenChange={noop}
+        defaultStep="password"
+        defaultPassword="supersecret"
+      />
+    ),
+  },
+  {
+    group: 'Vault',
+    id: 'vault-change-password-short',
+    label: 'Change Password — too short',
+    render: () => (
+      <ChangeVaultPasswordDialog
+        portfolioId="demo"
+        email={MY_EMAIL}
+        open
+        onOpenChange={noop}
+        defaultStep="password"
+        defaultPassword="secret"
+      />
+    ),
+  },
+
+  { group: 'Projections', id: 'projections-intro', label: 'Intro', render: () => <ProjectionsIntro open onOpenChange={noop} /> },
+  {
+    group: 'Projections',
+    id: 'projections-add-rule',
+    label: 'Add New Rule',
+    render: () => <AddRuleSheet scenarioName="Scenario A" open onOpenChange={noop} onAdd={noop} currency="USD" options={ruleOptions()} />,
+  },
+  { group: 'Projections', id: 'blank-percent', label: 'Value — percent', render: () => blank('portfolio_growth', 'rate') },
+  { group: 'Projections', id: 'blank-money', label: 'Value — money', render: () => blank('target_value', 'target', '95') },
+  { group: 'Projections', id: 'blank-number', label: 'Value — number', render: () => blank('debt_free_goal', 'count') },
+  { group: 'Projections', id: 'blank-time-frame', label: 'Time Frame', render: () => blank('asset_type_growth', 'frequency') },
+  { group: 'Projections', id: 'blank-duration', label: 'Duration', render: () => blank('debt_free_goal', 'unit') },
+  { group: 'Projections', id: 'blank-category', label: 'Category', render: () => blank('regular_expense', 'category') },
+  { group: 'Projections', id: 'blank-year', label: 'Year', render: () => blank('target_value', 'year') },
+  { group: 'Projections', id: 'blank-date', label: 'Date', render: () => blank('one_time_income', 'date') },
+  { group: 'Projections', id: 'blank-asset-type', label: 'Asset type', render: () => blank('asset_type_growth', 'asset_type') },
+  {
+    group: 'Projections',
+    id: 'projections-edit-scenario',
+    label: 'Edit Scenario',
+    render: () => (
+      <EditScenarioDialog
+        scenario={{ id: 'b', portfolio_id: 'demo', name: 'Scenario B', color: 'var(--color-highlight)' }}
+        open
+        onOpenChange={noop}
+        onSave={noop}
+      />
+    ),
+  },
+
+  {
+    group: 'Profile',
+    id: 'email-empty',
+    label: 'Change Email — empty',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} />,
+  },
+  {
+    group: 'Profile',
+    id: 'email-typed',
+    label: 'Change Email — typed',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} defaultEmail={NEW_EMAIL} />,
+  },
+  {
+    group: 'Profile',
+    id: 'email-available',
+    label: 'Change Email — no account',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} defaultEmail={NEW_EMAIL} defaultView="available" />,
+  },
+  {
+    group: 'Profile',
+    id: 'email-exists',
+    label: 'Existing Account Found',
+    render: () => <ChangeEmailDialog open onOpenChange={noop} currentEmail={MY_EMAIL} defaultEmail={NEW_EMAIL} defaultView="exists" />,
+  },
+  {
+    group: 'Profile',
+    id: 'delete-empty',
+    label: 'Delete Account — empty',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} />,
+  },
+  {
+    group: 'Profile',
+    id: 'delete-code',
+    label: 'Delete Account — code entered',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" />,
+  },
+  {
+    group: 'Profile',
+    id: 'delete-ready',
+    label: 'Delete Account — ready',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" defaultAcknowledged />,
+  },
+
+  {
+    group: 'Portfolio',
+    id: 'portfolio-leave',
+    label: 'Leave Portfolio',
+    render: () => <LeavePortfolioDialog open onOpenChange={noop} portfolioName="Retirement" onConfirm={noop} />,
+  },
+  {
+    group: 'Portfolio',
+    id: 'portfolio-delete-empty',
+    label: 'Delete Portfolio — empty',
+    render: () => <DeletePortfolioDialog open onOpenChange={noop} portfolioName="Retirement" email={MY_EMAIL} onConfirm={noop} />,
+  },
+  {
+    group: 'Portfolio',
+    id: 'portfolio-delete-code',
+    label: 'Delete Portfolio — code entered',
+    render: () => (
+      <DeletePortfolioDialog open onOpenChange={noop} portfolioName="Retirement" email={MY_EMAIL} onConfirm={noop} defaultCode="123456" />
+    ),
+  },
+  {
+    group: 'Portfolio',
+    id: 'portfolio-delete-ready',
+    label: 'Delete Portfolio — ready',
+    render: () => (
+      <DeletePortfolioDialog
+        open
+        onOpenChange={noop}
+        portfolioName="Retirement"
+        email={MY_EMAIL}
+        onConfirm={noop}
+        defaultCode="123456"
+        defaultAcknowledged
+      />
+    ),
+  },
+
+  {
+    group: 'Partners',
+    id: 'partner-invite-empty',
+    label: 'Invite — empty',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-invite-typed',
+    label: 'Invite — typed',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} initial={{ email: INVITEE }} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-invite-access-open',
+    label: 'Invite — access type open',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} initial={{ email: INVITEE }} defaultSelectOpen />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-invite-filled',
+    label: 'Invite — filled',
+    render: () => <InvitePartnerDialog open onOpenChange={noop} onSubmit={noop} initial={{ email: INVITEE, role: 'viewer' }} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-edit-invite',
+    label: 'Edit Invite',
+    render: () => <InvitePartnerDialog mode="edit" open onOpenChange={noop} onSubmit={noop} initial={MOCK_MEMBERS[1]} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-manage',
+    label: 'Manage Access',
+    render: () => <ManageAccessDialog member={MOCK_MEMBERS[0]} open onOpenChange={noop} onSave={noop} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-revoke-access',
+    label: 'Revoke Access',
+    render: () => <RevokeMemberDialog member={MOCK_MEMBERS[0]} open onOpenChange={noop} onConfirm={noop} />,
+  },
+  {
+    group: 'Partners',
+    id: 'partner-revoke-invite',
+    label: 'Revoke Invite',
+    render: () => <RevokeMemberDialog member={MOCK_MEMBERS[1]} open onOpenChange={noop} onConfirm={noop} />,
+  },
+
   { group: 'Upgrade', id: 'upgrade-monthly', label: 'Monthly', render: () => <UpgradeModal open onOpenChange={noop} /> },
   {
     group: 'Upgrade',
@@ -127,6 +425,23 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
     label: 'Yearly — USD',
     render: () => <UpgradeModal open onOpenChange={noop} defaultCycle="yearly" defaultCurrency="USD" />,
   },
+  {
+    group: 'Upgrade',
+    id: 'upgrade-current',
+    label: 'Premium — current plan',
+    render: () => <UpgradeModal open onOpenChange={noop} currentCycle="monthly" />,
+  },
+
+  {
+    group: 'Billing',
+    id: 'billing-end-trial',
+    label: 'End Trial',
+    render: () => <EndTrialDialog open onOpenChange={noop} trialDays={7} onConfirm={noop} />,
+  },
+  { group: 'Billing', id: 'invoice-paid', label: 'Invoice — paid', render: () => invoicePanel({ paid: true }) },
+  { group: 'Billing', id: 'invoice-upcoming', label: 'Invoice — upcoming', render: () => invoicePanel({ dueInDays: 11 }) },
+  { group: 'Billing', id: 'invoice-due-today', label: 'Invoice — due today', render: () => invoicePanel({ dueInDays: 0 }) },
+  { group: 'Billing', id: 'invoice-overdue', label: 'Invoice — overdue', render: () => invoicePanel({ dueInDays: -12 }) },
 ]
 
 /**

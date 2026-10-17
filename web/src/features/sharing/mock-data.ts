@@ -1,4 +1,4 @@
-import type { AccessRole, ExportFeature, ExportTemplate, SectionKey } from './types'
+import type { AccessRole, ExportFeature, ExportTemplate, Member, SectionKey } from './types'
 
 /** Sections in display order — shared by the invite access picker and Manage Access, so they can't drift. */
 export const SECTIONS: { key: SectionKey; label: string }[] = [
@@ -13,6 +13,37 @@ export const SECTIONS: { key: SectionKey; label: string }[] = [
 export const ALL_SECTIONS = SECTIONS.map((s) => s.key)
 
 export const ROLE_LABEL: Record<AccessRole, string> = { viewer: 'Viewer', partner: 'Partner' }
+
+export const ROLE_DESCRIPTION: Record<AccessRole, string> = { viewer: 'View-only access', partner: 'Full access and collaboration' }
+
+/** The features offered in Settings → Partners (invite, edit invite, manage access). */
+export const PARTNER_FEATURES: { key: SectionKey; label: string }[] = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'assets', label: 'Assets' },
+  { key: 'debts', label: 'Debts' },
+  { key: 'vault', label: 'Vaults' },
+  { key: 'projections', label: 'Projections' },
+]
+
+/** The demo portfolio's people besides its owner: one who joined, one still invited. */
+export const MOCK_MEMBERS: Member[] = [
+  {
+    id: 'taiwo',
+    name: 'Taiwo Odetola',
+    email: 'taiwo.odetola@gmail.com',
+    role: 'viewer',
+    status: 'active',
+    sections: PARTNER_FEATURES.map((f) => f.key),
+    joined_at: '2026-03-26',
+  },
+  {
+    id: 'kehinde',
+    email: 'kehinde.odetola@gmail.com',
+    role: 'viewer',
+    status: 'invited',
+    sections: PARTNER_FEATURES.map((f) => f.key),
+  },
+]
 
 // TODO: the portfolio's real share link from the API
 export const MOCK_SHARE_LINK = 'https://app.silo.com/102345/retirement-portfolio'

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDate, formatDateRange } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { TabBody, TabEmpty, TabListSkeleton } from '../../components/asset-panel/tab-layout'
+import { TabBody, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 import type { AssetItem } from '../../types'
 import { FREQ_LABELS } from '../constants'
 import { useRules } from '../queries'
@@ -81,7 +81,7 @@ function RuleCard({
   onEdit: () => void
   onPause: () => void
 }) {
-  const tone = rule.action === 'add' ? 'text-positive' : 'text-destructive'
+  const tone = rule.action === 'add' ? 'text-success' : 'text-destructive'
   const amount =
     rule.units != null
       ? `${rule.units.toLocaleString()}${asset.ticker ? ` $${asset.ticker}` : ' units'}`

@@ -1,5 +1,8 @@
 import { useState } from 'react'
-import { CloseIcon, DotsIcon, SearchIcon } from '@/components/icons'
+import { ChangeBadge } from '@/components/change-badge'
+import { FilterMenu } from '@/components/filter-menu'
+import { DotsIcon, SortIcon } from '@/components/icons'
+import { SearchInput } from '@/components/search-input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -8,9 +11,6 @@ import { cn } from '@/lib/utils'
 import { ASSET_TYPE_LABELS } from '../../constants'
 import type { AssetItem } from '../../types'
 import { AssetLogo } from '../asset-logo'
-import { ChangeBadge } from '../change-badge'
-import { SortIcon } from '../icons'
-import { FilterMenu } from './filter-menu'
 
 const INVESTABILITY = [
   { label: 'All', value: null },
@@ -57,21 +57,7 @@ export function AssetTable({
           />
           <FilterMenu label="Investability" value={investability} onChange={setInvestability} options={INVESTABILITY} />
         </div>
-        <label className="flex h-8 w-60 items-center gap-2 rounded-lg border bg-surface px-3 focus-within:border-primary">
-          <SearchIcon className="size-3.5" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search..."
-            aria-label="Search assets"
-            className="flex-1 bg-transparent outline-none placeholder:text-subtle"
-          />
-          {search && (
-            <button type="button" aria-label="Clear search" onClick={() => setSearch('')} className="flex">
-              <CloseIcon className="size-3" />
-            </button>
-          )}
-        </label>
+        <SearchInput value={search} onChange={setSearch} label="Search assets" />
       </div>
 
       <Card className={cn('flex flex-1 flex-col transition-opacity', dimmed && 'opacity-60')} aria-busy={loading || dimmed}>

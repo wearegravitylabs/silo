@@ -1,5 +1,16 @@
 import { queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { createPortfolio, getInvite, getInviteLink, listCurrencies, listPortfolios, requestToJoin, updatePortfolio } from './api'
+import {
+  createPortfolio,
+  deletePortfolio,
+  getInvite,
+  getInviteLink,
+  listCurrencies,
+  leavePortfolio,
+  listPortfolios,
+  requestPortfolioDeletionCode,
+  requestToJoin,
+  updatePortfolio,
+} from './api'
 import type { UpdatePortfolioInput } from './types'
 
 export const portfoliosQuery = queryOptions({ queryKey: ['portfolios'], queryFn: listPortfolios, staleTime: 5 * 60_000 })
@@ -33,6 +44,19 @@ export const useUpdatePortfolio = (id: string) => {
     // Base currency changes every converted value, so refetch everything.
     onSuccess: () => qc.invalidateQueries(),
   })
+}
+
+// Not awaited: the page showing the portfolio navigates away before the list drops it.
+export const useDeletePortfolio = () => {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: deletePortfolio, onSuccess: () => void qc.invalidateQueries({ queryKey: portfoliosQuery.queryKey }) })
+}
+
+export const useRequestPortfolioDeletionCode = () => useMutation({ mutationFn: requestPortfolioDeletionCode })
+
+export const useLeavePortfolio = () => {
+  const qc = useQueryClient()
+  return useMutation({ mutationFn: leavePortfolio, onSuccess: () => void qc.invalidateQueries({ queryKey: portfoliosQuery.queryKey }) })
 }
 
 export const inviteQuery = (token: string) => queryOptions({ queryKey: ['invites', token], queryFn: () => getInvite(token) })

@@ -3,8 +3,7 @@ import { FormField, FormHeading } from '@/components/form-field'
 import { Logo } from '@/components/logo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import { isEmail } from '@/lib/validation'
 
 /** Email-only sign-in/sign-up form. UI only: validates, then hands the email to onSubmit. */
 export function EmailAuthForm({
@@ -21,12 +20,12 @@ export function EmailAuthForm({
   const [email, setEmail] = useState('')
   const [touched, setTouched] = useState(false)
   const [pending, setPending] = useState(false)
-  const emailError = touched && !EMAIL_RE.test(email) ? 'Enter a valid email address' : undefined
+  const emailError = touched && !isEmail(email) ? 'Enter a valid email address' : undefined
 
   const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     setTouched(true)
-    if (pending || !EMAIL_RE.test(email)) return
+    if (pending || !isEmail(email)) return
     setPending(true)
     try {
       await onSubmit(email)

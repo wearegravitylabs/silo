@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useFolderMutations } from '../queries'
-import type { Folder } from '../types'
+import type { Folder, FolderType } from '../types'
 
 const TAB_COLORS = ['bg-folder-1', 'bg-folder-2', 'bg-folder-3', 'bg-folder-4', 'bg-folder-5', 'bg-folder-6']
 
@@ -17,6 +17,7 @@ export function FolderTabs({
   selectedId,
   onSelect,
   portfolioId,
+  folderType,
   showCards,
   onToggleCards,
 }: {
@@ -24,10 +25,12 @@ export function FolderTabs({
   selectedId: string | null
   onSelect: (id: string) => void
   portfolioId: string
-  showCards: boolean
-  onToggleCards: () => void
+  folderType: FolderType
+  /** Pass both to show the Hide/Show stats toggle at the far right. */
+  showCards?: boolean
+  onToggleCards?: () => void
 }) {
-  const { create, rename, remove, reorder } = useFolderMutations(portfolioId, 'asset')
+  const { create, rename, remove, reorder } = useFolderMutations(portfolioId, folderType)
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -67,7 +70,7 @@ export function FolderTabs({
     })
 
   return (
-    <div className="relative flex shrink-0 items-end overflow-x-auto border-b px-10">
+    <div className="relative flex shrink-0 items-end overflow-x-auto border-b border-border px-4 md:px-10">
       <div role="tablist" aria-label="Folders" className="flex items-end">
         {ordered.map((folder, i) => {
           const color = TAB_COLORS[i % TAB_COLORS.length]
@@ -170,16 +173,18 @@ export function FolderTabs({
         </button>
       )}
 
-      <button
-        type="button"
-        onClick={onToggleCards}
-        aria-pressed={!showCards}
-        title={showCards ? 'Hide stats' : 'Show stats'}
-        className="mb-1.5 ml-auto flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-medium text-subtle transition-colors hover:text-muted-foreground"
-      >
-        {showCards ? <EyeOffIcon /> : <EyeIcon />}
-        {showCards ? 'Hide' : 'Show'}
-      </button>
+      {onToggleCards && (
+        <button
+          type="button"
+          onClick={onToggleCards}
+          aria-pressed={!showCards}
+          title={showCards ? 'Hide stats' : 'Show stats'}
+          className="mb-1.5 ml-auto flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-medium text-subtle transition-colors hover:text-muted-foreground"
+        >
+          {showCards ? <EyeOffIcon /> : <EyeIcon />}
+          {showCards ? 'Hide' : 'Show'}
+        </button>
+      )}
     </div>
   )
 }

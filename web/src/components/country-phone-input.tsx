@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CountryFlag } from '@/components/country-flag'
 import { ChevronDownIcon } from '@/components/icons'
 import { SearchList } from '@/components/search-list'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -39,7 +40,7 @@ export function CountryPhoneInput({
             aria-label="Select country code"
             className="flex h-full w-24 shrink-0 items-center gap-1 px-3 transition-colors hover:bg-ink/3"
           >
-            <span className="leading-none">{country.flag}</span>
+            <CountryFlag code={country.code} />
             <span className="font-medium">{country.dialCode}</span>
             <ChevronDownIcon className={cn('transition-transform duration-200', open && 'rotate-180')} />
           </PopoverTrigger>
@@ -71,7 +72,7 @@ export function CountryPhoneInput({
           }}
           renderItem={(c) => (
             <>
-              <span className="w-4.5 leading-none">{c.flag}</span>
+              <CountryFlag code={c.code} />
               <span className="flex-1 truncate">{c.name}</span>
               <span className="shrink-0 text-muted-foreground">{c.dialCode}</span>
             </>

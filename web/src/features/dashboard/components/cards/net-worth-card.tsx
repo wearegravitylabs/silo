@@ -1,11 +1,14 @@
-import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
+import { useState } from 'react'
+import { CardHead } from '@/components/card-head'
 import { Card } from '@/components/ui/card'
+import { LineChart } from '@/components/line-chart'
+import { PeriodTabs } from '@/components/period-tabs'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { PERIODS, type DashboardChartPoint, type DashboardNetWorth, type DashboardPeriod } from '../../types'
-import { CardHead } from '../shared/card-head'
-import { NetWorthIcon } from '../shared/icons'
-import { LineChart } from '../shared/line-chart'
+import type { DashboardChartPoint, DashboardNetWorth, DashboardPeriod } from '../../types'
+import { NetWorthIcon } from '@/components/icons'
+import { NetWorthTotal } from '../shared/net-worth-summary'
+import { NetWorthModal } from './net-worth-modal'
 
 /** Series colour per currency; anything else is neutral grey. */
 const CURRENCY_BAR: Record<string, string> = {
@@ -28,32 +31,20 @@ export function NetWorthCard({
   onPeriod: (p: DashboardPeriod) => void
   className?: string
 }) {
-  const up = (nw.change_amount ?? 0) >= 0
-  const description = PERIODS.find((p) => p.label === period)?.description
+  const [expanded, setExpanded] = useState(false)
+  // Currencies with assets; an empty portfolio still shows the first few at zero. The modal lists them all.
+  const held = nw.by_currency.filter((c) => c.count > 0)
+  const currencies = held.length ? held : nw.by_currency.slice(0, 3)
 
   return (
     <Card className={cn('flex flex-col', className)}>
-      <CardHead icon={<NetWorthIcon />} title="Total Net Worth" bordered={false} />
+      <CardHead icon={<NetWorthIcon />} title="Total Net Worth" bordered={false} onExpand={() => setExpanded(true)} />
 
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5 px-4 pt-3">
-        <div className="flex flex-col gap-2">
-          <span className="font-heading text-[1.75rem] leading-9 font-bold tracking-[-0.0125rem] text-foreground">
-            {formatMoney(nw.total, nw.currency)}
-          </span>
-          {nw.change_amount != null && (
-            <p className="flex items-center gap-1.5 text-xs leading-5">
-              <span className={cn('flex items-center gap-1 font-medium', up ? 'text-positive' : 'text-negative')}>
-                {up ? <ArrowUpIcon className="size-3.5" aria-hidden /> : <ArrowDownIcon className="size-3.5" aria-hidden />}
-                {formatMoney(Math.abs(nw.change_amount), nw.currency, { spaced: false })}
-                {nw.change_pct != null && ` (${Math.abs(Math.round(nw.change_pct))}%)`}
-              </span>
-              {description}
-            </p>
-          )}
-        </div>
+        <NetWorthTotal nw={nw} period={period} />
 
         <dl className="flex flex-wrap gap-x-6 gap-y-3">
-          {nw.by_currency.map(({ currency, value }) => (
+          {currencies.map(({ currency, value }) => (
             <div key={currency} className="flex items-stretch gap-2.5">
               <span className={cn('w-0.75 shrink-0 rounded-full', CURRENCY_BAR[currency] ?? 'bg-currency-other')} />
               <div className="flex flex-col gap-1.5 py-0.5">
@@ -67,21 +58,11 @@ export function NetWorthCard({
 
       {/* The chart takes whatever height the card leaves: 200px when stacked, the rest of the 404px row when side by side. */}
       <div className="flex min-h-0 flex-1 flex-col px-4 pt-4 pb-4">
-        <LineChart points={chartPoints} className="h-50 @4xl:h-auto @4xl:min-h-0 @4xl:flex-1" />
-        <div className="mt-3 flex items-center justify-center gap-1" role="group" aria-label="Chart period">
-          {PERIODS.map(({ label }) => (
-            <button
-              key={label}
-              type="button"
-              aria-pressed={label === period}
-              onClick={() => onPeriod(label)}
-              className="h-6 min-w-8 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-accent aria-pressed:font-semibold aria-pressed:text-foreground"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <LineChart points={chartPoints} currency={nw.currency} label="Net worth" className="h-50 @4xl:h-auto @4xl:min-h-0 @4xl:flex-1" />
+        <PeriodTabs value={period} onChange={onPeriod} className="mt-3" />
       </div>
+
+      <NetWorthModal open={expanded} onOpenChange={setExpanded} nw={nw} chartPoints={chartPoints} period={period} onPeriod={onPeriod} />
     </Card>
   )
 }

@@ -2,8 +2,8 @@ import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/format'
 import { useAssetOverview } from '../queries'
-import { ChangeBadge } from './change-badge'
-import { ExportIcon } from './icons'
+import { ChangeBadge } from '@/components/change-badge'
+import { ExportIcon } from '@/components/icons'
 
 /** "Assets" heading: portfolio total, 30-day growth, Export and Create Asset actions. */
 export function AssetsSummaryHeader({ portfolioId, currency, onCreate }: { portfolioId: string; currency: string; onCreate: () => void }) {

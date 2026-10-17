@@ -18,15 +18,16 @@
   --text-h6--line-height: 1.33;
 
   /* Elevation */
-  --shadow-panel: 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 4px 2px -1px rgb(17 29 80 / 0.04), 0 0 0 0.5px rgb(17 29 80 / 0.12);
+  --shadow-panel:
+    0 2px 2px -1px rgb(var(--shadow-drop) / 0.04), 0 4px 2px -1px rgb(var(--shadow-drop) / 0.04), 0 0 0 0.5px rgb(var(--shadow-ring) / 0.12);
   /* Figma "Button/shadow-small": 1px ring + 1px drop. Buttons, cards, small raised controls. */
-  --shadow-small: 0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.1);
+  --shadow-small: 0 1px 1px -0.5px rgb(var(--shadow-drop) / 0.04), 0 0 0 1px rgb(var(--shadow-ring) / 0.1);
   --shadow-elevated:
-    0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04), 0 1px 1px -0.5px rgb(17 29 80 / 0.04),
-    0 0 0 1px rgb(17 29 80 / 0.08);
+    0 4px 4px -2px rgb(var(--shadow-drop) / 0.04), 0 2px 2px -1px rgb(var(--shadow-drop) / 0.04),
+    0 1px 1px -0.5px rgb(var(--shadow-drop) / 0.04), 0 0 0 1px rgb(var(--shadow-ring) / 0.08);
   --shadow-dropdown:
-    0 8px 8px -1px rgb(17 29 80 / 0.06), 0 4px 4px -2px rgb(17 29 80 / 0.04), 0 2px 2px -1px rgb(17 29 80 / 0.04),
-    0 1px 1px -0.5px rgb(17 29 80 / 0.04), 0 0 0 1px rgb(17 29 80 / 0.08);
+    0 8px 8px -1px rgb(var(--shadow-drop) / 0.06), 0 4px 4px -2px rgb(var(--shadow-drop) / 0.04),
+    0 2px 2px -1px rgb(var(--shadow-drop) / 0.04), 0 1px 1px -0.5px rgb(var(--shadow-drop) / 0.04), 0 0 0 1px rgb(var(--shadow-ring) / 0.08);
   --shadow-popover: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.06);
   --shadow-sheet: -4px 0 32px rgb(0 0 0 / 0.1);
 }
@@ -49,6 +50,16 @@
 }
 
 @layer base {
+  /* Tailwind v4 leaves borders and dividers in the text colour (dark) unless a colour is set. Default every
+     border, divide-* and hr to the light divider token; an explicit border-* colour still wins. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border, currentColor);
+  }
+
   /* 16px until the fluid curve overtakes it at exactly 1536px (5.248 + 0.7% × 1536 = 16), then scales. */
   html {
     font-size: max(16px, 5.248px + 0.7vw);

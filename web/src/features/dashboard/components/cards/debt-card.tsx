@@ -1,13 +1,14 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { CarIcon, GraduationCapIcon, HandCoinsIcon, HouseIcon } from 'lucide-react'
+import { CardHead } from '@/components/card-head'
 import { AiSparkleIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { DashboardDebt, DashboardResponse } from '../../types'
-import { CardHead } from '../shared/card-head'
+import { DebtIcon } from '../shared/icons'
 import { PlaceholderRow } from '../shared/placeholder-row'
 
 const DEBT_ICON: Record<string, typeof HouseIcon> = {
@@ -27,15 +28,14 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
   return (
     <Card>
       <CardHead
-        icon={<HandCoinsIcon className="size-4 text-destructive" />}
+        icon={<DebtIcon />}
         title="Total Debt"
         bordered={false}
         badge={summary.debt_free_date && <DebtFreeBadge date={summary.debt_free_date} />}
         right={
           hasDebts ? (
-            // TODO: point at the Debts page once it exists
             <Button variant="secondary" size="xs" asChild className="shadow-elevated">
-              <Link to="/portfolio/$portfolioId/dashboard" params={{ portfolioId }}>
+              <Link to="/portfolio/$portfolioId/debts" params={{ portfolioId }}>
                 View all
               </Link>
             </Button>
@@ -118,7 +118,7 @@ function DebtRow({ debt }: { debt: DashboardDebt }) {
             {formatMoney(debt.monthly_payment, debt.currency, { decimals: 0 })}/mo
           </span>
           {rate != null && (
-            <span className={cn('text-xs leading-4', rate === 0 ? 'text-positive' : 'text-destructive')}>
+            <span className={cn('text-xs leading-4', rate === 0 ? 'text-success' : 'text-destructive')}>
               {rate === 0 ? 'Interest Free' : `${rate}% interest`}
             </span>
           )}
@@ -134,7 +134,7 @@ function DebtFreeBadge({ date }: { date: string }) {
   const d = new Date(date)
   const years = Math.max(0, Math.round((d.getTime() - now) / (365.25 * 86_400_000)))
   return (
-    <span className="flex h-6 items-center gap-1.5 rounded-md border border-ai-from/50 bg-ai-tint px-2 text-xs whitespace-nowrap text-foreground">
+    <span className="flex items-center gap-0.5 rounded-md bg-gradient-ai-subtle px-1 py-px text-xs leading-5 whitespace-nowrap text-foreground">
       <AiSparkleIcon className="size-3" />
       Debt Free (Scheduled): {d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} (~{years} years)
     </span>

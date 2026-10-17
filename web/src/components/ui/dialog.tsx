@@ -28,6 +28,7 @@ const dialogContentVariants = cva(
       size: {
         sm: 'w-100', // 400px: Share, Manage/Revoke access
         md: 'w-106.5', // 426px: forms, command palette
+        wide: 'w-170', // 680px: expanded dashboard cards (Total Net Worth)
         lg: 'w-226', // 904px: two-column (Upgrade)
       },
       position: {
@@ -67,7 +68,7 @@ function DialogHeader({
   ...props
 }: React.ComponentProps<'div'> & { onBack?: () => void; closable?: boolean }) {
   return (
-    <div className={cn('flex h-13.5 shrink-0 items-center justify-between gap-3 border-b px-5', className)} {...props}>
+    <div className={cn('flex h-13.5 shrink-0 items-center justify-between gap-3 border-b border-border px-5', className)} {...props}>
       <div className="flex min-w-0 items-center gap-2">
         {onBack && (
           <button
@@ -107,7 +108,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<'div'>) {
 
 /** 60px action bar, right-aligned. */
 function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('flex h-15 shrink-0 items-center justify-end gap-2 border-t px-5', className)} {...props} />
+  return <div className={cn('flex h-15 shrink-0 items-center justify-end gap-2 border-t border-border px-5', className)} {...props} />
 }
 
 export { Dialog, DialogBody, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger }

@@ -1,44 +1,151 @@
 /* ─── Colour tokens ────────────────────────────────────────────────────────────
    Every colour in the app. Components use these through Tailwind utilities
    (bg-primary, text-muted-foreground…); no hex values belong anywhere else.
-   Names follow shadcn so its primitives fit. */
+   Names follow shadcn so its primitives fit.
+
+   Theming (Settings → Preferences) works on two layers:
+   1. Themed tokens (neutrals + brand) read raw variables that <html data-theme> swaps between light and
+      dark, and that follow <html data-accent>. `--brand` is the accent; every neutral keeps its lightness but
+      takes the accent's hue once `--tint` is on (lime → green-greys, red → pink-greys). `--tint: 0%` for the
+      default blue, so the default app is exactly the hex values below.
+   2. Static tokens (status, charts, AI…) in the second @theme; dark mode only softens their pale fills.
+   A nested [data-theme] re-scopes layer 1, so a light preview can render inside the dark app. */
+
+/* Layer 1 — `inline`: utilities embed var(--x), resolved on each element, so nested themes work. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle); /* placeholders, meta text, disabled */
+  --color-surface: var(--surface); /* page ground, inputs, sub-cards */
+  --color-accent: var(--fill); /* hover/selected fills, chips */
+  --color-accent-foreground: var(--foreground);
+  --color-line: var(--line); /* stronger divider, inactive dots */
+  --color-border: var(--fill); /* border/default */
+  --color-input: var(--fill);
+
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark); /* brand text, active borders, fills */
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-subtle: var(--primary-subtle); /* selected rows, tints */
+  --color-ring: var(--primary);
+
+  /* shadcn surface slots */
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-secondary: var(--surface);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted: var(--surface);
+}
+
+/* Accent: `--brand` is the chosen colour. Blue is the default; the others reuse palette tokens, `custom` is set
+   inline from the hex field. Any accent but blue turns the hue tint on. */
+:root {
+  --brand: #044ffa;
+  --brand-dark: #033ab8;
+  --tint: 0%;
+  --tint-on: 0;
+}
+:root[data-accent] {
+  --brand-dark: oklch(from var(--brand) calc(l - 0.1) c h);
+  --tint: 100%;
+  --tint-on: 1;
+}
+:root[data-accent='lime'] {
+  --brand: var(--color-highlight);
+}
+:root[data-accent='red'] {
+  --brand: var(--color-destructive);
+}
+:root[data-accent='orange'] {
+  --brand: var(--color-warning);
+}
+:root[data-accent='magenta'] {
+  --brand: var(--color-scenario-magenta);
+}
+:root[data-accent='purple'] {
+  --brand: var(--color-scenario-purple);
+}
+
+/* `tinted(L C, default)`: the default colour, or — with the tint on — that lightness/chroma in the accent's hue. */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --background: #ffffff;
+  --foreground: #2c2e35;
+  --muted-foreground: #6e738c;
+  --subtle: #b3b8cb;
+  --card: #ffffff;
+  --surface: color-mix(in srgb, oklch(from var(--brand) 0.983 0.008 h) var(--tint), #f9f9fb);
+  --fill: color-mix(in srgb, oklch(from var(--brand) 0.956 0.021 h) var(--tint), #eff0f5);
+  --line: color-mix(in srgb, oklch(from var(--brand) 0.923 0.022 h) var(--tint), #e3e5ed);
+  --primary: var(--brand);
+  --primary-dark: var(--brand-dark);
+  --primary-deep: var(--brand-dark); /* bottom of the primary button gradient */
+  --primary-subtle: color-mix(in srgb, oklch(from var(--brand) 0.967 0.03 h) var(--tint), #f0f4ff);
+  /* White on dark accents, black on light ones (lime) */
+  --primary-foreground: oklch(from var(--brand) clamp(0, (0.75 - l) * 1000, 1) 0 0);
+  /* Shadow colours: rings outline controls, drops lift them */
+  --shadow-ring: 17 29 80;
+  --shadow-drop: 17 29 80;
+}
+
+[data-theme='dark'],
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: oklch(from var(--brand) 0.201 calc(0.006 * var(--tint-on) + 0.004) h);
+  --foreground: #f5f4f7;
+  --muted-foreground: #8e909c;
+  --subtle: #5c5e68;
+  --card: oklch(from var(--brand) 0.24 calc(0.008 * var(--tint-on) + 0.004) h);
+  --surface: oklch(from var(--brand) 0.227 calc(0.008 * var(--tint-on) + 0.004) h);
+  --fill: oklch(from var(--brand) 0.257 calc(0.012 * var(--tint-on) + 0.004) h);
+  --line: oklch(from var(--brand) 0.3 calc(0.012 * var(--tint-on) + 0.006) h);
+  /* Lifted so blue stays readable on near-black */
+  --primary: oklch(from var(--brand) calc(l + 0.07) c h);
+  --primary-dark: oklch(from var(--brand) calc(l + 0.1) c h);
+  --primary-deep: var(--brand);
+  --primary-subtle: oklch(from var(--brand) 0.27 0.05 h);
+  --primary-foreground: oklch(from var(--brand) clamp(0, (0.82 - l) * 1000, 1) 0 0);
+  --shadow-ring: 255 255 255;
+  --shadow-drop: 0 0 0;
+}
+
+/* Layer 2 — static tokens */
 @theme {
-  /* Neutrals */
-  --color-background: #ffffff;
-  --color-foreground: #2c2e35;
-  --color-muted-foreground: #6e738c;
-  --color-subtle: #b3b8cb; /* placeholders, meta text, disabled */
-  --color-surface: #f9f9fb; /* page ground, inputs, sub-cards */
-  --color-accent: #eff0f5; /* hover/selected fills, chips */
-  --color-accent-foreground: #2c2e35;
-  --color-line: #e3e5ed; /* stronger divider, inactive dots */
-  --color-border: #eff0f5;
-  --color-input: #eff0f5;
   --color-ink: #040103; /* overlays: bg-ink/40 */
 
   /* Brand */
-  --color-primary: #044ffa;
-  --color-primary-dark: #033ab8; /* brand text, active borders, fills */
-  --color-primary-foreground: #ffffff;
-  --color-primary-subtle: #f0f4ff; /* selected rows, tints */
   --color-brand: #1620ff; /* logo */
+  --color-swatch-blue: #033ab8; /* Preferences swatch for the default (blue) accent */
   --color-highlight: #bbe03b; /* lime accent */
   --color-highlight-light: #e5f7a0;
-  --color-ring: #044ffa;
+  --color-highlight-bright: #e0ff73; /* projections intro track */
+  --color-highlight-dark: #5c7813; /* projections intro dot + year */
+  --color-scenario-magenta: #f604ca; /* scenario colour swatch */
+  --color-scenario-purple: #5d04f6; /* scenario colour swatch */
   --color-night: #071160; /* auth quote panel */
   --color-sky: #b3dfff;
+  --color-sky-subtle: #ecf7ff; /* vault lock disc */
+  --color-mint: #0ddf86; /* premium gem: highlight → mint → primary-dark */
+  --color-artwork: #8090b3; /* upgrade modal building */
+  --color-artwork-shadow: #0b2660;
 
   /* Status */
+  /* The one green and one red: gains, increases, success (text/success) and
+     losses, debts, errors (text/error). Change them here and everything follows. */
   --color-destructive: #f03722;
   --color-destructive-subtle: #fff0ee;
-  --color-positive: #008753; /* gains */
-  --color-positive-subtle: #f0fbf4;
-  --color-negative: #c50f3c; /* losses, debts */
-  --color-negative-subtle: #fef2f2;
   --color-success: #29af0b;
-  --color-success-light: #c7f6bc;
+  --color-success-subtle: #edfce9; /* Backgrounds/success */
+  --color-success-light: #c7f6bc; /* Success/success_100 */
+  --color-info: #3b82f6; /* neutral notices ("Current Balance: …") */
+  --color-info-subtle: #e9f3fe;
   --color-warning: #f07f22;
   --color-warning-light: #fad7ba;
+  --color-warning-subtle: #fef3ea; /* notice strips (subscription expired) */
   --color-destructive-light: #fac1ba;
 
   /* Data viz (allocation bars), darkest first */
@@ -55,11 +162,16 @@
   --color-type-other: #b3b8cb;
 
   /* Per-currency series (net worth splits, allocation by currency) */
-  --color-currency-ngn: #2e7d4f;
-  --color-currency-usd: #b4233a;
-  --color-currency-eur: #1b2f8a;
+  --color-currency-ngn: #008753;
+  --color-currency-usd: #c50f3c;
+  --color-currency-eur: #003399;
   --color-currency-gbp: #e8506b;
   --color-currency-other: #b3b8cb;
+
+  /* File-type badges (document lists) */
+  --color-file-word: #185abd;
+  --color-file-excel: #107c41;
+  --color-file-pdf: #b30c00;
 
   /* Folder tab badges, cycled in order */
   --color-folder-1: #1a56db;
@@ -76,27 +188,59 @@
   --color-ai-to: #fbcf9e;
   --color-ai-tint: #fffafd;
   --color-ai-soft: #fde6dc; /* AI avatar disc */
-  --color-ai-input: #f6f5f9; /* composer fill */
+  --color-ai-input: #eeeff4; /* composer fill */
+  /* Sparkle icon gradient, top to bottom (the blue stop is primary-dark) */
+  --color-ai-spark-1: #ff16d0;
+  --color-ai-spark-3: #ff1414;
+  --color-ai-spark-4: #ff9524;
+}
 
-  /* shadcn surface slots */
-  --color-card: #ffffff;
-  --color-card-foreground: #2c2e35;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #2c2e35;
-  --color-secondary: #f9f9fb;
-  --color-secondary-foreground: #2c2e35;
-  --color-muted: #f9f9fb;
+/* Dark: pale fills (status chips, notices, AI card) become faint washes of their colour over the background. */
+:root[data-theme='dark'] {
+  --color-destructive-subtle: color-mix(in srgb, var(--color-destructive) 16%, var(--background));
+  --color-success-subtle: color-mix(in srgb, var(--color-success) 16%, var(--background));
+  --color-info-subtle: color-mix(in srgb, var(--color-info) 16%, var(--background));
+  --color-warning-subtle: color-mix(in srgb, var(--color-warning) 16%, var(--background));
+  --color-sky-subtle: color-mix(in srgb, var(--color-sky) 16%, var(--background));
+  --color-chart-4: color-mix(in srgb, var(--color-chart-2) 45%, var(--background));
+  --color-chart-5: color-mix(in srgb, var(--color-chart-2) 25%, var(--background));
+  --color-ai-tint: color-mix(in srgb, var(--color-ai) 6%, var(--background));
+  --color-ai-input: var(--fill);
+  --color-swatch-blue: #3170ff;
 }
 
 /* Brand gradients, used by buttons and pills */
 @utility bg-gradient-primary {
-  background-image: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  background-image: linear-gradient(180deg, var(--color-primary) 0%, var(--primary-deep) 100%);
 }
 @utility bg-gradient-secondary {
-  background-image: linear-gradient(180deg, #ffffff 0%, var(--color-surface) 65%, var(--color-accent) 100%);
+  background-image: linear-gradient(180deg, var(--color-card) 0%, var(--color-surface) 65%, var(--color-accent) 100%);
 }
+/* Silo AI frames (composer, insights card): the sparkle's four colours, softened to ~40% over the page, top to bottom */
 @utility bg-gradient-ai {
-  background-image: linear-gradient(160deg, var(--color-ai-from) 0%, var(--color-ai-to) 100%);
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-ai-spark-1) 42%, var(--color-background)) 0%,
+    color-mix(in oklab, var(--color-primary-dark) 42%, var(--color-background)) 28%,
+    color-mix(in oklab, var(--color-ai-spark-3) 42%, var(--color-background)) 55%,
+    color-mix(in oklab, var(--color-ai-spark-4) 42%, var(--color-background)) 100%
+  );
+}
+/* Silo AI badges (debt-free date): the same four colours as a faint ~6% wash */
+@utility bg-gradient-ai-subtle {
+  background-image: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-ai-spark-1) 6%, var(--color-background)) 0%,
+    color-mix(in srgb, var(--color-primary-dark) 6%, var(--color-background)) 28%,
+    color-mix(in srgb, var(--color-ai-spark-3) 6%, var(--color-background)) 55%,
+    color-mix(in srgb, var(--color-ai-spark-4) 6%, var(--color-background)) 100%
+  );
+}
+/* Silo AI text: the sparkle's blue → red, mostly red */
+@utility text-gradient-ai {
+  background-image: linear-gradient(90deg, var(--color-ai-blue) -40%, var(--color-ai) 55%);
+  background-clip: text;
+  color: transparent;
 }
 /* Thin red stripes: the unscheduled-debt column's bottom edge */
 @utility bg-hatch-destructive {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { SheetContent } from '@/components/ui/sheet'
 import { getErrorMessage } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { useCreateAsset } from '../../queries'
@@ -31,14 +32,10 @@ interface Props {
 export function AddAssetModal({ open, onOpenChange, ...props }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        aria-describedby={undefined}
-        overlayClassName="bg-ink/60"
-        className="top-auto bottom-0 h-[min(904px,calc(100dvh-24px))] max-h-none w-full max-w-none animate-sheet-up rounded-t-2xl rounded-b-none shadow-none"
-      >
+      <SheetContent aria-describedby={undefined}>
         {/* Mounted only while open, so every open starts from step one */}
         <AddAssetFlow {...props} onClose={() => onOpenChange(false)} />
-      </DialogContent>
+      </SheetContent>
     </Dialog>
   )
 }

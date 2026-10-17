@@ -47,7 +47,7 @@ export function SendButton({
       aria-label="Send message"
       className={cn(
         'flex size-8 shrink-0 items-center justify-center rounded-lg transition-[background-color,color,transform] duration-150',
-        ready ? 'bg-gradient-primary text-primary-foreground active:scale-95' : 'bg-accent text-subtle',
+        ready ? 'bg-gradient-primary text-primary-foreground active:scale-95' : 'bg-line text-subtle',
       )}
     >
       <Icon className="size-4" aria-hidden />

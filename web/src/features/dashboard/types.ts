@@ -7,11 +7,20 @@ export interface DashboardNetWorth {
   currency: string
   change_amount: number | null
   change_pct: number | null
-  /** Assets held in each currency, in that currency (not converted). */
-  by_currency: { currency: string; value: number }[]
+  /** Assets held in each currency, in that currency (not converted). Currencies with no assets have count 0. */
+  by_currency: DashboardCurrencyAssets[]
+}
+
+export interface DashboardCurrencyAssets {
+  currency: string
+  value: number
+  count: number
+  /** The assets making up `value`, in that currency (the expanded net worth breakdown). */
+  assets: { asset_id: string; name: string; value: number }[]
 }
 
 export interface DashboardChartPoint {
+  /** YYYY-MM-DD, or a full ISO timestamp for intraday points (1D). */
   date: string
   value: number
 }
@@ -87,14 +96,9 @@ export interface DashboardResponse {
   last_synced_at: string
 }
 
-/** Chart periods, and how the change line describes each ("Past Month"). */
-export const PERIODS = [
-  { label: '1D', description: 'Past Day' },
-  { label: '1M', description: 'Past Month' },
-  { label: '3M', description: 'Past 3 Months' },
-  { label: 'YTD', description: 'Year to Date' },
-  { label: '1Y', description: 'Past Year' },
-  { label: 'All', description: 'All Time' },
-] as const
+/** Chart periods are shared app-wide (src/lib/periods). */
+/** Which mock the dashboard serves until the API exists: `busy` (full demo data) or `empty` (a new portfolio). */
+export type DashboardMock = 'busy' | 'empty'
 
-export type DashboardPeriod = (typeof PERIODS)[number]['label']
+export { CHART_PERIODS as PERIODS } from '@/lib/periods'
+export type { ChartPeriod as DashboardPeriod } from '@/lib/periods'

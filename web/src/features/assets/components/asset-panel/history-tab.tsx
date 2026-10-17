@@ -1,7 +1,7 @@
 import { formatCurrency, formatDate } from '@/lib/format'
 import { useAssetLots } from '../../queries'
 import type { AssetItem } from '../../types'
-import { TabBody, TabEmpty, TabListSkeleton } from './tab-layout'
+import { TabBody, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 
 export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolioId: string }) {
   const { data: lots, isPending } = useAssetLots(portfolioId, asset.id)

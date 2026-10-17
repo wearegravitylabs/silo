@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { Popover as PopoverPrimitive } from 'radix-ui'
 import { cn } from '@/lib/utils'
+import { floatingPanel } from './floating'
 
 const Popover = PopoverPrimitive.Root
 const PopoverTrigger = PopoverPrimitive.Trigger
@@ -13,7 +14,8 @@ function PopoverContent({ className, align = 'start', sideOffset = 6, ...props }
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-50 overflow-hidden bg-popover text-popover-foreground shadow-dropdown outline-none',
+          'z-50 overflow-hidden',
+          floatingPanel,
           'origin-(--radix-popover-content-transform-origin) data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95',
           className,
         )}

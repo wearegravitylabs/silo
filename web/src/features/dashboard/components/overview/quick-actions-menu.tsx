@@ -1,61 +1,50 @@
-import { ChevronDownIcon, Svg, type IconProps } from '@/components/icons'
+import type { ReactNode } from 'react'
+import { CirclePlusIcon, FileUpIcon } from 'lucide-react'
+import { AiSparkleIcon, ChevronDownIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
-/** Dashboard shortcuts. Only "Add asset" works today; the rest are shown as coming soon. */
-export function QuickActionsMenu({ onAddAsset }: { onAddAsset: () => void }) {
-  const soon = ['Add debt', 'Add portfolio', 'Invite member']
+export type QuickAssetType = 'stock' | 'crypto' | 'real_estate'
+
+const add = <CirclePlusIcon className="size-4" aria-hidden />
+
+/** Dashboard shortcuts: add an asset (stock, crypto, real estate) or a debt, upload a document, ask Silo AI. */
+export function QuickActionsMenu({
+  onAddAsset,
+  onAddDebt,
+  onUploadDocument,
+  onAskAi,
+}: {
+  onAddAsset: (type: QuickAssetType) => void
+  onAddDebt: () => void
+  onUploadDocument: () => void
+  onAskAi: () => void
+}) {
+  const actions: { label: string; icon: ReactNode; onSelect: () => void }[] = [
+    { label: 'Add stock', icon: add, onSelect: () => onAddAsset('stock') },
+    { label: 'Add Crypto', icon: add, onSelect: () => onAddAsset('crypto') },
+    { label: 'Add Real Estate', icon: add, onSelect: () => onAddAsset('real_estate') },
+    { label: 'Add Debt', icon: add, onSelect: onAddDebt },
+    { label: 'Upload Document', icon: <FileUpIcon className="size-4" aria-hidden />, onSelect: onUploadDocument },
+    { label: 'Ask Silo AI', icon: <AiSparkleIcon className="size-4" />, onSelect: onAskAi },
+  ]
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="secondary" size="xs" className="gap-1 shadow-elevated">
+        <Button variant="secondary" size="xs" className="group gap-1 shadow-elevated aria-expanded:shadow-none">
           Quick Actions
-          <ChevronDownIcon className="text-muted-foreground" />
+          <ChevronDownIcon className="text-muted-foreground transition-transform duration-200 group-aria-expanded:rotate-180" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-65">
-        <DropdownMenuItem onSelect={onAddAsset} className="bg-accent">
-          <AddIcon />
-          Add asset
-        </DropdownMenuItem>
-        {soon.map((label) => (
-          <DropdownMenuItem key={label} disabled>
-            <AddIcon />
+        {actions.map(({ label, icon, onSelect }) => (
+          <DropdownMenuItem key={label} onSelect={onSelect} className="py-1.5">
+            {icon}
             {label}
           </DropdownMenuItem>
         ))}
-        <DropdownMenuItem disabled>
-          <ImportIcon />
-          Import data
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-function AddIcon(props: IconProps) {
-  return (
-    <Svg viewBox="0 0 16 16" className="size-4" {...props}>
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M8 1.5a6.5 6.5 0 1 0 0 13A6.5 6.5 0 0 0 8 1.5ZM7.25 5a.75.75 0 0 1 1.5 0v2.25H11a.75.75 0 0 1 0 1.5H8.75V11a.75.75 0 0 1-1.5 0V8.75H5a.75.75 0 0 1 0-1.5h2.25V5Z"
-      />
-    </Svg>
-  )
-}
-
-function ImportIcon(props: IconProps) {
-  return (
-    <Svg viewBox="0 0 16 16" className="size-4" {...props}>
-      <path
-        fill="currentColor"
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M8 1.5a.75.75 0 0 1 .75.75V9.94l1.97-1.97a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 9.03a.75.75 0 0 1 1.06-1.06L7.25 9.94V2.25A.75.75 0 0 1 8 1.5ZM2.5 13.25a.75.75 0 0 1 .75-.75h9.5a.75.75 0 0 1 0 1.5h-9.5a.75.75 0 0 1-.75-.75Z"
-      />
-    </Svg>
   )
 }

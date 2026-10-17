@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button'
+import { SubmitError, SummaryList } from '@/components/summary-list'
+import { TwoPane } from '@/components/two-pane'
 import { formatCurrency } from '@/lib/format'
 import { useTickerPreview } from '../../queries'
 import type { TickerSearchResult } from '../../types'
 import { isValidLot, LotFields } from './lot-fields'
-import { SubmitError, SummaryList, TwoPane } from './step-layout'
 import type { Lot } from './types'
 import { YahooAttribution } from './yahoo-attribution'
 
@@ -63,8 +64,8 @@ export function StockDetailsStep({
                 value: quote ? `${change >= 0 ? '+' : ''}${change.toFixed(2)}%` : '—',
                 valueClassName: quote
                   ? change >= 0
-                    ? 'font-semibold text-positive'
-                    : 'font-semibold text-negative'
+                    ? 'font-semibold text-success'
+                    : 'font-semibold text-destructive'
                   : 'text-muted-foreground',
               },
             ]}

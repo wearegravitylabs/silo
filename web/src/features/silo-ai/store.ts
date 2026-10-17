@@ -28,6 +28,8 @@ export interface SiloAiChatState extends ChatSnapshot {
   newChat: () => void
   /** Reopen a chat from history; the current one moves to history. */
   openChat: (id: string) => void
+  /** Forget every chat, the open one included, and start fresh. Cancels any in-flight reply. */
+  clearHistory: () => void
   /** Replace the open chat with a snapshot (dev presets). Cancels any in-flight reply. */
   load: (snapshot: ChatSnapshot) => void
 }
@@ -148,6 +150,11 @@ export function createChatStore(initial?: Partial<ChatSnapshot>) {
         if (!chat || chat.id === get().chatId) return
         const history = archive().filter((c) => c.id !== chatId)
         set({ chatId: chat.id, messages: chat.messages, pending: chat.pending, draft: '', history })
+      },
+
+      clearHistory: () => {
+        runId++
+        set({ history: [], chatId: id(), messages: [], draft: '', pending: null })
       },
 
       load: (snapshot) => {

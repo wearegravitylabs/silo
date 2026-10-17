@@ -21,6 +21,26 @@ const FLAGS: Record<string, typeof US> = {
   ZAR: ZA,
 }
 
+/** Currencies with a flag, in the order pickers list them. */
+export const SUPPORTED_CURRENCIES = [
+  'USD',
+  'EUR',
+  'GBP',
+  'NGN',
+  'CAD',
+  'AUD',
+  'CHF',
+  'JPY',
+  'CNY',
+  'INR',
+  'AED',
+  'BRL',
+  'MXN',
+  'GHS',
+  'KES',
+  'ZAR',
+]
+
 /** Round flag for an ISO 4217 currency code. Size with className (default size-4). Unknown codes show their first letter. */
 export function CurrencyFlag({ code, className }: { code: string; className?: string }) {
   const Flag = FLAGS[code.toUpperCase()]

@@ -41,7 +41,7 @@ export function RuleMenu({
             Pause Rule
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem className={cn(item, 'text-positive')} onSelect={() => resume.mutate(rule.id)}>
+          <DropdownMenuItem className={cn(item, 'text-success')} onSelect={() => resume.mutate(rule.id)}>
             <Svg viewBox="0 0 12 12">
               <path d="M3 2l7 4-7 4V2z" fill="currentColor" />
             </Svg>

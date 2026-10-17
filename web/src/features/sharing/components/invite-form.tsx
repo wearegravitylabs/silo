@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { isEmail } from '@/lib/validation'
 import { ALL_SECTIONS, ROLE_LABEL } from '../mock-data'
 import type { AccessRole, SectionKey, SharePreview } from '../types'
 import { AccessSelect } from './access-select'
 import { RoleMenu } from './role-menu'
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const parseEmails = (raw: string) => raw.split(/[\s,;]+/).filter(Boolean)
 
 /**
@@ -25,7 +25,7 @@ export function InviteForm({
   const [sections, setSections] = useState<SectionKey[]>(preview?.sections ?? ALL_SECTIONS)
 
   const emails = parseEmails(raw)
-  const valid = emails.length > 0 && emails.every((e) => EMAIL_RE.test(e))
+  const valid = emails.length > 0 && emails.every(isEmail)
   const typing = raw.trim().length > 0
 
   return (

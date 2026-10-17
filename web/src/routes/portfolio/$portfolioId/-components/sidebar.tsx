@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
-import { Link, useLocation } from '@tanstack/react-router'
+import { useState, type ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
   ArrowDownIcon,
   ArrowUpIcon,
@@ -12,16 +12,12 @@ import {
   InfoIcon,
   LockIcon,
   LogOutIcon,
-  MenuIcon,
-  PanelLeftIcon,
   PlusIcon,
   SettingsIcon,
   SlidersHorizontalIcon,
   SproutIcon,
   UserIcon,
-  XIcon,
 } from 'lucide-react'
-import { Dialog as DialogPrimitive } from 'radix-ui'
 import { useMe, UserAvatar, useUpgradePlan } from '@/features/account'
 import { UpgradeModal } from '@/features/billing'
 import { AvatarFace, avatarIdFromImageUrl, usePortfolio, usePortfolios } from '@/features/portfolios'
@@ -37,100 +33,23 @@ import { formatCompactMoney, formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useSiloAiPanel } from '@/stores/silo-ai-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
+import { NavLabel, navItemClass, SidebarExpandButton, SidebarFrame, SidebarHeaderToggle } from '@/routes/-components/sidebar-frame'
 
-/** App navigation: portfolio switcher, sections, Silo AI, what's new, user. Desktop: sticky column that collapses
- * to an icon rail. Below lg: a drawer opened from the topbar's menu button. */
+/** App navigation: portfolio switcher, sections, Silo AI, what's new, user. */
 export function Sidebar({ portfolioId }: { portfolioId: string }) {
-  const { collapsed, mobileOpen, setMobileOpen } = useSidebarStore()
-  const { pathname } = useLocation()
-
-  // Navigating from the drawer should close it.
-  useEffect(() => setMobileOpen(false), [pathname, setMobileOpen])
-
-  return (
-    <>
-      <aside
-        className={cn(
-          'sticky top-0 hidden h-dvh shrink-0 overflow-hidden bg-surface transition-[width] duration-200 ease-in-out lg:flex',
-          collapsed ? 'w-16' : 'w-67',
-        )}
-      >
-        <SidebarContent portfolioId={portfolioId} collapsed={collapsed} />
-      </aside>
-
-      <DialogPrimitive.Root open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DialogPrimitive.Portal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-ink/40 lg:hidden data-open:animate-in data-open:fade-in-0" />
-          <DialogPrimitive.Content
-            aria-describedby={undefined}
-            className="fixed inset-y-0 left-0 z-50 flex w-67 max-w-[85vw] animate-drawer-in bg-surface shadow-sheet outline-none lg:hidden"
-          >
-            <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
-            <SidebarContent portfolioId={portfolioId} collapsed={false} drawer />
-          </DialogPrimitive.Content>
-        </DialogPrimitive.Portal>
-      </DialogPrimitive.Root>
-    </>
-  )
+  return <SidebarFrame>{(state) => <SidebarContent portfolioId={portfolioId} {...state} />}</SidebarFrame>
 }
 
-/** Topbar button that opens the sidebar drawer. Only shown below lg, where the sidebar is hidden. */
-export function SidebarMenuButton() {
-  const setMobileOpen = useSidebarStore((s) => s.setMobileOpen)
-  return (
-    <button
-      type="button"
-      aria-label="Open navigation"
-      onClick={() => setMobileOpen(true)}
-      className="-ml-1 flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:hidden"
-    >
-      <MenuIcon className="size-4.5" />
-    </button>
-  )
-}
-
-function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioId: string; collapsed: boolean; drawer?: boolean }) {
-  const toggle = useSidebarStore((s) => s.toggle)
-  const setMobileOpen = useSidebarStore((s) => s.setMobileOpen)
-
+function SidebarContent({ portfolioId, collapsed, drawer }: { portfolioId: string; collapsed: boolean; drawer: boolean }) {
   return (
     <div className="flex h-full w-full flex-col justify-between">
       <div className="flex flex-col gap-3">
         <div className={cn('flex h-14 items-center justify-between py-4', collapsed ? 'justify-center px-3' : 'pr-3 pl-3.5')}>
           <PortfolioSwitcher portfolioId={portfolioId} collapsed={collapsed} />
-          {drawer ? (
-            <button
-              type="button"
-              onClick={() => setMobileOpen(false)}
-              aria-label="Close navigation"
-              className="text-muted-foreground transition-opacity hover:opacity-60"
-            >
-              <XIcon className="size-4" />
-            </button>
-          ) : (
-            !collapsed && (
-              <button
-                type="button"
-                onClick={toggle}
-                aria-label="Collapse sidebar"
-                className="text-muted-foreground transition-opacity hover:opacity-60"
-              >
-                <PanelLeftIcon className="size-4" />
-              </button>
-            )
-          )}
+          <SidebarHeaderToggle collapsed={collapsed} drawer={drawer} />
         </div>
 
-        {collapsed && (
-          <button
-            type="button"
-            onClick={toggle}
-            aria-label="Expand sidebar"
-            className="mx-auto flex h-8 w-10 items-center justify-center rounded-lg text-muted-foreground transition-opacity hover:opacity-60"
-          >
-            <PanelLeftIcon className="size-4 rotate-180" />
-          </button>
-        )}
+        {collapsed && <SidebarExpandButton />}
 
         <nav className="flex flex-col gap-1.5 px-2" aria-label="Sections">
           <NavLink
@@ -147,9 +66,21 @@ function SidebarContent({ portfolioId, collapsed, drawer = false }: { portfolioI
             label="Assets"
             collapsed={collapsed}
           />
-          <NavPlaceholder icon={<BanknoteIcon />} label="Debts" collapsed={collapsed} />
-          <NavPlaceholder icon={<LockIcon />} label="Vault" collapsed={collapsed} />
-          <NavPlaceholder icon={<ChevronsRightIcon />} label="Projections" collapsed={collapsed} />
+          <NavLink
+            to="/portfolio/$portfolioId/debts"
+            portfolioId={portfolioId}
+            icon={<BanknoteIcon />}
+            label="Debts"
+            collapsed={collapsed}
+          />
+          <NavLink to="/portfolio/$portfolioId/vault" portfolioId={portfolioId} icon={<LockIcon />} label="Vault" collapsed={collapsed} />
+          <NavLink
+            to="/portfolio/$portfolioId/projections"
+            portfolioId={portfolioId}
+            icon={<ChevronsRightIcon />}
+            label="Projections"
+            collapsed={collapsed}
+          />
         </nav>
       </div>
 
@@ -294,14 +225,6 @@ function SidebarCard({ portfolioId }: { portfolioId: string }) {
   )
 }
 
-const navItem = (collapsed: boolean) =>
-  cn(
-    'flex h-8 items-center rounded-lg leading-5.5 font-medium transition-colors',
-    'text-muted-foreground hover:bg-accent/60 data-[status=active]:bg-accent [&_svg]:size-4 data-[status=active]:[&_svg]:text-foreground',
-    'focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
-    collapsed ? 'mx-auto w-10 justify-center p-1.25' : 'w-full gap-1 px-2 py-1.25',
-  )
-
 function NavLink({
   to,
   portfolioId,
@@ -309,16 +232,21 @@ function NavLink({
   label,
   collapsed,
 }: {
-  to: '/portfolio/$portfolioId/dashboard' | '/portfolio/$portfolioId/assets'
+  to:
+    | '/portfolio/$portfolioId/dashboard'
+    | '/portfolio/$portfolioId/assets'
+    | '/portfolio/$portfolioId/debts'
+    | '/portfolio/$portfolioId/vault'
+    | '/portfolio/$portfolioId/projections'
   portfolioId: string
   icon: ReactNode
   label: string
   collapsed: boolean
 }) {
   return (
-    <Link to={to} params={{ portfolioId }} title={collapsed ? label : undefined} className={navItem(collapsed)}>
+    <Link to={to} params={{ portfolioId }} title={collapsed ? label : undefined} className={navItemClass(collapsed)}>
       {icon}
-      {!collapsed && <span className="pl-1 text-foreground">{label}</span>}
+      <NavLabel collapsed={collapsed}>{label}</NavLabel>
     </Link>
   )
 }
@@ -339,7 +267,7 @@ function PortfolioValue({
   return (
     <span className="flex items-center gap-1.5 text-xs leading-5 text-muted-foreground">
       {formatMoney(net_worth, currency)}
-      <span className={cn('flex items-center gap-0.5', up ? 'text-positive' : 'text-negative')}>
+      <span className={cn('flex items-center gap-0.5', up ? 'text-success' : 'text-destructive')}>
         {up ? <ArrowUpIcon className="size-3 text-inherit!" /> : <ArrowDownIcon className="size-3 text-inherit!" />}
         {formatCompactMoney(Math.abs(change_amount), currency)} ({Math.abs(Math.round(change_pct))}%)
       </span>
@@ -354,19 +282,24 @@ function UserMenu() {
       <DropdownMenuTrigger aria-label="Account menu" className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/40">
         <UserAvatar className="size-6 text-[9px] tracking-normal" />
       </DropdownMenuTrigger>
-      {/* Placeholders until the account pages exist */}
       <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-61">
-        <DropdownMenuItem className="gap-2.5">
-          <UserIcon className="size-4" />
-          Profile
+        <DropdownMenuItem asChild className="gap-2.5">
+          <Link to="/settings/profile">
+            <UserIcon className="size-4" />
+            Profile
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5">
-          <SlidersHorizontalIcon className="size-4" />
-          Preferences
+        <DropdownMenuItem asChild className="gap-2.5">
+          <Link to="/settings/preferences">
+            <SlidersHorizontalIcon className="size-4" />
+            Preferences
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5">
-          <SettingsIcon className="size-4" />
-          Settings
+        <DropdownMenuItem asChild className="gap-2.5">
+          <Link to="/settings">
+            <SettingsIcon className="size-4" />
+            Settings
+          </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -388,20 +321,10 @@ function AskSiloAiButton({ collapsed }: { collapsed: boolean }) {
         if (open) toggle()
         else setOpen(true)
       }}
-      className={cn(navItem(collapsed), 'aria-pressed:bg-accent')}
+      className={cn(navItemClass(collapsed), 'aria-pressed:bg-accent')}
     >
       <AiSparkleIcon />
-      {!collapsed && <span className="pl-1 text-foreground">Ask Silo AI</span>}
+      <NavLabel collapsed={collapsed}>Ask Silo AI</NavLabel>
     </button>
-  )
-}
-
-/** Section that isn't built yet: same look, not clickable. */
-function NavPlaceholder({ icon, label, collapsed }: { icon: ReactNode; label: string; collapsed: boolean }) {
-  return (
-    <span aria-disabled="true" title={`${label} — coming soon`} className={cn(navItem(collapsed), 'cursor-default hover:bg-transparent')}>
-      {icon}
-      {!collapsed && <span className="pl-1 text-foreground">{label}</span>}
-    </span>
   )
 }

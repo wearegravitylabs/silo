@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ArrowDownIcon, ArrowUpIcon, ChartCandlestickIcon } from 'lucide-react'
+import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
+import { CardHead } from '@/components/card-head'
 import { ChevronDownIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -7,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { MOVER_WINDOWS, type DashboardMover, type MoverWindow } from '../../types'
-import { CardHead } from '../shared/card-head'
+import { MoversIcon } from '../shared/icons'
 import { PlaceholderRow } from '../shared/placeholder-row'
 
 const ROWS = 3
@@ -20,7 +21,7 @@ export function MoversCard({ kind, movers }: { kind: 'gainers' | 'losers'; mover
   return (
     <Card className="min-w-0 flex-1">
       <CardHead
-        icon={<ChartCandlestickIcon className={cn('size-4', kind === 'gainers' ? 'text-success' : 'text-destructive')} />}
+        icon={<MoversIcon className={cn(kind === 'gainers' ? 'text-success' : 'text-destructive')} />}
         title={kind === 'gainers' ? 'Top Gainers' : 'Top Losers'}
         bordered={false}
         right={<WindowPicker value={moverWindow} onChange={setMoverWindow} />}
@@ -59,7 +60,7 @@ function MoverRow({ mover }: { mover: DashboardMover }) {
   return (
     <li className="flex items-center justify-between gap-3 py-4">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background shadow-small">
+        <span className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
           {mover.logo_url ? (
             <img src={mover.logo_url} alt="" className="size-6 object-contain" />
           ) : (
@@ -76,7 +77,7 @@ function MoverRow({ mover }: { mover: DashboardMover }) {
           {formatMoney(mover.current_value, mover.currency, { spaced: false })}
         </span>
         {mover.change_amount != null && (
-          <span className={cn('flex items-center gap-1 text-xs leading-4', up ? 'text-positive' : 'text-negative')}>
+          <span className={cn('flex items-center gap-1 text-xs leading-4', up ? 'text-success' : 'text-destructive')}>
             {up ? <ArrowUpIcon className="size-3" aria-hidden /> : <ArrowDownIcon className="size-3" aria-hidden />}
             {formatMoney(Math.abs(mover.change_amount), mover.currency, { spaced: false })}
             {mover.change_pct != null && ` (${Number(Math.abs(mover.change_pct).toFixed(2))}%)`}

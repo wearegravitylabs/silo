@@ -1,5 +1,13 @@
 // Temporary random dashboard data, used by api.ts until the dashboard is wired to the backend.
-import type { DashboardAllocItem, DashboardDebt, DashboardInsight, DashboardMover, DashboardPeriod, DashboardResponse } from './types'
+import type {
+  DashboardAllocItem,
+  DashboardCurrencyAssets,
+  DashboardDebt,
+  DashboardInsight,
+  DashboardMover,
+  DashboardPeriod,
+  DashboardResponse,
+} from './types'
 
 const startOfYear = new Date(new Date().getFullYear(), 0, 1).getTime()
 const DAYS: Record<DashboardPeriod, number> = {
@@ -34,6 +42,34 @@ const ALLOCATION: DashboardResponse['allocation'] = {
     { key: 'f2', label: 'Gambling', pct: 20, count: 4 },
   ],
 }
+
+// Mirrors the design's expanded net worth breakdown.
+const currencyAssets = (currency: string, assets: [string, number][]): DashboardCurrencyAssets => ({
+  currency,
+  value: assets.reduce((total, [, value]) => total + value, 0),
+  count: assets.length,
+  assets: assets.map(([name, value], i) => ({ asset_id: `${currency}-${i}`, name, value })),
+})
+
+const BY_CURRENCY: DashboardCurrencyAssets[] = [
+  currencyAssets('NGN', [
+    ['Equity', 100_000],
+    ['Rental Property', 100_000],
+    ['Primary Residence', 50_000],
+    ['Lending', 50_000],
+    ['Access Bank Account', 50_000],
+    ['Fcmb Bank Account', 50_000],
+    ['Opay Bank Account', 50_000],
+    ['Kuda Bank Account', 50_000],
+  ]),
+  currencyAssets('USD', [
+    ['Alphabet Inc.', 500],
+    ['Microsoft Corp.', 300],
+    ['Solana', 200],
+  ]),
+  currencyAssets('EUR', [['Euro Savings', 300]]),
+  currencyAssets('GBP', []),
+]
 
 const INSIGHTS: DashboardInsight[] = [
   {
@@ -192,10 +228,10 @@ export function mockDashboard(period: DashboardPeriod): DashboardResponse {
 
   // Random walk ending at today's net worth, spread over the selected period.
   const stepDays = DAYS[period] / (CHART_POINTS - 1)
-  const points = Array.from({ length: CHART_POINTS }, (_, i) => ({
-    date: new Date(Date.now() - (CHART_POINTS - 1 - i) * stepDays * 86_400_000).toISOString().slice(0, 10),
-    value: 0,
-  }))
+  const points = Array.from({ length: CHART_POINTS }, (_, i) => {
+    const iso = new Date(Date.now() - (CHART_POINTS - 1 - i) * stepDays * 86_400_000).toISOString()
+    return { date: period === '1D' ? iso : iso.slice(0, 10), value: 0 }
+  })
   let value = netWorth
   for (let i = points.length - 1; i >= 0; i--) {
     points[i].value = Math.round(value)
@@ -213,11 +249,7 @@ export function mockDashboard(period: DashboardPeriod): DashboardResponse {
       currency: CURRENCY,
       change_amount: changeAmount,
       change_pct: (changeAmount / points[0].value) * 100,
-      by_currency: [
-        { currency: 'NGN', value: Math.round(assets * 0.5) },
-        { currency: 'USD', value: random(800, 1_500) },
-        { currency: 'EUR', value: random(200, 600) },
-      ],
+      by_currency: BY_CURRENCY,
     },
     chart: { period, points },
     allocation: ALLOCATION,
@@ -240,7 +272,7 @@ export function emptyDashboard(period: DashboardPeriod): DashboardResponse {
       currency: CURRENCY,
       change_amount: 0,
       change_pct: 0,
-      by_currency: ['NGN', 'USD', 'EUR'].map((currency) => ({ currency, value: 0 })),
+      by_currency: ['NGN', 'USD', 'EUR', 'GBP'].map((currency) => currencyAssets(currency, [])),
     },
     chart: { period, points: [] },
     allocation: {

@@ -1,11 +1,11 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { CardHead } from '@/components/card-head'
 import { CurrencyFlag } from '@/components/currency-flag'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import type { DashboardAllocItem, DashboardResponse } from '../../types'
-import { CardHead } from '../shared/card-head'
 import { PieIcon } from '../shared/icons'
 
 const ROWS = 4 // each column always shows 4 rows; missing ones are grey placeholders
@@ -84,9 +84,9 @@ function Breakdown({
           With nothing allocated yet, four equal grey segments stand in. */}
       <div className="mt-3 flex h-4 gap-0.5" aria-hidden>
         {empty
-          ? Array.from({ length: ROWS }, (_, i) => <div key={i} className="flex-1 rounded-xs bg-accent" />)
+          ? Array.from({ length: ROWS }, (_, i) => <div key={i} className="flex-1 rounded-sm bg-accent" />)
           : items.map((item, i) => (
-              <div key={item.key} className={cn('min-w-0.5 rounded-xs', color(item, i))} style={{ flexGrow: item.pct, flexBasis: 0 }} />
+              <div key={item.key} className={cn('min-w-0.5 rounded-sm', color(item, i))} style={{ flexGrow: item.pct, flexBasis: 0 }} />
             ))}
       </div>
 
@@ -97,7 +97,7 @@ function Breakdown({
               {marker ? (
                 marker(item)
               ) : (
-                <span className={cn('h-3.5 w-0.75 shrink-0 rounded-full', item.count > 0 ? color(item, i) : 'bg-line')} />
+                <span className={cn('h-3.5 w-0.75 shrink-0 rounded-full', item.count > 0 ? color(item, i) : 'bg-accent')} />
               )}
               <span className="truncate">{item.label}</span>
             </span>
@@ -109,7 +109,7 @@ function Breakdown({
         {Array.from({ length: placeholders }, (_, i) => (
           <li key={`empty-${i}`} className="flex h-11.5 items-center justify-between gap-3" aria-hidden>
             <span className="flex items-center gap-2">
-              <span className="h-3.5 w-0.75 shrink-0 rounded-full bg-line" />
+              <span className="h-3.5 w-0.75 shrink-0 rounded-full bg-accent" />
               <span className="h-5 w-30 rounded-md bg-accent" />
             </span>
             <span className="shrink-0 text-foreground tabular-nums">0% (0)</span>

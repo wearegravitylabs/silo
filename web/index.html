@@ -5,6 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Silo — Your personal silo of wealth</title>
+    <script>
+      // Apply the saved theme/accent before first paint (no light flash on a dark reload). Mirrors
+      // src/app/appearance.tsx, which takes over once React mounts; the key is APPEARANCE_STORAGE_KEY.
+      try {
+        var p = (JSON.parse(localStorage.getItem('silo-appearance')) || {}).state || {}
+        var dark = p.theme === 'dark' || (p.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)
+        var html = document.documentElement
+        html.dataset.theme = dark ? 'dark' : 'light'
+        if (p.accent && p.accent !== 'blue') html.dataset.accent = p.accent
+        if (p.accent === 'custom' && p.customAccent) html.style.setProperty('--brand', p.customAccent)
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

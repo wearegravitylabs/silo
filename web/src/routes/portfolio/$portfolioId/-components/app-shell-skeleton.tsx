@@ -3,8 +3,8 @@ import { DashboardSkeleton } from '@/features/dashboard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSidebarStore } from '@/stores/sidebar-store'
 import { cn } from '@/lib/utils'
+import { MainPanel } from '@/routes/-components/main-panel'
 import { AssetsSkeleton } from './assets-skeleton'
-import { MainPanel } from './main-panel'
 
 /**
  * Whole-app placeholder for a cold load, before the portfolio (and so the real sidebar
