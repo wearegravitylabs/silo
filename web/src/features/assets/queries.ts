@@ -1,11 +1,13 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { deleteAsset, getAssetsOverview, listAssets, moveAsset } from './api'
+import { createAsset, deleteAsset, getAssetsOverview, listAssets, moveAsset, searchTickers } from './api'
+import type { CreateAssetInput } from './types'
 
 export const assetKeys = {
   all: (portfolioId: string) => ['assets', portfolioId] as const,
   /** folderId null = every asset in the portfolio */
   list: (portfolioId: string, folderId: string | null) => ['assets', portfolioId, 'list', folderId ?? 'all'] as const,
   overview: (portfolioId: string) => ['assets', portfolioId, 'overview'] as const,
+  tickerSearch: (q: string) => ['ticker-search', q] as const,
 }
 
 /** Assets in one folder (or the whole portfolio when folderId is null). */
@@ -26,11 +28,16 @@ export const useAssets = (portfolioId: string, folderId: string | null) =>
 /** Portfolio asset total. Suspends — preload with `assetsOverviewQuery` in the route loader. */
 export const useAssetsOverview = (portfolioId: string) => useSuspenseQuery(assetsOverviewQuery(portfolioId)).data
 
-/** Move to a folder, delete — each refetches every asset query for the portfolio (lists, total). */
+/** Ticker search; keeps the last results on screen while the next query loads. */
+export const useTickerSearch = (q: string) =>
+  useQuery({ queryKey: assetKeys.tickerSearch(q), queryFn: () => searchTickers(q), staleTime: 60_000, placeholderData: keepPreviousData })
+
+/** Create, move to a folder, delete — each refetches every asset query for the portfolio (lists, total). */
 export const useAssetMutations = (portfolioId: string) => {
   const qc = useQueryClient()
   const refetch = () => qc.invalidateQueries({ queryKey: assetKeys.all(portfolioId) })
   return {
+    create: useMutation({ mutationFn: (input: CreateAssetInput) => createAsset(portfolioId, input), onSuccess: refetch }),
     move: useMutation({
       mutationFn: ({ id, folderId }: { id: string; folderId: string }) => moveAsset(portfolioId, id, folderId),
       onSuccess: refetch,

@@ -253,3 +253,12 @@ export function InfoDotIcon({ className, ...props }: IconProps) {
     </Svg>
   )
 }
+
+/** "yahoo!finance" wordmark for "Powered by" attributions, in Yahoo's purple. */
+export function YahooFinanceWordmark({ className }: { className?: string }) {
+  return (
+    <span className={cn('font-heading text-sm leading-none font-extrabold tracking-[-0.03em] text-brand-yahoo', className)}>
+      yahoo<span className="italic">!</span>finance
+    </span>
+  )
+}

@@ -9,6 +9,7 @@ import {
   assetsQuery,
   AssetsSummaryHeader,
   AssetTable,
+  CreateAssetSheet,
   DeleteAssetDialog,
   useAssetMutations,
   useAssets,
@@ -23,12 +24,17 @@ import { AssetsSkeleton } from './-components/assets-skeleton'
 interface AssetsSearch {
   /** Selected folder tab; defaults to the first folder */
   folder?: string
+  /** Open the Create Asset sheet (e.g. from the dashboard's quick actions) */
+  create?: boolean
 }
 
 const DEFAULT_FOLDER = defaultFolderId('asset')
 
 export const Route = createFileRoute('/portfolio/$portfolioId/assets')({
-  validateSearch: (search: Record<string, unknown>): AssetsSearch => (typeof search.folder === 'string' ? { folder: search.folder } : {}),
+  validateSearch: (search: Record<string, unknown>): AssetsSearch => ({
+    ...(typeof search.folder === 'string' && { folder: search.folder }),
+    ...(search.create === true && { create: true }),
+  }),
   // Like debts: search is read from location (not loaderDeps) so switching folders keeps the page.
   loader: async ({ context: { queryClient }, params: { portfolioId }, location }) => {
     const [folders] = await Promise.all([
@@ -67,7 +73,9 @@ function AssetsPage() {
   const folder = folders.find((f) => f.id === search.folder) ?? folders[0]
   const folderId = folder?.id ?? null
   const { data: assets = [], isPending, isPlaceholderData } = useAssets(portfolioId, folderId)
-  const setFolder = (id: string) => navigate({ search: (s) => ({ ...s, folder: id }), replace: true })
+  const setSearch = (patch: Partial<AssetsSearch>) => navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
+  const setFolder = (id: string) => setSearch({ folder: id })
+  const setCreating = (create: boolean) => setSearch({ create: create || undefined })
 
   const moveAsset = (asset: AssetItem, to: string) =>
     move.mutate(
@@ -90,7 +98,7 @@ function AssetsPage() {
 
   return (
     <AssetsShell>
-      <AssetsSummaryHeader portfolioId={portfolioId} onExport={() => setExporting(true)} />
+      <AssetsSummaryHeader portfolioId={portfolioId} onExport={() => setExporting(true)} onCreate={() => setCreating(true)} />
       <FolderTabs
         folders={folders}
         selectedId={folderId}
@@ -120,6 +128,13 @@ function AssetsPage() {
         assetName={deleting?.asset.name ?? ''}
         pending={remove.isPending}
         onConfirm={confirmDelete}
+      />
+      <CreateAssetSheet
+        portfolioId={portfolioId}
+        folderId={folderId}
+        open={!!search.create}
+        onOpenChange={setCreating}
+        onCreated={() => toast.success('Asset has been created successfully!')}
       />
       {/* TODO: generate the file once there's an export endpoint; UI only for now. */}
       <ExportDialog title="Export Asset" open={exporting} onOpenChange={setExporting} />

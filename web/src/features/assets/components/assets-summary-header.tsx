@@ -13,7 +13,7 @@ export function AssetsSummaryHeader({
 }: {
   portfolioId: string
   onExport?: () => void
-  /** Create Asset; disabled until there's somewhere to go */
+  /** Create Asset (disabled without it) */
   onCreate?: () => void
 }) {
   const overview = useAssetsOverview(portfolioId)

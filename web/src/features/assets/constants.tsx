@@ -1,5 +1,18 @@
 import type { ReactNode } from 'react'
 import {
+  AppleIcon,
+  BriefcaseBusinessIcon,
+  CirclePlusIcon,
+  Columns3Icon,
+  DatabaseIcon,
+  GemIcon,
+  GlobeIcon,
+  KeyRoundIcon,
+  LandmarkIcon,
+  WalletIcon,
+  type LucideIcon,
+} from 'lucide-react'
+import {
   BankConnectionsIcon,
   BusinessIcon,
   CryptoTickerIcon,
@@ -67,3 +80,28 @@ export const INVESTABILITY_FILTER_OPTIONS = (Object.keys(INVESTABILITY_LABELS) a
   value,
   label: INVESTABILITY_LABELS[value],
 }))
+
+export interface CreatableAssetType {
+  id: string
+  label: string
+  Icon: LucideIcon
+  /** Only stocks can be added today; the rest show "Coming soon". */
+  enabled: boolean
+}
+
+/** Create Asset → Choose an Asset Type, in the design's order (two columns, read across). */
+export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
+  { id: 'stock_ticker', label: 'Stocks', Icon: AppleIcon, enabled: true },
+  { id: 'crypto_ticker', label: 'Crypto', Icon: DatabaseIcon, enabled: false },
+  { id: 'real_estate', label: 'Real Estate', Icon: KeyRoundIcon, enabled: false },
+  { id: 'domain', label: 'Domains', Icon: GlobeIcon, enabled: false },
+  { id: 'physical', label: 'Physical Valuables', Icon: GemIcon, enabled: false },
+  { id: 'venture_capital', label: 'Venture Capital', Icon: BriefcaseBusinessIcon, enabled: false },
+  { id: 'business', label: 'Business', Icon: Columns3Icon, enabled: false },
+  { id: 'bank', label: 'Bank Connections', Icon: LandmarkIcon, enabled: false },
+  { id: 'crypto_wallet', label: 'Crypto Exchanges/Wallet', Icon: WalletIcon, enabled: false },
+  { id: 'manual', label: 'Manual Assets', Icon: CirclePlusIcon, enabled: false },
+]
+
+/** Largest quantity one purchase can record. */
+export const MAX_LOT_QUANTITY = 1_000_000

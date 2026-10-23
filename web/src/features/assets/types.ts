@@ -42,3 +42,33 @@ export interface AssetsOverview {
   total: number
   change: { amount: number; pct: number } | null
 }
+
+/** A stock found by ticker search, with its latest price. */
+export interface TickerResult {
+  ticker: string
+  name: string
+  logo_url: string | null
+  price: number
+  currency: string
+}
+
+/** One purchase of a stock: how many, and when. */
+export interface AssetLotInput {
+  quantity: number
+  /** Local ISO datetime, "2026-02-01T09:36" */
+  acquired_at: string
+}
+
+/** Mirrors the backend's CreateAssetRequest for ticker assets. */
+export interface CreateAssetInput {
+  /** The folder it's created in; null or the default folder leaves it unfiled */
+  folder_id: string | null
+  asset_type: string
+  ticker: string
+  name: string
+  logo_url: string | null
+  currency: string
+  /** Price per unit when added */
+  price: number
+  lots: AssetLotInput[]
+}

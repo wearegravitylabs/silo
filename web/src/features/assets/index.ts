@@ -1,5 +1,6 @@
 export { AssetIconDisc } from './components/asset-icon-disc'
 export { AssetTable } from './components/asset-table/asset-table'
+export { CreateAssetSheet } from './components/create-asset/create-asset-sheet'
 export { AssetsOverview } from './components/assets-overview'
 export { AssetsSummaryHeader } from './components/assets-summary-header'
 export { DeleteAssetDialog } from './components/delete-asset-dialog'

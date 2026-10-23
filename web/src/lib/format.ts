@@ -93,3 +93,18 @@ export function currencySymbol(currency: string): string {
       .find((p) => p.type === 'currency')?.value ?? currency
   )
 }
+
+/** "09:36" → "09:36 AM", "13:05" → "01:05 PM". Midnight stays "00:00 AM", as the designs write it. */
+export function formatClock(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  const hour = h === 0 ? 0 : h > 12 ? h - 12 : h
+  return `${String(hour).padStart(2, '0')}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
+/** "2026-02-01T09:36" (local) → "01 Feb 09:36 AM"; a bare day reads as midnight ("01 Feb 00:00 AM"). */
+export function formatDayMonthTime(iso: string): string {
+  const [day, time = '00:00'] = iso.split('T')
+  const [y, m, d] = day.split('-').map(Number)
+  const month = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short' })
+  return `${String(d).padStart(2, '0')} ${month} ${formatClock(time.slice(0, 5))}`
+}

@@ -14,6 +14,9 @@ export function ChoiceCard({
   selected,
   onSelect,
   size = 'md',
+  check = true,
+  disabled,
+  className,
 }: {
   label: string
   description?: string
@@ -21,6 +24,10 @@ export function ChoiceCard({
   selected: boolean
   onSelect: () => void
   size?: 'sm' | 'md'
+  /** ✓ on the selected card (off where the border alone shows it) */
+  check?: boolean
+  disabled?: boolean
+  className?: string
 }) {
   return (
     <button
@@ -28,11 +35,13 @@ export function ChoiceCard({
       role="radio"
       aria-checked={selected}
       onClick={onSelect}
+      disabled={disabled}
       className={cn(
         'flex w-full shrink-0 items-center gap-3 rounded-xl border bg-background p-3 text-left transition-colors outline-none',
-        'hover:border-primary-dark/40 focus-visible:ring-2 focus-visible:ring-ring/40',
+        'not-disabled:hover:border-primary-dark/40 focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed',
         selected ? 'border-primary-dark' : 'border-border',
         size === 'sm' ? 'h-13' : 'min-h-17.5',
+        className,
       )}
     >
       {icon &&
@@ -45,7 +54,7 @@ export function ChoiceCard({
         <span className="truncate font-medium text-foreground">{label}</span>
         {description && <span className="truncate text-xs leading-4 text-muted-foreground">{description}</span>}
       </span>
-      {selected && <CheckIcon className="size-4 shrink-0 text-primary-dark" aria-hidden />}
+      {selected && check && <CheckIcon className="size-4 shrink-0 text-primary-dark" aria-hidden />}
     </button>
   )
 }

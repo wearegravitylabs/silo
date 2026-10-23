@@ -1,4 +1,4 @@
-import type { AssetItem } from './types'
+import type { AssetItem, TickerResult } from './types'
 
 // The design's assets (Assets page frames) plus a few more, in USD. Folder ids match the folders mock.
 export const CURRENCY = 'USD'
@@ -28,7 +28,6 @@ export const MOCK_ASSETS: AssetItem[] = [
     name: 'Microsoft Corp.',
     asset_type: 'stock_ticker',
     ticker: 'MSFT',
-    logo_url: '/logos/microsoft.svg',
     owned_value_converted: 13_000,
     total_quantity: 3_000,
     change_pct_1m: 5.5,
@@ -41,7 +40,6 @@ export const MOCK_ASSETS: AssetItem[] = [
     name: 'Solana',
     asset_type: 'crypto_ticker',
     ticker: 'SOL',
-    logo_url: '/logos/solana.svg',
     owned_value_converted: 845,
     total_quantity: 10,
     change_pct_1m: 0,
@@ -61,7 +59,6 @@ export const MOCK_ASSETS: AssetItem[] = [
     id: 'a6',
     name: 'Silo AI',
     asset_type: 'venture_capital',
-    logo_url: '/logos/silo-ai.svg',
     owned_value_converted: 1_000,
     detail: 'Seed',
     status: 'Active',
@@ -113,3 +110,31 @@ export const MOCK_ASSETS: AssetItem[] = [
     folder_id: 'coinbase',
   }),
 ]
+
+const ticker = (symbol: string, name: string, price: number): TickerResult => ({
+  ticker: symbol,
+  name,
+  logo_url: null,
+  price,
+  currency: CURRENCY,
+})
+
+/** What ticker search can find (the design's five first: they're shown before you type). */
+export const MOCK_TICKERS: TickerResult[] = [
+  ticker('GOOGL', 'Alphabet Inc.', 172.4),
+  ticker('MSFT', 'Microsoft Corp.', 10),
+  ticker('SPOT', 'Spotify', 310.25),
+  ticker('TIKTOK', 'Tiktok', 42.1),
+  ticker('NTFX', 'Netflix', 640.8),
+  ticker('AAPL', 'Apple Inc.', 190),
+  ticker('AMZN', 'Amazon.com, Inc.', 182.3),
+  ticker('TSLA', 'Tesla, Inc.', 226.6),
+  ticker('NVDA', 'NVIDIA Corp.', 121.4),
+  ticker('META', 'Meta Platforms, Inc.', 498.2),
+  ticker('JPM', 'JPMorgan Chase & Co.', 205.1),
+  ticker('V', 'Visa Inc.', 278.9),
+  ticker('KO', 'The Coca-Cola Company', 62.4),
+  ticker('DIS', 'The Walt Disney Company', 98.7),
+]
+
+export const POPULAR_TICKERS = MOCK_TICKERS.slice(0, 5)

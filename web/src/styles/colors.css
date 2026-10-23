@@ -173,6 +173,9 @@
   --color-file-excel: #107c41;
   --color-file-pdf: #b30c00;
 
+  /* Third-party wordmarks (data attributions) */
+  --color-brand-yahoo: #6001d2;
+
   /* Folder tab badges, cycled in order */
   --color-folder-1: #1a56db;
   --color-folder-2: #7c3aed;

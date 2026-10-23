@@ -1,12 +1,15 @@
-import { useRef, useState } from 'react'
-import { InputGroup, InputGroupInput } from '@/components/ui/input-group'
+import { useState } from 'react'
 import { CalendarIcon } from '@/components/icons'
+import { Calendar } from '@/components/ui/calendar'
+import { InputGroup, InputGroupInput } from '@/components/ui/input-group'
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { formatClock } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 const SEP = ' / '
 
 /** "2026-03-04" → "04 / 03 / 2026" */
-const toText = (iso: string) => (iso ? iso.split('-').reverse().join(SEP) : '')
+const toText = (iso: string) => (iso ? iso.slice(0, 10).split('-').reverse().join(SEP) : '')
 
 /** Typed digits → "DD / MM / YYYY" as far as they go. */
 const mask = (digits: string) => [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join(SEP)
@@ -20,16 +23,21 @@ function toIso(digits: string): string | null {
   return `${digits.slice(4)}-${digits.slice(2, 4)}-${digits.slice(0, 2)}`
 }
 
+const pad = (n: number) => String(n).padStart(2, '0')
+
 /** Today as YYYY-MM-DD in local time. */
 export const todayIso = () => {
   const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 /**
- * Day field typed as "DD / MM / YYYY" (slashes appear as you type), with a calendar button that opens the
- * browser's date picker. Reports an ISO day ("2026-03-04"), or '' while empty, incomplete or impossible.
- * A complete but impossible date (31 / 02) shows the error border by itself; `invalid` forces it.
+ * Day field typed as "DD / MM / YYYY" (slashes appear as you type), with a calendar button that opens a month grid
+ * under the field. Reports an ISO day ("2026-03-04"), or '' while empty, incomplete or impossible. A complete but
+ * impossible date (31 / 02) shows the error border by itself; `invalid` forces it.
+ *
+ * `withTime`: picking a day also stamps the current time ("01 / 02 / 2026 09:36 AM") and the value becomes a local
+ * ISO datetime ("2026-02-01T09:36"). A typed date is midnight ("…T00:00"), shown without a time.
  */
 export function DateField({
   id,
@@ -39,6 +47,7 @@ export function DateField({
   min,
   max,
   disabled,
+  withTime = false,
   className,
 }: {
   id?: string
@@ -48,77 +57,75 @@ export function DateField({
   min?: string
   max?: string
   disabled?: boolean
+  withTime?: boolean
   className?: string
 }) {
-  const picker = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
   const [text, setText] = useState(() => toText(value))
-  // Follow outside changes (picker, reset) without clobbering a half-typed date.
+  // Follow outside changes (reset) without clobbering a half-typed date.
   const [seen, setSeen] = useState(value)
   if (value !== seen) {
     setSeen(value)
     if (value) setText(toText(value))
   }
 
+  const time = withTime && value.includes('T') ? value.slice(11, 16) : ''
+  const shownTime = time && time !== '00:00' ? formatClock(time) : ''
+  const display = shownTime ? `${text} ${shownTime}` : text
   const digits = text.replace(/\D/g, '')
   const impossible = digits.length === 8 && !toIso(digits)
 
-  const type = (raw: string) => {
-    // Deleting a separator should delete the digit before it.
-    const next = raw.replace(/\D/g, '').slice(0, 8)
-    const shrunk = raw.length < text.length && next === digits ? next.slice(0, -1) : next
-    setText(mask(shrunk))
-    const iso = toIso(shrunk) ?? ''
-    setSeen(iso)
-    onChange(iso)
+  const report = (day: string, clock: string) => {
+    const next = day && withTime ? `${day}T${clock || '00:00'}` : day
+    setSeen(next)
+    onChange(next)
   }
 
-  const openPicker = () => {
-    const input = picker.current
-    if (!input) return
-    try {
-      input.showPicker()
-    } catch {
-      input.focus()
-    }
+  const type = (raw: string) => {
+    const next = raw.replace(/\D/g, '').slice(0, 8)
+    const shrinking = raw.length < display.length && next === digits
+    // Backspacing into the time drops the time first.
+    if (shrinking && shownTime) return report(toIso(digits) ?? '', '')
+    // Deleting a separator should delete the digit before it.
+    const typed = shrinking ? next.slice(0, -1) : next
+    setText(mask(typed))
+    report(toIso(typed) ?? '', '')
+  }
+
+  const pick = (day: string) => {
+    const now = new Date()
+    setText(toText(day))
+    report(day, withTime ? `${pad(now.getHours())}:${pad(now.getMinutes())}` : '')
+    setOpen(false)
   }
 
   return (
-    <InputGroup invalid={invalid || impossible} className={cn('relative', className)}>
-      <InputGroupInput
-        id={id}
-        value={text}
-        onChange={(e) => type(e.target.value)}
-        placeholder="DD / MM / YYYY"
-        inputMode="numeric"
-        autoComplete="off"
-        disabled={disabled}
-        aria-invalid={invalid || impossible || undefined}
-      />
-      <button
-        type="button"
-        onClick={openPicker}
-        disabled={disabled}
-        aria-label="Open calendar"
-        className="mr-2 flex size-7 shrink-0 items-center justify-center rounded-md text-subtle transition-colors outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
-      >
-        <CalendarIcon />
-      </button>
-      {/* The native picker, anchored under the calendar button; never shown itself. */}
-      <input
-        ref={picker}
-        type="date"
-        tabIndex={-1}
-        aria-hidden
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => {
-          setText(toText(e.target.value))
-          setSeen(e.target.value)
-          onChange(e.target.value)
-        }}
-        className="pointer-events-none absolute right-2 bottom-0 h-0 w-7 opacity-0"
-      />
-    </InputGroup>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <InputGroup invalid={invalid || impossible} className={cn(open && !(invalid || impossible) && 'border-primary', className)}>
+          <InputGroupInput
+            id={id}
+            value={display}
+            onChange={(e) => type(e.target.value)}
+            placeholder="DD / MM / YYYY"
+            inputMode="numeric"
+            autoComplete="off"
+            disabled={disabled}
+            aria-invalid={invalid || impossible || undefined}
+          />
+          <PopoverTrigger
+            type="button"
+            disabled={disabled}
+            aria-label="Open calendar"
+            className="mr-2 flex size-7 shrink-0 items-center justify-center rounded-md text-subtle transition-colors outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <CalendarIcon />
+          </PopoverTrigger>
+        </InputGroup>
+      </PopoverAnchor>
+      <PopoverContent align="center" sideOffset={6} className="w-auto p-0" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <Calendar value={value.slice(0, 10)} onChange={pick} min={min} max={max} />
+      </PopoverContent>
+    </Popover>
   )
 }

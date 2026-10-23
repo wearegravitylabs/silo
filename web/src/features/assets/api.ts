@@ -1,12 +1,14 @@
 import { defaultFolderId } from '@/lib/folders'
-import { CURRENCY, MOCK_ASSETS } from './mock-data'
-import type { AssetItem, AssetsOverview } from './types'
+import { CURRENCY, MOCK_ASSETS, MOCK_TICKERS, POPULAR_TICKERS } from './mock-data'
+import type { AssetItem, AssetsOverview, CreateAssetInput, TickerResult } from './types'
 
 // TODO: replace with the real endpoints once portfolios are real and the list has every field the page needs:
 //   GET    /portfolios/:id/assets?folder_id=…   (exists; lacks change_pct_1m, needs_attention, detail, status)
 //   GET    /portfolios/:id/assets/overview      (exists; total + growth_30d)
 //   PATCH  /portfolios/:id/assets/:assetId      (exists; { folder_id })
 //   DELETE /portfolios/:id/assets/:assetId      (exists)
+//   GET    /portfolios/:id/assets/ticker/search?q=…  (exists)
+//   POST   /portfolios/:id/assets              (exists; CreateAssetRequest with lots)
 // Mock: the demo portfolio starts with the design's assets, every other portfolio empty; changes live in memory.
 const DELAY = 500
 const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
@@ -50,4 +52,47 @@ export const deleteAsset = (portfolioId: string, assetId: string) => {
   const i = list.findIndex((a) => a.id === assetId)
   if (i !== -1) list.splice(i, 1)
   return later(null)
+}
+
+/** Stocks whose ticker contains `q`, or with a word in the name starting with it; the popular ones while `q` is empty. */
+export const searchTickers = (q: string): Promise<TickerResult[]> => {
+  const query = q.trim().toLowerCase()
+  if (!query) return later([...POPULAR_TICKERS])
+  return later(
+    MOCK_TICKERS.filter(
+      (t) =>
+        t.ticker.toLowerCase().includes(query) ||
+        t.name
+          .toLowerCase()
+          .split(/\s+/)
+          .some((w) => w.startsWith(query)),
+    ),
+  )
+}
+
+/** Adds a ticker asset valued at quantity × price, filed in `folder_id` (unless that's the default folder). */
+export const createAsset = (portfolioId: string, input: CreateAssetInput): Promise<AssetItem> => {
+  const now = new Date().toISOString()
+  const quantity = input.lots.reduce((sum, l) => sum + l.quantity, 0)
+  const asset: AssetItem = {
+    id: crypto.randomUUID(),
+    portfolio_id: portfolioId,
+    folder_id: input.folder_id && input.folder_id !== defaultFolderId('asset') ? input.folder_id : null,
+    asset_type: input.asset_type,
+    name: input.name,
+    ticker: input.ticker,
+    logo_url: input.logo_url,
+    investability: 'investable',
+    owned_value_converted: quantity * input.price,
+    converted_currency: input.currency,
+    total_quantity: quantity,
+    change_pct_1m: null,
+    needs_attention: false,
+    detail: input.ticker,
+    status: null,
+    created_at: now,
+    updated_at: now,
+  }
+  assetsOf(portfolioId).push(asset)
+  return later({ ...asset })
 }
