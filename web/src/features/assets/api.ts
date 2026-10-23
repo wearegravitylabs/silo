@@ -1,5 +1,5 @@
 import { defaultFolderId } from '@/lib/folders'
-import { CURRENCY, MOCK_ASSETS, MOCK_TICKERS, POPULAR_TICKERS } from './mock-data'
+import { CURRENCY, MOCK_ASSETS, MOCK_TICKERS, POPULAR_TICKERS, USD_RATES } from './mock-data'
 import type { AssetItem, AssetsOverview, CreateAssetInput, TickerResult } from './types'
 
 // TODO: replace with the real endpoints once portfolios are real and the list has every field the page needs:
@@ -70,10 +70,29 @@ export const searchTickers = (q: string): Promise<TickerResult[]> => {
   )
 }
 
-/** Adds a ticker asset valued at quantity × price, filed in `folder_id` (unless that's the default folder). */
+/**
+ * A stock's price at a moment, for pricing each purchase. Mock: today is the quoted price and earlier days drift
+ * around it, the same way every time.
+ * TODO: the backend prices lots by acquisition date when the asset is created (Yahoo history); use that here.
+ */
+export function priceOn(stock: Pick<TickerResult, 'ticker' | 'price'>, isoDateTime: string): number {
+  const days = Math.max(0, Math.round((Date.now() - new Date(isoDateTime).getTime()) / 86_400_000))
+  if (days === 0) return stock.price
+  const seed = [...stock.ticker].reduce((sum, c) => sum + c.charCodeAt(0), 0)
+  const drift = 1 + 0.35 * Math.sin((days + seed) / 23) - days * 0.0008
+  return Number((stock.price * Math.max(0.2, drift)).toFixed(2))
+}
+
+/**
+ * Adds a stock valued at what it cost: each purchase's quantity × its price (a manual stock's entered price, a
+ * ticker's price on that date), converted to the portfolio's currency like the API does. Filed in `folder_id`
+ * unless that's the default folder.
+ */
 export const createAsset = (portfolioId: string, input: CreateAssetInput): Promise<AssetItem> => {
   const now = new Date().toISOString()
   const quantity = input.lots.reduce((sum, l) => sum + l.quantity, 0)
+  const unitPrice = (acquiredAt: string) => (input.asset_type === 'stock_manual' ? input.price : priceOn(input, acquiredAt))
+  const value = input.lots.reduce((sum, l) => sum + l.quantity * unitPrice(l.acquired_at), 0)
   const asset: AssetItem = {
     id: crypto.randomUUID(),
     portfolio_id: portfolioId,
@@ -83,8 +102,8 @@ export const createAsset = (portfolioId: string, input: CreateAssetInput): Promi
     ticker: input.ticker,
     logo_url: input.logo_url,
     investability: 'investable',
-    owned_value_converted: quantity * input.price,
-    converted_currency: input.currency,
+    owned_value_converted: value / (USD_RATES[input.currency] ?? 1),
+    converted_currency: CURRENCY,
     total_quantity: quantity,
     change_pct_1m: null,
     needs_attention: false,

@@ -105,3 +105,7 @@ export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
 
 /** Largest quantity one purchase can record. */
 export const MAX_LOT_QUANTITY = 1_000_000
+
+/** An asset's own image (manual stocks): what the upload accepts. */
+export const ASSET_IMAGE_TYPES = ['image/jpeg', 'image/png']
+export const ASSET_IMAGE_MAX_BYTES = 1024 * 1024 // 1MB

@@ -4,6 +4,26 @@ import type { AssetItem, TickerResult } from './types'
 export const CURRENCY = 'USD'
 const CREATED = '2026-01-01T00:00:00Z'
 
+/** Units of each currency per US dollar, for converting new assets into the mock's USD values. Others count as 1. */
+export const USD_RATES: Record<string, number> = {
+  USD: 1,
+  EUR: 0.92,
+  GBP: 0.79,
+  NGN: 1550,
+  CAD: 1.37,
+  AUD: 1.52,
+  CHF: 0.88,
+  JPY: 151,
+  CNY: 7.2,
+  INR: 83.5,
+  AED: 3.67,
+  BRL: 5.1,
+  MXN: 17.1,
+  GHS: 15.2,
+  KES: 129,
+  ZAR: 18.4,
+}
+
 type Seed = Pick<AssetItem, 'id' | 'name' | 'asset_type' | 'owned_value_converted' | 'investability'> & Partial<AssetItem>
 
 const asset = (seed: Seed): AssetItem => ({
@@ -111,30 +131,32 @@ export const MOCK_ASSETS: AssetItem[] = [
   }),
 ]
 
-const ticker = (symbol: string, name: string, price: number): TickerResult => ({
+const ticker = (symbol: string, name: string, price: number, changePct: number): TickerResult => ({
   ticker: symbol,
   name,
   logo_url: null,
   price,
   currency: CURRENCY,
+  change: Number(((price * changePct) / (100 + changePct)).toFixed(2)),
+  change_pct: changePct,
 })
 
 /** What ticker search can find (the design's five first: they're shown before you type). */
 export const MOCK_TICKERS: TickerResult[] = [
-  ticker('GOOGL', 'Alphabet Inc.', 172.4),
-  ticker('MSFT', 'Microsoft Corp.', 10),
-  ticker('SPOT', 'Spotify', 310.25),
-  ticker('TIKTOK', 'Tiktok', 42.1),
-  ticker('NTFX', 'Netflix', 640.8),
-  ticker('AAPL', 'Apple Inc.', 190),
-  ticker('AMZN', 'Amazon.com, Inc.', 182.3),
-  ticker('TSLA', 'Tesla, Inc.', 226.6),
-  ticker('NVDA', 'NVIDIA Corp.', 121.4),
-  ticker('META', 'Meta Platforms, Inc.', 498.2),
-  ticker('JPM', 'JPMorgan Chase & Co.', 205.1),
-  ticker('V', 'Visa Inc.', 278.9),
-  ticker('KO', 'The Coca-Cola Company', 62.4),
-  ticker('DIS', 'The Walt Disney Company', 98.7),
+  ticker('GOOGL', 'Alphabet Inc.', 487.25, 5.5),
+  ticker('MSFT', 'Microsoft Corp.', 10, 1.2),
+  ticker('SPOT', 'Spotify', 310.25, -0.8),
+  ticker('TIKTOK', 'Tiktok', 42.1, 2.4),
+  ticker('NTFX', 'Netflix', 640.8, -1.6),
+  ticker('AAPL', 'Apple Inc.', 190, 0.6),
+  ticker('AMZN', 'Amazon.com, Inc.', 182.3, 1.9),
+  ticker('TSLA', 'Tesla, Inc.', 226.6, -3.1),
+  ticker('NVDA', 'NVIDIA Corp.', 121.4, 4.2),
+  ticker('META', 'Meta Platforms, Inc.', 498.2, 0.9),
+  ticker('JPM', 'JPMorgan Chase & Co.', 205.1, -0.4),
+  ticker('V', 'Visa Inc.', 278.9, 0.3),
+  ticker('KO', 'The Coca-Cola Company', 62.4, 0),
+  ticker('DIS', 'The Walt Disney Company', 98.7, -1.1),
 ]
 
 export const POPULAR_TICKERS = MOCK_TICKERS.slice(0, 5)

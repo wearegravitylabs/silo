@@ -1,9 +1,10 @@
 import { CirclePlusIcon } from 'lucide-react'
 import { ChoiceCard } from '@/components/choice-card'
+import { ChangeText } from '@/components/change-text'
 import { SearchInput } from '@/components/search-input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tooltip } from '@/components/ui/tooltip'
 import { useDebounce } from '@/hooks/use-debounce'
+import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { useTickerSearch } from '../../queries'
 import type { TickerResult } from '../../types'
@@ -12,19 +13,21 @@ import { StepHeading } from './step-heading'
 import { YahooAttribution } from './yahoo-attribution'
 
 /**
- * Step 2: search stocks by name or ticker (popular ones before you type) and pick one. "Add Ticker" (manual entry)
- * is shown but not available yet.
+ * Step 2: search stocks by name or ticker (popular ones before you type) and pick one — hovering shows its price.
+ * "Add Ticker" goes to manual entry instead.
  */
 export function StockSearchStep({
   query,
   onQueryChange,
   selected,
   onSelect,
+  onAddManually,
 }: {
   query: string
   onQueryChange: (q: string) => void
   selected: TickerResult | null
   onSelect: (ticker: TickerResult) => void
+  onAddManually: () => void
 }) {
   const debounced = useDebounce(query, 250)
   const { data: results, isPending, isPlaceholderData } = useTickerSearch(debounced)
@@ -46,23 +49,19 @@ export function StockSearchStep({
         />
 
         <div className="flex flex-col gap-4">
-          <Tooltip content="Coming soon" side="top">
-            <div>
-              <button
-                type="button"
-                disabled
-                className="flex min-h-18 w-full cursor-not-allowed items-center gap-3 rounded-xl bg-surface p-3 text-left"
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground">
-                  <CirclePlusIcon className="size-4" aria-hidden />
-                </span>
-                <span className="flex min-w-0 flex-col gap-1">
-                  <span className="font-medium text-foreground">Add Ticker</span>
-                  <span className="text-xs leading-4 text-muted-foreground">Add stocks manually</span>
-                </span>
-              </button>
-            </div>
-          </Tooltip>
+          <button
+            type="button"
+            onClick={onAddManually}
+            className="flex min-h-18 w-full items-center gap-3 rounded-xl bg-surface p-3 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground">
+              <CirclePlusIcon className="size-4" aria-hidden />
+            </span>
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="font-medium text-foreground">Add Ticker</span>
+              <span className="text-xs leading-4 text-muted-foreground">Add stocks manually</span>
+            </span>
+          </button>
 
           <div
             role="radiogroup"
@@ -82,6 +81,12 @@ export function StockSearchStep({
                     onSelect={() => onSelect(t)}
                     check={false}
                     className="min-h-18"
+                    trailing={
+                      <>
+                        <span className="text-foreground">{formatMoney(t.price, t.currency)}</span>
+                        <ChangeText change={{ amount: t.change, pct: t.change_pct }} currency={t.currency} compact={false} />
+                      </>
+                    }
                   />
                 ))}
             {results?.length === 0 && !isPending && (

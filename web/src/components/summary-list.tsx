@@ -6,6 +6,8 @@ export interface SummaryRow {
   value: ReactNode
   /** e.g. text-success for returns, font-semibold for a total */
   valueClassName?: string
+  /** Extra content under the row (e.g. expanded dates) */
+  detail?: ReactNode
 }
 
 /** Titled label/value list on a grey card ("Asset Summary", "Debt Summary"). Long values truncate. */
@@ -15,9 +17,12 @@ export function SummaryList({ title, rows, className }: { title: string; rows: S
       <h3 className="font-heading text-xl leading-7 font-bold">{title}</h3>
       <dl className="divide-y divide-line overflow-hidden rounded-2xl bg-accent">
         {rows.map((row) => (
-          <div key={row.label} className="flex h-11.5 items-center justify-between gap-4 px-4">
-            <dt className="shrink-0 text-muted-foreground">{row.label}</dt>
-            <dd className={cn('min-w-0 truncate font-medium', row.valueClassName)}>{row.value}</dd>
+          <div key={row.label} className="flex flex-col px-4">
+            <div className="flex h-11.5 items-center justify-between gap-4">
+              <dt className="shrink-0 text-muted-foreground">{row.label}</dt>
+              <dd className={cn('min-w-0 truncate font-medium', row.valueClassName)}>{row.value}</dd>
+            </div>
+            {row.detail && <dd className="pb-3">{row.detail}</dd>}
           </div>
         ))}
       </dl>

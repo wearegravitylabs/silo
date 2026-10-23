@@ -17,6 +17,7 @@ import {
   type AssetItem,
 } from '@/features/assets'
 import { foldersQuery, FolderTabs, useFolders } from '@/features/folders'
+import { usePortfolio } from '@/features/portfolios'
 import { useAskSiloAi } from '@/features/silo-ai'
 import { defaultFolderId } from '@/lib/folders'
 import { AssetsSkeleton } from './-components/assets-skeleton'
@@ -62,6 +63,7 @@ function AssetsPage() {
   const { portfolioId } = Route.useParams()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const portfolio = usePortfolio(portfolioId)
   const folders = useFolders(portfolioId, 'asset')
   const { currency } = useAssetsOverview(portfolioId)
   const { move, remove } = useAssetMutations(portfolioId)
@@ -132,6 +134,7 @@ function AssetsPage() {
       <CreateAssetSheet
         portfolioId={portfolioId}
         folderId={folderId}
+        defaultCurrency={portfolio.base_currency}
         open={!!search.create}
         onOpenChange={setCreating}
         onCreated={() => toast.success('Asset has been created successfully!')}

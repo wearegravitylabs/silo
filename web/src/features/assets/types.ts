@@ -50,6 +50,9 @@ export interface TickerResult {
   logo_url: string | null
   price: number
   currency: string
+  /** Change over the last day, in `currency` and % */
+  change: number
+  change_pct: number
 }
 
 /** One purchase of a stock: how many, and when. */
@@ -59,16 +62,16 @@ export interface AssetLotInput {
   acquired_at: string
 }
 
-/** Mirrors the backend's CreateAssetRequest for ticker assets. */
+/** Mirrors the backend's CreateAssetRequest: a ticker stock (priced by the market) or a manual one (priced by you). */
 export interface CreateAssetInput {
   /** The folder it's created in; null or the default folder leaves it unfiled */
   folder_id: string | null
-  asset_type: string
+  asset_type: 'stock_ticker' | 'stock_manual'
   ticker: string
   name: string
   logo_url: string | null
   currency: string
-  /** Price per unit when added */
+  /** Manual stocks: the price per unit you entered. Ticker stocks: today's price (each purchase is priced on its date). */
   price: number
   lots: AssetLotInput[]
 }

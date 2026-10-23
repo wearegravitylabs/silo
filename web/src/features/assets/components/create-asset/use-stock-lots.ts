@@ -40,6 +40,23 @@ export function useStockLots() {
     /** As typed, even while invalid (the summary follows the field) */
     totalQuantity: rows.reduce((sum, r) => sum + (r.quantity ?? 0), 0),
     firstAcquiredAt: acquiredAt(lots[0]),
+    /** Every purchase's moment, in order (the summary's date chips) */
+    acquiredAts: lots.map(acquiredAt),
+    /**
+     * What the purchases cost, given a unit price per purchase moment: the quantity-weighted average price, the total,
+     * and whether it's a true average (purchases at different prices — the DCA case).
+     */
+    costBasis: (priceAt: (acquiredAt: string) => number) => {
+      const filled = rows.filter((r) => (r.quantity ?? 0) > 0)
+      const quantity = filled.reduce((sum, r) => sum + r.quantity!, 0)
+      const prices = filled.map((r) => priceAt(acquiredAt(r)))
+      const total = filled.reduce((sum, r, i) => sum + r.quantity! * prices[i], 0)
+      return {
+        unitPrice: quantity > 0 ? total / quantity : priceAt(acquiredAt(lots[0])),
+        total,
+        averaged: new Set(prices).size > 1,
+      }
+    },
     canSubmit: rows.every((r) => isValidQuantity(r.quantity)),
     toLots: (): AssetLotInput[] => rows.map((r) => ({ quantity: r.quantity!, acquired_at: acquiredAt(r) })),
   }

@@ -10,17 +10,25 @@ export function ChangeText({
   change,
   currency,
   inverse = false,
+  compact = true,
   className,
 }: {
   change: { amount: number; pct: number }
   currency: string
   inverse?: boolean
+  /** "$1k" (default) or the exact "$25.40" */
+  compact?: boolean
   className?: string
 }) {
   const dir = change.amount > 0 ? 'up' : change.amount < 0 ? 'down' : 'flat'
   const Icon = dir === 'up' ? ArrowUpIcon : dir === 'down' ? ArrowDownIcon : null
   const good = (dir === 'up') !== inverse
-  const amount = dir === 'flat' ? formatMoney(0, currency) : formatCompactMoney(Math.abs(change.amount), currency)
+  const amount =
+    dir === 'flat'
+      ? formatMoney(0, currency)
+      : compact
+        ? formatCompactMoney(Math.abs(change.amount), currency)
+        : formatMoney(Math.abs(change.amount), currency, { spaced: false })
   const pct = Number(Math.abs(change.pct).toFixed(1))
 
   return (
