@@ -1,19 +1,10 @@
 import { periodDays, type ChartPeriod } from '@/lib/periods'
-import {
-  defaultDebtFolder,
-  emptyOverview,
-  MOCK_DEBTS,
-  MOCK_DOCUMENTS,
-  MOCK_HISTORY,
-  MOCK_NOTES,
-  MOCK_OVERVIEW,
-  MOCK_RULES,
-} from './mock-data'
+import { defaultFolderId } from '@/lib/folders'
+import { emptyOverview, MOCK_DEBTS, MOCK_DOCUMENTS, MOCK_HISTORY, MOCK_NOTES, MOCK_OVERVIEW, MOCK_RULES } from './mock-data'
 import type {
   CreateDebtInput,
   Debt,
   DebtDocument,
-  DebtFolder,
   DebtHistoryEntry,
   DebtNote,
   DebtNoteInput,
@@ -26,7 +17,6 @@ import type {
 //   GET  /portfolios/:id/debts?folder_id=…  (exists; lacks change_pct_1m, needs_attention, icon)
 //   POST /portfolios/:id/debts               (exists; CreateDebtRequest)
 //   a debts overview (total + 1M change) — doesn't exist yet
-//   folders: foldersQuery(portfolioId, 'debt') from the folders feature, once portfolios are real (they're mocked too)
 // Mock: the demo portfolio starts with the design's debts, every other portfolio empty; added debts live in memory.
 const DELAY = 600
 const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
@@ -46,11 +36,11 @@ export const getDebtsOverview = (portfolioId: string, currency: string): Promise
   return later(extra > 0 ? { currency, total: extra, change: { amount: extra, pct: 100 } } : emptyOverview(currency))
 }
 
-/** The mock ignores the folder: every debt sits in the default folder. */
-export const listDebts = (portfolioId: string, _folderId?: string): Promise<Debt[]> => later([...debtsOf(portfolioId)])
-
-/** Debt folder tabs. Mocked because portfolios are mocked: the real folders API doesn't know the demo portfolio. */
-export const listDebtFolders = (portfolioId: string): Promise<DebtFolder[]> => later([defaultDebtFolder(portfolioId)])
+/** The default folder ("All Debts") lists every debt; any other folder only its own. */
+export const listDebts = (portfolioId: string, folderId?: string): Promise<Debt[]> => {
+  const all = debtsOf(portfolioId)
+  return later(!folderId || folderId === defaultFolderId('debt') ? [...all] : all.filter((d) => d.folder_id === folderId))
+}
 
 export const createDebt = (portfolioId: string, input: CreateDebtInput): Promise<Debt> => {
   const now = new Date().toISOString()

@@ -1,5 +1,5 @@
 // Temporary debts, used by api.ts until the Debts page is wired to the backend. Mirrors the design.
-import type { Debt, DebtDocument, DebtFolder, DebtHistoryEntry, DebtNote, DebtRule, DebtsOverview } from './types'
+import type { Debt, DebtDocument, DebtHistoryEntry, DebtNote, DebtRule, DebtsOverview } from './types'
 
 const CURRENCY = 'USD'
 const CREATED = '2026-01-01T00:00:00Z'
@@ -57,19 +57,6 @@ export const MOCK_OVERVIEW: DebtsOverview = {
 
 /** A portfolio with no debts yet. */
 export const emptyOverview = (currency: string): DebtsOverview => ({ currency, total: 0, change: { amount: 0, pct: 0 } })
-
-/** The default folder the backend creates for every portfolio. */
-export const defaultDebtFolder = (portfolioId: string): DebtFolder => ({
-  id: 'all-debts',
-  portfolio_id: portfolioId,
-  folder_type: 'debt',
-  name: 'All Debts',
-  icon: null,
-  image_url: null,
-  position: 0,
-  created_at: CREATED,
-  updated_at: CREATED,
-})
 
 // ─── Detail panel seeds (House Down Payment, as in the design); other debts start empty ──
 

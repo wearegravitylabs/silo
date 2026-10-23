@@ -47,7 +47,7 @@ function DashboardPage() {
         mock={mock}
         onPeriodChange={setPeriod}
         // TODO: open Add Asset on the picked type (stock, crypto, real estate) once the sheet takes one.
-        onAddAsset={() => navigate({ to: '/portfolio/$portfolioId/assets', params: { portfolioId }, search: { create: true } })}
+        onAddAsset={() => navigate({ to: '/portfolio/$portfolioId/assets', params: { portfolioId } })}
         onAddDebt={() => navigate({ to: '/portfolio/$portfolioId/debts', params: { portfolioId }, search: { create: true } })}
         onUploadDocument={() => navigate({ to: '/portfolio/$portfolioId/vault', params: { portfolioId } })}
         onTalkToAi={() => openAi(true)}

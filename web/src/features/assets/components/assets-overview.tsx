@@ -1,63 +1,95 @@
-import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrency } from '@/lib/format'
+import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { AssetItem } from '../types'
 
-/** Two stat cards (value, count) for the current folder, split investable / non-investable. */
-export function AssetsOverview({ assets, currency, loading }: { assets: AssetItem[]; currency: string; loading?: boolean }) {
+/**
+ * The selected folder's stats, under its tab: value and number of assets, each split Investable / Non-Investable.
+ * Side by side from md; stacked on phones.
+ */
+export function AssetsOverview({
+  folderName,
+  assets,
+  currency,
+  loading,
+}: {
+  folderName: string
+  assets: AssetItem[]
+  currency: string
+  loading?: boolean
+}) {
   const investable = assets.filter((a) => a.investability === 'investable')
   const other = assets.filter((a) => a.investability !== 'investable')
-  const sum = (list: AssetItem[]) => list.reduce((s, a) => s + (a.owned_value_converted ?? 0), 0)
-  const money = (list: AssetItem[]) => formatCurrency(sum(list), currency)
+  const money = (list: AssetItem[]) =>
+    formatMoney(
+      list.reduce((sum, a) => sum + a.owned_value_converted, 0),
+      currency,
+    )
 
   return (
-    <div className="flex gap-4 px-10 pt-5">
-      <StatCard title="Investment Value" main={money(assets)} investable={money(investable)} other={money(other)} loading={loading} />
-      <StatCard title="Total Assets" main={assets.length} investable={investable.length} other={other.length} loading={loading} />
+    <div className="grid bg-background md:grid-cols-2">
+      <Stat title={`${folderName} Value`} main={money(assets)} investable={money(investable)} other={money(other)} loading={loading} />
+      <Stat
+        title="Total Assets"
+        main={assets.length}
+        investable={investable.length}
+        other={other.length}
+        loading={loading}
+        className="border-t border-border md:border-t-0 md:border-l"
+      />
     </div>
   )
 }
 
-function StatCard({
+function Stat({
   title,
   main,
   investable,
   other,
   loading,
+  className,
 }: {
   title: string
   main: string | number
   investable: string | number
   other: string | number
   loading?: boolean
+  className?: string
 }) {
-  const split = [
-    { label: 'Investable Assets', value: investable, rule: 'border-solid' },
-    { label: 'Non-Investable Assets', value: other, rule: 'border-dashed' },
-  ]
   return (
-    <Card className="flex-1">
-      <div className="px-4 pt-4 pb-3">
-        <h3 className="mb-2 flex items-center gap-2 font-medium text-muted-foreground">
-          <span className="size-2.5 shrink-0 rounded-full border-[2.5px] border-primary-dark" />
-          {title}
-        </h3>
-        {loading ? (
-          <Skeleton className="h-9 w-40 rounded-md" />
-        ) : (
-          <span className="font-heading leading-[1.1] font-bold tracking-[-0.5px]">{main}</span>
-        )}
-      </div>
-      <dl className="flex divide-x border-t">
-        {split.map(({ label, value, rule }) => (
-          <div key={label} className="flex-1 px-4 pt-3">
-            <dt className="mb-1.5 text-muted-foreground">{label}</dt>
-            <dd className="mb-3 font-semibold">{loading ? <Skeleton className="h-4 w-20" /> : value}</dd>
-            <div className={cn('border-b-2 border-primary-dark', rule)} />
-          </div>
-        ))}
+    <section className={cn('flex min-w-0 flex-col px-4 pt-6 pb-4', className)}>
+      <h2 className="flex min-w-0 items-center gap-2 font-sans text-sm leading-5.5 font-medium tracking-normal">
+        <span aria-hidden className="size-3.5 shrink-0 rounded-full border-4 border-primary-dark" />
+        <span className="truncate">{title}</span>
+      </h2>
+      {loading ? (
+        <Skeleton className="mt-3.5 h-8 w-36 rounded-md" />
+      ) : (
+        <p className="mt-3.5 truncate font-heading text-2xl leading-8 font-bold text-foreground">{main}</p>
+      )}
+      <dl className="mt-4 grid grid-cols-2 gap-2">
+        <Split label="Investable Assets" value={investable} loading={loading} />
+        <Split label="Non-Investable Assets" value={other} loading={loading} dashed />
       </dl>
-    </Card>
+    </section>
+  )
+}
+
+/** One half of the split: a ruled box with a bar along its foot — solid for investable, dotted for the rest. */
+function Split({ label, value, loading, dashed }: { label: string; value: string | number; loading?: boolean; dashed?: boolean }) {
+  return (
+    <div className={cn('flex min-w-0 flex-col border-l', dashed ? 'border-primary-dark/40' : 'border-primary-dark')}>
+      <dt className="truncate px-3 pt-1.5 text-xs leading-5 text-muted-foreground">{label}</dt>
+      <dd className="truncate px-3 pt-2.5 pb-2.5 text-foreground">{loading ? <Skeleton className="h-4 w-20" /> : value}</dd>
+      <span
+        aria-hidden
+        className={cn(
+          'h-0.75',
+          dashed
+            ? 'bg-[repeating-linear-gradient(90deg,var(--color-primary-dark)_0_1px,transparent_1px_3px)] opacity-60'
+            : 'bg-primary-dark',
+        )}
+      />
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react'
 import { createStore, useStore, type StoreApi } from 'zustand'
+import { useSiloAiPanel } from '@/stores/silo-ai-store'
 import { SEED_CHATS } from './mock-data'
 import { mockReply, type MockReply } from './mock-engine'
 import type { AssistantMessage, ChatMessage, PendingAction, SavedChat } from './types'
@@ -178,6 +179,15 @@ export function useSiloAiChat<T>(selector: (state: SiloAiChatState) => T): T
 export function useSiloAiChat<T>(selector?: (state: SiloAiChatState) => T) {
   const store = useContext(ChatStoreContext)
   return useStore(store, selector ?? ((s) => s as T))
+}
+
+/** Ask Silo AI from anywhere: opens the panel and sends `text` in the app's chat ("Organize my assets into folders"). */
+export function useAskSiloAi() {
+  const setOpen = useSiloAiPanel((s) => s.setOpen)
+  return (text: string) => {
+    setOpen(true)
+    appStore.getState().send(text)
+  }
 }
 
 /** True while the assistant is working or streaming. */

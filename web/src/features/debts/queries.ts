@@ -11,7 +11,6 @@ import {
   getDebtChart,
   getDebtsOverview,
   listDebtDocuments,
-  listDebtFolders,
   listDebtHistory,
   listDebtNotes,
   listDebtRules,
@@ -27,7 +26,6 @@ export const debtKeys = {
   /** folderId null = every debt in the portfolio */
   list: (portfolioId: string, folderId: string | null) => ['debts', portfolioId, 'list', folderId ?? 'all'] as const,
   overview: (portfolioId: string) => ['debts', portfolioId, 'overview'] as const,
-  folders: (portfolioId: string) => ['debts', portfolioId, 'folders'] as const,
   history: (portfolioId: string, debtId: string) => ['debts', portfolioId, 'history', debtId] as const,
   chart: (portfolioId: string, debtId: string, period: ChartPeriod) => ['debts', portfolioId, 'chart', debtId, period] as const,
   rules: (portfolioId: string, debtId: string) => ['debts', portfolioId, 'rules', debtId] as const,
@@ -56,12 +54,6 @@ export const useDebts = (portfolioId: string, folderId: string | null) =>
 
 /** Portfolio debt total. Suspends — preload with `debtsOverviewQuery` in the route loader. */
 export const useDebtsOverview = (portfolioId: string, currency: string) => useSuspenseQuery(debtsOverviewQuery(portfolioId, currency)).data
-
-export const debtFoldersQuery = (portfolioId: string) =>
-  queryOptions({ queryKey: debtKeys.folders(portfolioId), queryFn: () => listDebtFolders(portfolioId), staleTime: 2 * 60_000 })
-
-/** Debt folder tabs. Suspends — preload with `debtFoldersQuery` in the route loader. */
-export const useDebtFolders = (portfolioId: string) => useSuspenseQuery(debtFoldersQuery(portfolioId)).data
 
 /** Adds a debt; refetches every debt query for the portfolio (list, total). */
 export const useCreateDebt = (portfolioId: string) => {

@@ -1,143 +1,44 @@
-// ─── Ticker search / preview ─────────────────────────────────────────────────
+// TODO: the real asset list (GET /portfolios/:id/assets) lacks change_pct_1m, needs_attention, detail and status;
+// those are UI-only until the backend adds them. Other fields keep the API's names.
 
-export interface TickerSearchResult {
-  ticker: string
-  company_name: string
-  exchange: string
-  asset_type: string
-  logo_url: string
-}
-
-export interface TickerQuote {
-  ticker: string
-  company_name: string
-  price: number
-  currency: string
-  change_24h: number
-  pct_change: number
-  exchange: string
-  logo_url: string
-  updated_at: string
-}
-
-// ─── Asset overview ──────────────────────────────────────────────────────────
-
-export interface AssetOverviewBucket {
-  value: number
-  count: number
-}
-
-export interface AssetOverview {
-  currency: string
-  total_assets: AssetOverviewBucket
-  growth_30d: { amount: number; percentage: number }
-  investable: AssetOverviewBucket
-  non_investable: AssetOverviewBucket
-}
-
-// ─── Asset ───────────────────────────────────────────────────────────────────
+export type Investability = 'investable' | 'non_investable'
 
 export interface AssetItem {
   id: string
   portfolio_id: string
-  folder_id: string
+  /** null: not filed, so it only shows under the default folder */
+  folder_id: string | null
   asset_type: string
   name: string
   ticker: string | null
   logo_url: string | null
-  image_url: string | null
-  icon: string | null
-  ownership_pct: number
-  investability: string
-  investability_editable: boolean
-  currency: string
-  current_price: number | null
-  total_value: number
-  owned_value: number
+  investability: Investability
+  /** Value of the part you own, in `converted_currency` */
   owned_value_converted: number
   converted_currency: string
-  exchange_rate: number
-  change_pct: number | null
+  /** Units held, for ticker assets ("3,000 MSFT") */
   total_quantity: number | null
+  /** Change over the last month, in %; null when there's no price history */
+  change_pct_1m: number | null
+  /** Flagged for a look (price alert, stale valuation) */
+  needs_attention: boolean
+  /** Second line under the name: the ticker, or e.g. a venture round ("Seed") */
+  detail: string | null
+  /** Second line under the type, e.g. "Active" */
+  status: string | null
   created_at: string
   updated_at: string
 }
 
-// ─── Asset sub-resources ─────────────────────────────────────────────────────
-
-export interface AssetLot {
-  id: string
-  asset_id: string
-  quantity: number
-  acquisition_price: number | null
-  acquisition_date: string
-  price_date_used: string | null
-  notes: string
-  created_at: string
-}
-
-export interface AssetNote {
-  id: string
-  asset_id: string | null
-  portfolio_id: string
-  title: string
-  content: string
-  tags?: { items?: string[] }
-  created_at: string
-  updated_at: string
-}
-
-export interface AssetDocument {
-  id: string
-  asset_id: string | null
-  portfolio_id: string
-  file_name: string
-  file_type: string
-  file_size: number
-  uploaded_at: string
-}
-
-// ─── Inputs ──────────────────────────────────────────────────────────────────
-
-export interface CreateLotInput {
-  quantity: number
-  acquisition_date: string
-  notes?: string
-}
-
-export interface CreateAssetInput {
-  folder_id: string
-  asset_type: string
-  ticker?: string
-  name?: string
-  image_url?: string
-  ownership_pct?: number
-  current_price?: number
-  currency?: string
-  lots: CreateLotInput[]
-}
-
-export interface UpdateAssetInput {
-  ownership_pct?: number
-  investability?: string
-  folder_id?: string
-}
-
-export interface NoteInput {
-  title?: string
-  content?: string
-  tags?: string[]
-}
-
-export interface UploadedFile {
-  url: string
-  key: string
-  size: number
-  content_type: string
-}
-
-/** The folder fields the asset UI needs. Any folder object (e.g. from the folders feature) fits. */
+/** The folder fields the asset menus need. Any folder object (e.g. from the folders feature) fits. */
 export interface FolderRef {
   id: string
   name: string
+}
+
+/** The Assets page heading: everything the portfolio owns, and its 1M change. */
+export interface AssetsOverview {
+  currency: string
+  total: number
+  change: { amount: number; pct: number } | null
 }

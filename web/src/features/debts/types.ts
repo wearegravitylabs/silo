@@ -55,19 +55,6 @@ export interface DebtsOverview {
   change: { amount: number; pct: number } | null
 }
 
-/** A debt folder tab. Same shape as the folders feature's Folder, which FolderTabs takes. */
-export interface DebtFolder {
-  id: string
-  portfolio_id: string
-  folder_type: 'debt'
-  name: string
-  icon: string | null
-  image_url: string | null
-  position: number
-  created_at: string
-  updated_at: string
-}
-
 // ─── Detail panel (none of this is in the API yet) ───────────────────────────
 
 /** One balance change: the starting balance, a manual adjustment, or a repayment. */

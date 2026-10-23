@@ -1,85 +1,53 @@
-import { api } from '@/lib/api-client'
-import type {
-  AssetDocument,
-  AssetItem,
-  AssetLot,
-  AssetNote,
-  AssetOverview,
-  CreateAssetInput,
-  NoteInput,
-  TickerQuote,
-  TickerSearchResult,
-  UpdateAssetInput,
-  UploadedFile,
-} from './types'
+import { defaultFolderId } from '@/lib/folders'
+import { CURRENCY, MOCK_ASSETS } from './mock-data'
+import type { AssetItem, AssetsOverview } from './types'
 
-const base = (portfolioId: string) => `/portfolios/${portfolioId}/assets`
-const one = (portfolioId: string, assetId: string) => `${base(portfolioId)}/${assetId}`
-const orEmpty = <T>(d: T[] | null) => d ?? []
+// TODO: replace with the real endpoints once portfolios are real and the list has every field the page needs:
+//   GET    /portfolios/:id/assets?folder_id=…   (exists; lacks change_pct_1m, needs_attention, detail, status)
+//   GET    /portfolios/:id/assets/overview      (exists; total + growth_30d)
+//   PATCH  /portfolios/:id/assets/:assetId      (exists; { folder_id })
+//   DELETE /portfolios/:id/assets/:assetId      (exists)
+// Mock: the demo portfolio starts with the design's assets, every other portfolio empty; changes live in memory.
+const DELAY = 500
+const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
 
-/** The API stores note tags as { items: [...] }. */
-const tagsBody = (tags: string[] | undefined, forUpdate: boolean) => {
-  if (tags === undefined) return undefined
-  if (tags.length) return { items: tags }
-  return forUpdate ? {} : undefined
+const store = new Map<string, AssetItem[]>()
+const assetsOf = (portfolioId: string) => {
+  if (!store.has(portfolioId)) store.set(portfolioId, portfolioId === 'demo' ? MOCK_ASSETS.map((a) => ({ ...a })) : [])
+  return store.get(portfolioId)!
 }
 
-function formData(file: File) {
-  const form = new FormData()
-  form.append('file', file)
-  return form
+/** Total owned, and its 1M change worked back from each asset's own change. */
+export const getAssetsOverview = (portfolioId: string): Promise<AssetsOverview> => {
+  const assets = assetsOf(portfolioId)
+  const total = assets.reduce((sum, a) => sum + a.owned_value_converted, 0)
+  const amount = assets.reduce((sum, a) => {
+    const pct = a.change_pct_1m ?? 0
+    return sum + a.owned_value_converted - a.owned_value_converted / (1 + pct / 100)
+  }, 0)
+  const before = total - amount
+  return later({ currency: CURRENCY, total, change: { amount, pct: before > 0 ? (amount / before) * 100 : 0 } })
 }
 
-export const getAssetOverview = (portfolioId: string) => api<AssetOverview>(`${base(portfolioId)}/overview`)
+/** The default folder ("All Assets") lists everything; any other folder only what's filed in it. */
+export const listAssets = (portfolioId: string, folderId?: string): Promise<AssetItem[]> => {
+  const all = assetsOf(portfolioId)
+  return later(
+    (!folderId || folderId === defaultFolderId('asset') ? all : all.filter((a) => a.folder_id === folderId)).map((a) => ({ ...a })),
+  )
+}
 
-export const listAssets = (portfolioId: string, folderId?: string) =>
-  api<AssetItem[] | null>(base(portfolioId), { params: { folder_id: folderId } }).then(orEmpty)
+/** File an asset in a folder; the default folder unfiles it. */
+export const moveAsset = (portfolioId: string, assetId: string, folderId: string) => {
+  const target = assetsOf(portfolioId).find((a) => a.id === assetId)
+  if (!target) return Promise.reject(new Error('This asset no longer exists'))
+  Object.assign(target, { folder_id: folderId === defaultFolderId('asset') ? null : folderId, updated_at: new Date().toISOString() })
+  return later({ ...target })
+}
 
-export const searchTicker = (portfolioId: string, q: string, type: 'stock' | 'crypto' = 'stock') =>
-  api<TickerSearchResult[] | null>(`${base(portfolioId)}/ticker/search`, { params: { q, type } }).then(orEmpty)
-
-export const previewTicker = (portfolioId: string, ticker: string) =>
-  api<TickerQuote>(`${base(portfolioId)}/ticker/preview`, { params: { ticker } })
-
-export const createAsset = (portfolioId: string, data: CreateAssetInput) =>
-  api<AssetItem>(base(portfolioId), { method: 'POST', body: data })
-
-export const updateAsset = (portfolioId: string, assetId: string, data: UpdateAssetInput) =>
-  api<AssetItem>(one(portfolioId, assetId), { method: 'PATCH', body: data })
-
-export const deleteAsset = (portfolioId: string, assetId: string) => api<null>(one(portfolioId, assetId), { method: 'DELETE' })
-
-export const listLots = (portfolioId: string, assetId: string) => api<AssetLot[] | null>(`${one(portfolioId, assetId)}/lots`).then(orEmpty)
-
-export const listNotes = (portfolioId: string, assetId: string) =>
-  api<AssetNote[] | null>(`${one(portfolioId, assetId)}/notes`).then(orEmpty)
-
-export const addNote = (portfolioId: string, assetId: string, { tags, ...data }: NoteInput) =>
-  api<AssetNote>(`${one(portfolioId, assetId)}/notes`, {
-    method: 'POST',
-    body: { ...data, tags: tagsBody(tags, false) },
-  })
-
-export const updateNote = (portfolioId: string, assetId: string, noteId: string, { tags, ...data }: NoteInput) =>
-  api<AssetNote>(`${one(portfolioId, assetId)}/notes/${noteId}`, {
-    method: 'PATCH',
-    body: { ...data, tags: tagsBody(tags, true) },
-  })
-
-export const deleteNote = (portfolioId: string, assetId: string, noteId: string) =>
-  api<null>(`${one(portfolioId, assetId)}/notes/${noteId}`, { method: 'DELETE' })
-
-export const listDocuments = (portfolioId: string, assetId: string) =>
-  api<AssetDocument[] | null>(`${one(portfolioId, assetId)}/documents`).then(orEmpty)
-
-export const uploadDocument = (portfolioId: string, assetId: string, file: File) =>
-  api<AssetDocument>(`${one(portfolioId, assetId)}/documents`, { method: 'POST', body: formData(file) })
-
-export const getDocumentDownloadUrl = (portfolioId: string, assetId: string, docId: string) =>
-  api<{ url: string; expires_in: number }>(`${one(portfolioId, assetId)}/documents/${docId}/download-url`)
-
-export const deleteDocument = (portfolioId: string, assetId: string, docId: string) =>
-  api<null>(`${one(portfolioId, assetId)}/documents/${docId}`, { method: 'DELETE' })
-
-/** Generic file upload (asset images). */
-export const uploadFile = (file: File) => api<UploadedFile>('/upload', { method: 'POST', body: formData(file) })
+export const deleteAsset = (portfolioId: string, assetId: string) => {
+  const list = assetsOf(portfolioId)
+  const i = list.findIndex((a) => a.id === assetId)
+  if (i !== -1) list.splice(i, 1)
+  return later(null)
+}

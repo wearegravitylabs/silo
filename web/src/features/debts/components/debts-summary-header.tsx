@@ -1,10 +1,9 @@
-import { ArrowDownIcon, ArrowUpIcon, CirclePlusIcon, UploadIcon } from 'lucide-react'
+import { CirclePlusIcon, UploadIcon } from 'lucide-react'
+import { ChangeText } from '@/components/change-text'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
-import { formatCompactMoney, formatMoney } from '@/lib/format'
-import { cn } from '@/lib/utils'
+import { formatMoney } from '@/lib/format'
 import { useDebtsOverview } from '../queries'
-import type { DebtsOverview } from '../types'
 
 /** "Debts" heading: portfolio debt total, its 1M change, Export and Add Debt actions. */
 export function DebtsSummaryHeader({
@@ -27,7 +26,7 @@ export function DebtsSummaryHeader({
       title={
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <h1 className="font-heading font-bold tracking-[-0.3px]">{formatMoney(overview.total, overview.currency)}</h1>
-          {overview.change && <DebtChange change={overview.change} currency={overview.currency} />}
+          {overview.change && <ChangeText change={overview.change} currency={overview.currency} inverse />}
         </div>
       }
       actions={
@@ -43,27 +42,5 @@ export function DebtsSummaryHeader({
         </>
       }
     />
-  )
-}
-
-/**
- * "↑ $10k (100%)". For debts a rise is bad: up is red, down green, no change grey with no arrow ("$ 0.00 (0%)").
- */
-function DebtChange({ change, currency }: { change: NonNullable<DebtsOverview['change']>; currency: string }) {
-  const dir = change.amount > 0 ? 'up' : change.amount < 0 ? 'down' : 'flat'
-  const Icon = dir === 'up' ? ArrowUpIcon : dir === 'down' ? ArrowDownIcon : null
-  const amount = dir === 'flat' ? formatMoney(0, currency) : formatCompactMoney(Math.abs(change.amount), currency)
-  const pct = Number(Math.abs(change.pct).toFixed(1))
-
-  return (
-    <span
-      className={cn(
-        'flex items-center gap-1 text-xs leading-5',
-        dir === 'up' ? 'text-destructive' : dir === 'down' ? 'text-success' : 'text-muted-foreground',
-      )}
-    >
-      {Icon && <Icon className="size-3.5" aria-label={dir === 'up' ? 'Up' : 'Down'} />}
-      {amount} ({pct}%)
-    </span>
   )
 }

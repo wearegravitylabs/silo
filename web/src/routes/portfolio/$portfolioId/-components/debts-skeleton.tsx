@@ -1,5 +1,6 @@
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { FolderCardSkeleton } from './folder-card-skeleton'
 
 /** Loading state for the debts page: header, folder tabs, toolbar, table — same geometry as the real page. */
 export function DebtsSkeleton() {
@@ -19,11 +20,8 @@ export function DebtsSkeleton() {
         </div>
       </div>
 
-      <div className="mt-2 flex items-end gap-6 border-b border-border px-4 pt-2.5 pb-2.5 md:px-10">
-        <div className="flex items-center gap-2">
-          <Skeleton className="size-4.5 rounded-[5px]" />
-          <Skeleton className="h-3.25 w-20" />
-        </div>
+      <div className="mt-5">
+        <FolderCardSkeleton />
       </div>
 
       <div className="mx-4 mb-6 flex min-h-0 flex-1 flex-col md:mx-10 md:mb-10">

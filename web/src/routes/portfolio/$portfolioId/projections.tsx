@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ExportDialog } from '@/components/export-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetLogo, useAssets } from '@/features/assets'
+import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetIconDisc, useAssets } from '@/features/assets'
 import { DEBT_TYPE_LABELS, DebtIconDisc, useDebts } from '@/features/debts'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import {
@@ -80,7 +80,7 @@ function ProjectionsPage() {
           value: a.id,
           label: a.name,
           description: ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type,
-          icon: <AssetLogo asset={a} className="size-10 bg-background" />,
+          icon: <AssetIconDisc asset={a} />,
         })),
         debts: debts.map((d) => ({
           value: d.id,
