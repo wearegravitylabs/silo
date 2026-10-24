@@ -7,19 +7,25 @@ import { AssetSummary } from './asset-summary'
 import { ImageUploadDisc } from './image-upload-disc'
 import { LotFields } from './lot-fields'
 import { StepHeading } from './step-heading'
-import type { ManualStock } from './use-manual-stock'
+import type { TickerKindConfig } from './ticker-kinds'
+import type { ManualTicker } from './use-manual-ticker'
 
 /** A blank in the heading until its field is filled ("Add __ stock"). */
 const Blank = ({ wide = false }: { wide?: boolean }) => <span className="text-subtle">{wide ? '_ _' : '__'}</span>
 
-/** Step 3 for a stock that isn't listed: you set its name, ticker and price, then the purchases. Stacked on phones. */
-export function ManualStockStep({
+/**
+ * Step 3 for a stock or coin that isn't listed: you set its name, ticker and price (coins in USD), then the purchases.
+ * Stacked on phones.
+ */
+export function ManualTickerStep({
+  config,
   form,
   creating,
   error,
   onCreate,
 }: {
-  form: ManualStock
+  config: TickerKindConfig
+  form: ManualTicker
   creating?: boolean
   error?: string
   onCreate: () => void
@@ -34,7 +40,17 @@ export function ManualStockStep({
         <>
           <div className="flex flex-col items-center gap-4">
             <ImageUploadDisc value={values.imageUrl} onChange={set.imageUrl} />
-            <StepHeading title={<>Add {symbol || <Blank wide />} stock</>}>Add {name || <Blank />} Asset</StepHeading>
+            <StepHeading
+              title={
+                <>
+                  Add {symbol || <Blank wide />}
+                  {config.headingSuffix}
+                </>
+              }
+            >
+              Add {name || <Blank />}
+              {config.nameSuffix}
+            </StepHeading>
           </div>
 
           <div className="flex flex-col gap-5">
@@ -43,7 +59,7 @@ export function ManualStockStep({
                 id="manual-name"
                 value={values.name}
                 onChange={(e) => set.name(e.target.value)}
-                placeholder="Enter stock name"
+                placeholder={config.namePlaceholder}
                 autoComplete="off"
               />
             </FormField>
@@ -52,11 +68,12 @@ export function ManualStockStep({
                 id="manual-ticker"
                 value={values.ticker}
                 onChange={(e) => set.ticker(e.target.value)}
-                placeholder="Enter stock ticker"
+                placeholder={config.tickerPlaceholder}
                 autoComplete="off"
               />
             </FormField>
             <FormField label="Price per Quantity" htmlFor="manual-price" required>
+              {/* Coins are priced in USD only: no currency menu */}
               <MoneyInput
                 id="manual-price"
                 value={values.priceText}
@@ -68,7 +85,7 @@ export function ManualStockStep({
           </div>
 
           <div className="-mt-3 border-t border-border pt-5">
-            <LotFields lots={lots} />
+            <LotFields lots={lots} noun={config.noun} decimals={config.quantity.decimals} />
           </div>
         </>
       }
@@ -82,6 +99,7 @@ export function ManualStockStep({
           canSubmit={form.canSubmit}
           creating={creating}
           error={error}
+          noun={config.noun}
           onCreate={onCreate}
         />
       }

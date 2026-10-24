@@ -141,8 +141,8 @@ const ticker = (symbol: string, name: string, price: number, changePct: number):
   change_pct: changePct,
 })
 
-/** What ticker search can find (the design's five first: they're shown before you type). */
-export const MOCK_TICKERS: TickerResult[] = [
+/** Stocks ticker search can find (the design's five first: they're shown before you type). */
+export const MOCK_STOCKS: TickerResult[] = [
   ticker('GOOGL', 'Alphabet Inc.', 487.25, 5.5),
   ticker('MSFT', 'Microsoft Corp.', 10, 1.2),
   ticker('SPOT', 'Spotify', 310.25, -0.8),
@@ -159,4 +159,23 @@ export const MOCK_TICKERS: TickerResult[] = [
   ticker('DIS', 'The Walt Disney Company', 98.7, -1.1),
 ]
 
-export const POPULAR_TICKERS = MOCK_TICKERS.slice(0, 5)
+/** Coins crypto search can find (the design's five first). Priced in USD, like CoinGecko's default. */
+export const MOCK_CRYPTO: TickerResult[] = [
+  ticker('BTC', 'Bitcoin', 67_250, 2.1),
+  ticker('ETH', 'Ethereum', 3_120.4, -1.3),
+  ticker('USDT', 'Tether USDt', 1, 0),
+  ticker('SOL', 'Solana', 86.5, 2.4),
+  ticker('BNB', 'BNB', 585.2, 0.7),
+  ticker('XRP', 'XRP', 0.52, -2.2),
+  ticker('USDC', 'USDC', 1, 0),
+  ticker('ADA', 'Cardano', 0.38, 1.6),
+  ticker('DOGE', 'Dogecoin', 0.14, 5.3),
+  ticker('AVAX', 'Avalanche', 27.8, -0.9),
+  ticker('DOT', 'Polkadot', 4.6, 0.4),
+  ticker('LINK', 'Chainlink', 12.3, 3.1),
+  ticker('TRX', 'TRON', 0.16, 0.2),
+  ticker('TON', 'Toncoin', 5.2, -1.7),
+]
+
+/** Shown before you type, per kind. */
+export const POPULAR = { stock: MOCK_STOCKS.slice(0, 5), crypto: MOCK_CRYPTO.slice(0, 5) }

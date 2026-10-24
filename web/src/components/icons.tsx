@@ -262,3 +262,17 @@ export function YahooFinanceWordmark({ className }: { className?: string }) {
     </span>
   )
 }
+
+/** CoinGecko's gecko-green disc and name, for "Powered by" attributions. */
+export function CoinGeckoWordmark({ className }: { className?: string }) {
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-[0.625rem] leading-none font-semibold text-foreground', className)}>
+      <svg viewBox="0 0 16 16" aria-hidden="true" className="size-4 shrink-0">
+        <circle cx="8" cy="8" r="7.5" className="fill-brand-coingecko" />
+        <circle cx="9.6" cy="6.2" r="2.1" className="fill-white" />
+        <circle cx="9.9" cy="6.1" r="1" className="fill-ink" />
+      </svg>
+      CoinGecko
+    </span>
+  )
+}

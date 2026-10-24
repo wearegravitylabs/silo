@@ -1,13 +1,13 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { createAsset, deleteAsset, getAssetsOverview, listAssets, moveAsset, searchTickers } from './api'
-import type { CreateAssetInput } from './types'
+import type { CreateAssetInput, TickerKind } from './types'
 
 export const assetKeys = {
   all: (portfolioId: string) => ['assets', portfolioId] as const,
   /** folderId null = every asset in the portfolio */
   list: (portfolioId: string, folderId: string | null) => ['assets', portfolioId, 'list', folderId ?? 'all'] as const,
   overview: (portfolioId: string) => ['assets', portfolioId, 'overview'] as const,
-  tickerSearch: (q: string) => ['ticker-search', q] as const,
+  tickerSearch: (kind: TickerKind, q: string) => ['ticker-search', kind, q] as const,
 }
 
 /** Assets in one folder (or the whole portfolio when folderId is null). */
@@ -29,8 +29,13 @@ export const useAssets = (portfolioId: string, folderId: string | null) =>
 export const useAssetsOverview = (portfolioId: string) => useSuspenseQuery(assetsOverviewQuery(portfolioId)).data
 
 /** Ticker search; keeps the last results on screen while the next query loads. */
-export const useTickerSearch = (q: string) =>
-  useQuery({ queryKey: assetKeys.tickerSearch(q), queryFn: () => searchTickers(q), staleTime: 60_000, placeholderData: keepPreviousData })
+export const useTickerSearch = (kind: TickerKind, q: string) =>
+  useQuery({
+    queryKey: assetKeys.tickerSearch(kind, q),
+    queryFn: () => searchTickers(kind, q),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
 
 /** Create, move to a folder, delete — each refetches every asset query for the portfolio (lists, total). */
 export const useAssetMutations = (portfolioId: string) => {

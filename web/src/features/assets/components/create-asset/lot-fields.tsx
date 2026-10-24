@@ -5,13 +5,13 @@ import { InfoDotIcon } from '@/components/icons'
 import { NumberInput } from '@/components/number-input'
 import { Button } from '@/components/ui/button'
 import { InputGroup } from '@/components/ui/input-group'
-import type { StockLots } from './use-stock-lots'
+import type { Lots } from './use-lots'
 
 /**
- * The purchases of a stock: quantity and acquisition date for each, a ruled divider with a 🗑 before every extra one
+ * The purchases of a stock or coin: quantity and acquisition date for each, a ruled divider with a 🗑 before every extra one
  * (it removes the purchase below it), then "Add More Quantity".
  */
-export function LotFields({ lots }: { lots: StockLots }) {
+export function LotFields({ lots, noun, decimals }: { lots: Lots; /** "stocks", "crypto" */ noun: string; decimals: number }) {
   return (
     <div className="flex flex-col gap-5">
       {lots.rows.map((lot, i) => (
@@ -40,7 +40,7 @@ export function LotFields({ lots }: { lots: StockLots }) {
             hint={
               <p className="flex items-center gap-1 text-xs leading-5 text-muted-foreground">
                 <InfoDotIcon />
-                Quantity of stocks acquired
+                Quantity of {noun} acquired
               </p>
             }
           >
@@ -49,7 +49,8 @@ export function LotFields({ lots }: { lots: StockLots }) {
                 id={`qty-${lot.key}`}
                 value={lot.quantityText}
                 onChange={(text) => lots.setQuantity(lot.key, text)}
-                decimals={0}
+                decimals={decimals}
+                pad={false}
                 placeholder="0"
                 invalid={!!lot.error}
               />

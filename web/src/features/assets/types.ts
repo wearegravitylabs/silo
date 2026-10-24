@@ -43,7 +43,10 @@ export interface AssetsOverview {
   change: { amount: number; pct: number } | null
 }
 
-/** A stock found by ticker search, with its latest price. */
+/** Listed assets you pick by ticker: stocks (Yahoo Finance) or crypto (CoinGecko). */
+export type TickerKind = 'stock' | 'crypto'
+
+/** A stock or coin found by ticker search, with its latest price. */
 export interface TickerResult {
   ticker: string
   name: string
@@ -62,16 +65,16 @@ export interface AssetLotInput {
   acquired_at: string
 }
 
-/** Mirrors the backend's CreateAssetRequest: a ticker stock (priced by the market) or a manual one (priced by you). */
+/** Mirrors the backend's CreateAssetRequest: a listed stock or coin (priced by the market) or a manual one (priced by you). */
 export interface CreateAssetInput {
   /** The folder it's created in; null or the default folder leaves it unfiled */
   folder_id: string | null
-  asset_type: 'stock_ticker' | 'stock_manual'
+  asset_type: 'stock_ticker' | 'stock_manual' | 'crypto_ticker' | 'crypto_manual'
   ticker: string
   name: string
   logo_url: string | null
   currency: string
-  /** Manual stocks: the price per unit you entered. Ticker stocks: today's price (each purchase is priced on its date). */
+  /** Manual: the price per unit you entered. Listed: today's price (each purchase is priced on its date). */
   price: number
   lots: AssetLotInput[]
 }

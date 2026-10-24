@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react'
 import { Callout } from '@/components/callout'
-import { formatNumber } from '@/components/number-input'
 import { SubmitError, SummaryList } from '@/components/summary-list'
 import { Button } from '@/components/ui/button'
 import { formatDayMonthTime, formatMoney } from '@/lib/format'
-import type { StockLots } from './use-stock-lots'
-import { YahooAttribution } from './yahoo-attribution'
+import { DataAttribution } from './data-attribution'
+import type { Lots } from './use-lots'
 
 const EMPTY = '--'
+
+/** 3000 → "3,000", 0.0001 → "0.0001" (coins keep their fractions) */
+const units = (n: number) => n.toLocaleString('en-US', { maximumFractionDigits: 8 })
 
 /** "2026-02-01T09:36" → "01 Feb 2026 09:36 AM" */
 const withYear = (iso: string) => {
@@ -17,8 +19,8 @@ const withYear = (iso: string) => {
 }
 
 /**
- * Right pane of a stock's details step: the live Asset Summary, the DCA note once several purchases are averaged,
- * Create Asset, and the Yahoo attribution for market-priced stocks.
+ * Right pane of a stock's or coin's details step: the live Asset Summary, the DCA note once several purchases are
+ * averaged, Create Asset, and the data source's attribution for listed ones.
  */
 export function AssetSummary({
   name,
@@ -29,20 +31,24 @@ export function AssetSummary({
   canSubmit,
   creating,
   error,
-  attribution = false,
+  noun,
+  attribution,
   onCreate,
 }: {
   name: string
   /** "$MSFT", "₦STLG" — empty while unknown */
   symbol: string
   currency: string
-  lots: StockLots
+  lots: Lots
   /** Unit price of a purchase made at that moment */
   priceAt: (acquiredAt: string) => number
   canSubmit: boolean
   creating?: boolean
   error?: string
-  attribution?: boolean
+  /** "stocks", "crypto" (the DCA note) */
+  noun: string
+  /** Market data source to credit; none for manual assets */
+  attribution?: 'yahoo' | 'coingecko'
   onCreate: () => void
 }) {
   const [datesOpen, setDatesOpen] = useState(false)
@@ -60,7 +66,7 @@ export function AssetSummary({
           { label: 'Asset Name', value: name || EMPTY },
           {
             label: 'Total Quantity',
-            value: symbol ? `${formatNumber(quantity, 0)} ${symbol}` : quantity > 0 ? formatNumber(quantity, 0) : EMPTY,
+            value: symbol ? `${units(quantity)} ${symbol}` : quantity > 0 ? units(quantity) : EMPTY,
           },
           {
             label: 'Acquisition Date',
@@ -98,7 +104,7 @@ export function AssetSummary({
 
       {averaged && (
         <Callout variant="notice" title="DCA price per quantity">
-          Due to the quantity of stocks acquired at different time, the price per quantity has been Dollar Cost Averaged
+          Due to the quantity of {noun} acquired at different time, the price per quantity has been Dollar Cost Averaged
         </Callout>
       )}
 
@@ -107,7 +113,7 @@ export function AssetSummary({
           Create Asset
         </Button>
         {error && <SubmitError message={error} />}
-        {attribution && <YahooAttribution />}
+        {attribution && <DataAttribution source={attribution} />}
       </div>
     </>
   )

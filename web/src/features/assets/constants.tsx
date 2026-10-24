@@ -85,14 +85,14 @@ export interface CreatableAssetType {
   id: string
   label: string
   Icon: LucideIcon
-  /** Only stocks can be added today; the rest show "Coming soon". */
+  /** Only stocks and crypto can be added today; the rest show "Coming soon". */
   enabled: boolean
 }
 
 /** Create Asset → Choose an Asset Type, in the design's order (two columns, read across). */
 export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
   { id: 'stock_ticker', label: 'Stocks', Icon: AppleIcon, enabled: true },
-  { id: 'crypto_ticker', label: 'Crypto', Icon: DatabaseIcon, enabled: false },
+  { id: 'crypto_ticker', label: 'Crypto', Icon: DatabaseIcon, enabled: true },
   { id: 'real_estate', label: 'Real Estate', Icon: KeyRoundIcon, enabled: false },
   { id: 'domain', label: 'Domains', Icon: GlobeIcon, enabled: false },
   { id: 'physical', label: 'Physical Valuables', Icon: GemIcon, enabled: false },
@@ -102,9 +102,6 @@ export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
   { id: 'crypto_wallet', label: 'Crypto Exchanges/Wallet', Icon: WalletIcon, enabled: false },
   { id: 'manual', label: 'Manual Assets', Icon: CirclePlusIcon, enabled: false },
 ]
-
-/** Largest quantity one purchase can record. */
-export const MAX_LOT_QUANTITY = 1_000_000
 
 /** An asset's own image (manual stocks): what the upload accepts. */
 export const ASSET_IMAGE_TYPES = ['image/jpeg', 'image/png']

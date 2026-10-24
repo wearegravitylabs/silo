@@ -6,51 +6,58 @@ import { AssetIconDisc } from '../asset-icon-disc'
 import { AssetSummary } from './asset-summary'
 import { LotFields } from './lot-fields'
 import { StepHeading } from './step-heading'
-import type { StockLots } from './use-stock-lots'
+import type { TickerKindConfig } from './ticker-kinds'
+import type { Lots } from './use-lots'
 
 /**
- * Step 3 for a market stock: how many and when (one block per purchase), beside the live Asset Summary — each
+ * Step 3 for a listed stock or coin: how many and when (one block per purchase), beside the live Asset Summary — each
  * purchase priced on its date, averaged when there are several. Stacked on phones.
  */
-export function StockDetailsStep({
-  stock,
+export function TickerDetailsStep({
+  config,
+  ticker,
   lots,
   creating,
   error,
   onCreate,
 }: {
-  stock: TickerResult
-  lots: StockLots
+  config: TickerKindConfig
+  ticker: TickerResult
+  lots: Lots
   creating?: boolean
   error?: string
   onCreate: () => void
 }) {
-  const symbol = `${currencySymbol(stock.currency)}${stock.ticker}`
+  const symbol = `${currencySymbol(ticker.currency)}${ticker.ticker}`
   return (
     <TwoPane
       form={
         <>
           <div className="flex flex-col items-center gap-4">
             <AssetIconDisc
-              asset={{ asset_type: 'stock_ticker', logo_url: stock.logo_url, ticker: stock.ticker }}
+              asset={{ asset_type: config.typeId, logo_url: ticker.logo_url, ticker: ticker.ticker }}
               className="size-16 [&>span]:text-base"
             />
-            <StepHeading title={`Add ${symbol} stock`}>Add {stock.name} Asset</StepHeading>
+            <StepHeading title={`Add ${symbol}${config.headingSuffix}`}>
+              Add {ticker.name}
+              {config.nameSuffix}
+            </StepHeading>
           </div>
-          <LotFields lots={lots} />
+          <LotFields lots={lots} noun={config.noun} decimals={config.quantity.decimals} />
         </>
       }
       summary={
         <AssetSummary
-          name={stock.name}
+          name={ticker.name}
           symbol={symbol}
-          currency={stock.currency}
+          currency={ticker.currency}
           lots={lots}
-          priceAt={(at) => priceOn(stock, at)}
+          priceAt={(at) => priceOn(ticker, at)}
           canSubmit={lots.canSubmit}
           creating={creating}
           error={error}
-          attribution
+          noun={config.noun}
+          attribution={config.source}
           onCreate={onCreate}
         />
       }

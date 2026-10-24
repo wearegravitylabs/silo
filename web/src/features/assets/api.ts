@@ -1,6 +1,6 @@
 import { defaultFolderId } from '@/lib/folders'
-import { CURRENCY, MOCK_ASSETS, MOCK_TICKERS, POPULAR_TICKERS, USD_RATES } from './mock-data'
-import type { AssetItem, AssetsOverview, CreateAssetInput, TickerResult } from './types'
+import { CURRENCY, MOCK_ASSETS, MOCK_CRYPTO, MOCK_STOCKS, POPULAR, USD_RATES } from './mock-data'
+import type { AssetItem, AssetsOverview, CreateAssetInput, TickerKind, TickerResult } from './types'
 
 // TODO: replace with the real endpoints once portfolios are real and the list has every field the page needs:
 //   GET    /portfolios/:id/assets?folder_id=…   (exists; lacks change_pct_1m, needs_attention, detail, status)
@@ -54,12 +54,16 @@ export const deleteAsset = (portfolioId: string, assetId: string) => {
   return later(null)
 }
 
-/** Stocks whose ticker contains `q`, or with a word in the name starting with it; the popular ones while `q` is empty. */
-export const searchTickers = (q: string): Promise<TickerResult[]> => {
+/**
+ * Stocks or coins whose ticker contains `q`, or with a word in the name starting with it; the popular ones while `q`
+ * is empty. TODO: stocks come from Yahoo (…/ticker/search?type=stock), coins from CoinGecko (…?type=crypto).
+ */
+export const searchTickers = (kind: TickerKind, q: string): Promise<TickerResult[]> => {
   const query = q.trim().toLowerCase()
-  if (!query) return later([...POPULAR_TICKERS])
+  if (!query) return later([...POPULAR[kind]])
+  const all = kind === 'stock' ? MOCK_STOCKS : MOCK_CRYPTO
   return later(
-    MOCK_TICKERS.filter(
+    all.filter(
       (t) =>
         t.ticker.toLowerCase().includes(query) ||
         t.name
@@ -71,7 +75,7 @@ export const searchTickers = (q: string): Promise<TickerResult[]> => {
 }
 
 /**
- * A stock's price at a moment, for pricing each purchase. Mock: today is the quoted price and earlier days drift
+ * A stock's or coin's price at a moment, for pricing each purchase. Mock: today is the quoted price and earlier days drift
  * around it, the same way every time.
  * TODO: the backend prices lots by acquisition date when the asset is created (Yahoo history); use that here.
  */
@@ -84,14 +88,14 @@ export function priceOn(stock: Pick<TickerResult, 'ticker' | 'price'>, isoDateTi
 }
 
 /**
- * Adds a stock valued at what it cost: each purchase's quantity × its price (a manual stock's entered price, a
- * ticker's price on that date), converted to the portfolio's currency like the API does. Filed in `folder_id`
+ * Adds a stock or coin valued at what it cost: each purchase's quantity × its price (a manual one's entered price, a
+ * listed one's price on that date), converted to the portfolio's currency like the API does. Filed in `folder_id`
  * unless that's the default folder.
  */
 export const createAsset = (portfolioId: string, input: CreateAssetInput): Promise<AssetItem> => {
   const now = new Date().toISOString()
   const quantity = input.lots.reduce((sum, l) => sum + l.quantity, 0)
-  const unitPrice = (acquiredAt: string) => (input.asset_type === 'stock_manual' ? input.price : priceOn(input, acquiredAt))
+  const unitPrice = (acquiredAt: string) => (input.asset_type.endsWith('_manual') ? input.price : priceOn(input, acquiredAt))
   const value = input.lots.reduce((sum, l) => sum + l.quantity * unitPrice(l.acquired_at), 0)
   const asset: AssetItem = {
     id: crypto.randomUUID(),

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { todayIso } from '@/components/date-field'
 import { parseNumber } from '@/components/number-input'
-import { MAX_LOT_QUANTITY } from '../../constants'
 import type { AssetLotInput } from '../../types'
 
 export const QUANTITY_ERROR = 'Please enter a valid quantity'
@@ -13,20 +12,26 @@ export interface LotDraft {
   acquiredAt: string
 }
 
+export interface QuantityRule {
+  min: number
+  max: number
+}
+
 const newLot = (): LotDraft => ({ key: crypto.randomUUID(), quantityText: '', acquiredAt: '' })
-const isValidQuantity = (n: number | null): n is number => n !== null && n > 0 && n <= MAX_LOT_QUANTITY
 
 /**
- * The purchases being added for one stock ("Add More Quantity" adds another). Each needs a quantity above 0 and up to
- * 1,000,000; a filled-in bad one shows its error. An unset date means today at midnight.
+ * The purchases being added for one stock or coin ("Add More Quantity" adds another). Each quantity must fall within
+ * `rule` (whole shares from 1, coins from 0.001; up to 1,000,000); a filled-in bad one shows its error. An unset date
+ * means today at midnight.
  */
-export function useStockLots() {
+export function useLots(rule: QuantityRule) {
   const [lots, setLots] = useState<LotDraft[]>(() => [newLot()])
   const update = (key: string, patch: Partial<LotDraft>) => setLots((list) => list.map((l) => (l.key === key ? { ...l, ...patch } : l)))
+  const isValid = (n: number | null): n is number => n !== null && n >= rule.min && n <= rule.max
 
   const rows = lots.map((lot) => {
     const quantity = parseNumber(lot.quantityText)
-    const error = lot.quantityText.trim() !== '' && !isValidQuantity(quantity) ? QUANTITY_ERROR : undefined
+    const error = lot.quantityText.trim() !== '' && !isValid(quantity) ? QUANTITY_ERROR : undefined
     return { ...lot, quantity, error }
   })
   const acquiredAt = (lot: LotDraft) => lot.acquiredAt || `${todayIso()}T00:00`
@@ -39,8 +44,7 @@ export function useStockLots() {
     setAcquiredAt: (key: string, value: string) => update(key, { acquiredAt: value }),
     /** As typed, even while invalid (the summary follows the field) */
     totalQuantity: rows.reduce((sum, r) => sum + (r.quantity ?? 0), 0),
-    firstAcquiredAt: acquiredAt(lots[0]),
-    /** Every purchase's moment, in order (the summary's date chips) */
+    /** Every purchase's moment, in order (the summary's dates) */
     acquiredAts: lots.map(acquiredAt),
     /**
      * What the purchases cost, given a unit price per purchase moment: the quantity-weighted average price, the total,
@@ -57,9 +61,9 @@ export function useStockLots() {
         averaged: new Set(prices).size > 1,
       }
     },
-    canSubmit: rows.every((r) => isValidQuantity(r.quantity)),
+    canSubmit: rows.every((r) => isValid(r.quantity)),
     toLots: (): AssetLotInput[] => rows.map((r) => ({ quantity: r.quantity!, acquired_at: acquiredAt(r) })),
   }
 }
 
-export type StockLots = ReturnType<typeof useStockLots>
+export type Lots = ReturnType<typeof useLots>
