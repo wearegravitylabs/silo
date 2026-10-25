@@ -1,3 +1,4 @@
+import { addPeriods } from '@/lib/schedule'
 import { PERIODS_PER_YEAR } from './constants'
 import type { PaymentFrequency } from './types'
 
@@ -27,33 +28,4 @@ export function payoffDate({
 
   const periods = Math.ceil(r > 0 ? -Math.log(1 - (r * balance) / payment) / Math.log(1 + r) : balance / payment)
   return { kind: 'date', date: addPeriods(from, frequency, periods) }
-}
-
-/** `from` moved forward by n payment periods. */
-export function addPeriods(from: Date, frequency: PaymentFrequency, n: number) {
-  const d = new Date(from)
-  switch (frequency) {
-    case 'daily':
-      d.setDate(d.getDate() + n)
-      break
-    case 'weekly':
-      d.setDate(d.getDate() + 7 * n)
-      break
-    case 'biweekly':
-      d.setDate(d.getDate() + 14 * n)
-      break
-    case 'monthly':
-      d.setMonth(d.getMonth() + n)
-      break
-    case 'quarterly':
-      d.setMonth(d.getMonth() + 3 * n)
-      break
-    case 'biannual':
-      d.setMonth(d.getMonth() + 6 * n)
-      break
-    case 'annually':
-      d.setFullYear(d.getFullYear() + n)
-      break
-  }
-  return d
 }

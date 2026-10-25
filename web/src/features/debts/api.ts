@@ -203,7 +203,7 @@ export const uploadDebtDocument = (debtId: string, file: File) => {
 }
 
 /** A link to the file; seeded documents have no file behind them and get a placeholder. */
-export const getDebtDocumentUrl = (doc: DebtDocument) =>
+export const getDebtDocumentUrl = (doc: Pick<DebtDocument, 'id' | 'file_name'>) =>
   Promise.resolve(URL.createObjectURL(files.get(doc.id) ?? new Blob([`${doc.file_name} (sample document)`], { type: 'text/plain' })))
 
 export const deleteDebtDocument = (docId: string) => {

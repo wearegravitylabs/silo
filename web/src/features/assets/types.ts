@@ -1,3 +1,5 @@
+import type { Frequency } from '@/lib/schedule'
+
 // TODO: the real asset list (GET /portfolios/:id/assets) lacks change_pct_1m, needs_attention, detail and status;
 // those are UI-only until the backend adds them. Other fields keep the API's names.
 
@@ -30,6 +32,8 @@ export interface AssetItem {
   color: string | null
   /** Photos (real estate) */
   pictures: string[]
+  /** Share of the asset you own, 0–100; `owned_value_converted` is already scaled by it */
+  ownership_pct: number
   created_at: string
   updated_at: string
 }
@@ -118,4 +122,77 @@ export interface AddressSuggestion {
 export interface ConnectInput {
   folder_id: string | null
   provider: 'plaid' | string
+}
+
+// ─── Detail panel ─────────────────────────────────────────────────────────────
+// TODO: no backend endpoints for an asset's history, rules, notes or documents yet; the shapes follow the debt ones.
+
+/** One change to what you hold: units (ticker assets) or value added or removed. */
+export interface AssetHistoryEntry {
+  id: string
+  asset_id: string
+  /** YYYY-MM-DD */
+  date: string
+  kind: 'add' | 'remove'
+  /** Units, for ticker assets */
+  quantity: number | null
+  /** Value added or removed, in the asset's currency */
+  amount: number
+  /** Price per unit at the time, for ticker assets */
+  price: number | null
+  created_at: string
+}
+
+export interface AddAssetHistoryInput {
+  kind: 'add' | 'remove'
+  /** Ticker assets: units; others: an amount of money */
+  value: number
+  /** YYYY-MM-DD */
+  date: string
+}
+
+/** An asset's totals for the History tab. */
+export interface AssetStats {
+  /** What went in, less what came out */
+  invested: number
+  /** Current value less what's invested, and as a % of it */
+  gain: number
+  gain_pct: number
+}
+
+export interface AssetRule {
+  id: string
+  asset_id: string
+  action: 'add' | 'remove'
+  /** Units (ticker assets) or money per run */
+  amount: number
+  frequency: Frequency
+  /** YYYY-MM-DD */
+  start_date: string
+  end_date: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface AssetNote {
+  id: string
+  asset_id: string
+  title: string
+  content: string
+  tags: string[]
+  created_at: string
+}
+
+export interface AssetNoteInput {
+  title: string
+  content: string
+  tags: string[]
+}
+
+export interface AssetDocument {
+  id: string
+  asset_id: string
+  file_name: string
+  file_size: number
+  uploaded_at: string
 }

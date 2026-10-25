@@ -1,4 +1,5 @@
 export { AssetIconDisc } from './components/asset-icon-disc'
+export { AssetPanel } from './components/asset-panel/asset-panel'
 export { AssetTable } from './components/asset-table/asset-table'
 export { CreateAssetSheet } from './components/create-asset/create-asset-sheet'
 export { AssetsOverview } from './components/assets-overview'
@@ -6,5 +7,13 @@ export { AssetsSummaryHeader } from './components/assets-summary-header'
 export { DeleteAssetDialog } from './components/delete-asset-dialog'
 export { MoveAssetDialog } from './components/move-asset-dialog'
 export { ASSET_TYPE_LABELS, ASSET_TYPES } from './constants'
-export { assetsOverviewQuery, assetsQuery, useAssetFolderCounts, useAssetMutations, useAssets, useAssetsOverview } from './queries'
+export {
+  assetsOverviewQuery,
+  assetsQuery,
+  useAsset,
+  useAssetFolderCounts,
+  useAssetMutations,
+  useAssets,
+  useAssetsOverview,
+} from './queries'
 export type { AssetItem } from './types'

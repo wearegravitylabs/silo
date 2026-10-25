@@ -23,7 +23,8 @@ const DELAY = 500
 const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
 
 const store = new Map<string, AssetItem[]>()
-const assetsOf = (portfolioId: string) => {
+/** The mock store (shared with panel-api). */
+export const assetsOf = (portfolioId: string) => {
   if (!store.has(portfolioId)) store.set(portfolioId, portfolioId === 'demo' ? MOCK_ASSETS.map((a) => ({ ...a })) : [])
   return store.get(portfolioId)!
 }
@@ -134,6 +135,7 @@ export const createAsset = (portfolioId: string, input: CreateAssetInput): Promi
     status: null,
     color: null,
     pictures: [],
+    ownership_pct: 100,
     created_at: now,
     updated_at: now,
   }
@@ -174,6 +176,7 @@ export const createValuedAsset = (portfolioId: string, input: CreateValuedAssetI
     status: input.status ?? null,
     color: input.color ?? null,
     pictures: input.pictures ?? [],
+    ownership_pct: 100,
     created_at: now,
     updated_at: now,
   }
@@ -213,6 +216,7 @@ export const connectProvider = (portfolioId: string, input: ConnectInput): Promi
     status: 'Connected',
     color: null,
     pictures: [],
+    ownership_pct: 100,
     created_at: now,
     updated_at: now,
     ...synced,

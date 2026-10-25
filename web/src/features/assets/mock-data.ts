@@ -39,6 +39,7 @@ const asset = (seed: Seed): AssetItem => ({
   status: null,
   color: null,
   pictures: [],
+  ownership_pct: 100,
   created_at: CREATED,
   updated_at: CREATED,
   ...seed,

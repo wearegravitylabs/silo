@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { ExportDialog } from '@/components/export-dialog'
 import { toastDone } from '@/components/ui/sonner'
 import {
+  AssetPanel,
   AssetsOverview,
   assetsOverviewQuery,
   assetsQuery,
@@ -12,12 +13,14 @@ import {
   CreateAssetSheet,
   DeleteAssetDialog,
   MoveAssetDialog,
+  useAsset,
   useAssetFolderCounts,
   useAssetMutations,
   useAssets,
   useAssetsOverview,
   type AssetItem,
 } from '@/features/assets'
+import { useMe } from '@/features/account'
 import { FolderFormDialog, foldersQuery, FolderTabs, useFolderMutations, useFolders } from '@/features/folders'
 import { usePortfolio } from '@/features/portfolios'
 import { useAskSiloAi } from '@/features/silo-ai'
@@ -67,7 +70,8 @@ function AssetsPage() {
   const navigate = Route.useNavigate()
   const portfolio = usePortfolio(portfolioId)
   const folders = useFolders(portfolioId, 'asset')
-  const { currency } = useAssetsOverview(portfolioId)
+  const { currency, total } = useAssetsOverview(portfolioId)
+  const { data: me } = useMe()
   const { move, remove, refile } = useAssetMutations(portfolioId)
   const { create: createFolder } = useFolderMutations(portfolioId, 'asset')
   const counts = useAssetFolderCounts(portfolioId)
@@ -77,6 +81,9 @@ function AssetsPage() {
   const [deleting, setDeleting] = useState<{ asset: AssetItem; open: boolean } | null>(null)
   const [moving, setMoving] = useState<{ asset: AssetItem; open: boolean; picked?: string } | null>(null)
   const [addingFolder, setAddingFolder] = useState(false)
+  // The viewed asset outlives `open` so the panel can animate closed; `n` gives each opening a fresh panel.
+  const [panel, setPanel] = useState<{ id: string; open: boolean; n: number } | null>(null)
+  const { data: viewed } = useAsset(portfolioId, panel?.id ?? null)
   const coloredFolders = folders.map((f, i) => ({ ...f, color: folderColor(f, i) }))
 
   const folder = folders.find((f) => f.id === search.folder) ?? folders[0]
@@ -114,6 +121,7 @@ function AssetsPage() {
     remove.mutate(deleting.asset.id, {
       onSuccess: () => {
         setDeleting((d) => d && { ...d, open: false })
+        setPanel((p) => (p && p.id === deleting.asset.id ? { ...p, open: false } : p))
         toastDone('Asset has been deleted successfully!')
       },
       onError: () => toast.error('Couldn’t delete this asset. Try again.'),
@@ -141,10 +149,25 @@ function AssetsPage() {
         loading={isPending}
         dimmed={isPlaceholderData}
         className="min-h-120"
+        onView={(asset) => setPanel((p) => ({ id: asset.id, open: true, n: (p?.n ?? 0) + 1 }))}
         onMove={(asset) => setMoving({ asset, open: true })}
         onDelete={(asset) => setDeleting({ asset, open: true })}
       />
 
+      {panel && viewed && (
+        <AssetPanel
+          key={panel.n}
+          asset={viewed}
+          portfolioId={portfolioId}
+          folder={coloredFolders.find((f) => f.id === (viewed.folder_id ?? DEFAULT_FOLDER))}
+          owner={{ name: me ? `${me.first_name} ${me.last_name}`.trim() : 'You', avatar_url: me?.avatar_url ?? null }}
+          portfolioTotal={total}
+          open={panel.open}
+          onOpenChange={(open) => setPanel((p) => p && { ...p, open })}
+          onMove={() => setMoving({ asset: viewed, open: true })}
+          onDelete={() => setDeleting({ asset: viewed, open: true })}
+        />
+      )}
       <DeleteAssetDialog
         open={!!deleting?.open}
         onOpenChange={(open) => setDeleting((d) => d && { ...d, open })}

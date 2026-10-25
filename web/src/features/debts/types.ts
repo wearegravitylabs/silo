@@ -1,8 +1,10 @@
+import type { Frequency } from '@/lib/schedule'
+
 // Mirrors api/model/debt.go. Fields marked "not in the API yet" come from the mock until the backend adds them.
 
 export type DebtType = 'mortgage' | 'student_loan' | 'car_loan' | 'personal' | 'credit_card' | 'manual'
 
-export type PaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'biannual' | 'annually'
+export type PaymentFrequency = Frequency
 
 export interface Debt {
   id: string

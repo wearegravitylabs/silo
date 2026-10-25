@@ -41,6 +41,10 @@ export const useAssets = (portfolioId: string, folderId: string | null) =>
 /** Portfolio asset total. Suspends — preload with `assetsOverviewQuery` in the route loader. */
 export const useAssetsOverview = (portfolioId: string) => useSuspenseQuery(assetsOverviewQuery(portfolioId)).data
 
+/** One asset, from the whole-portfolio list (so it stays found when it moves folders). */
+export const useAsset = (portfolioId: string, assetId: string | null) =>
+  useQuery({ ...assetsQuery(portfolioId, null), select: (list) => list.find((a) => a.id === assetId), enabled: !!assetId })
+
 /** How many assets each folder holds (by folder id); the default folder lists them all. */
 export const useAssetFolderCounts = (portfolioId: string) => {
   const { data: assets = [] } = useQuery(assetsQuery(portfolioId, null))
