@@ -1,9 +1,14 @@
 import { useRef, useState } from 'react'
 import { DownloadIcon, Trash2Icon, UploadIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { FileTypeIcon } from '@/components/file-type-icon'
+import { DotsIcon } from '@/components/icons'
 import { TabBody, TabCta, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 import { ProgressLine } from '@/components/progress-line'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { toastDone } from '@/components/ui/sonner'
 import { formatFileSizeShort } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -22,8 +27,9 @@ export interface PendingUpload {
 }
 
 /**
- * Documents tab of a detail panel (asset, debt): the files (download, delete) and any uploads in progress (with a
- * bar; trash cancels). Upload with the button or by dropping files on the tab. The caller owns the data.
+ * Documents tab of a detail panel (asset, debt): the files (⋯ download, or delete after a confirm) and any uploads in
+ * progress (with a bar; trash cancels), with toasts. Upload with the button or by dropping files on the tab. The
+ * caller owns the data.
  */
 export function DocumentsTabView({
   documents,
@@ -33,6 +39,7 @@ export function DocumentsTabView({
   onUpload,
   onDownload,
   onDelete,
+  deletePending,
   onCancelUpload,
 }: {
   documents: PanelDocument[] | undefined
@@ -41,14 +48,28 @@ export function DocumentsTabView({
   /** Spinner on the button (when uploads aren't listed) */
   uploading?: boolean
   onUpload: (file: File) => void
-  onDownload: (doc: PanelDocument) => void
-  onDelete: (docId: string) => void
+  /** Starts the download; reject to show the error toast */
+  onDownload: (doc: PanelDocument) => Promise<void>
+  /** Call `done` once it's deleted */
+  onDelete: (docId: string, done: () => void) => void
+  deletePending?: boolean
   onCancelUpload?: (uploadId: string) => void
 }) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
   const uploadAll = (files: FileList | null) => Array.from(files ?? []).forEach(onUpload)
   const empty = !documents?.length && !uploads.length
+  // Kept while the confirm closes.
+  const [deleting, setDeleting] = useState<{ id: string; open: boolean } | null>(null)
+
+  const download = async (doc: PanelDocument) => {
+    try {
+      await onDownload(doc)
+      toast.success('Document has started downloading')
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+    }
+  }
 
   return (
     <div
@@ -110,14 +131,24 @@ export function DocumentsTabView({
                   <span className="truncate font-medium text-foreground">{doc.file_name}</span>
                   <span className="text-xs leading-4 text-muted-foreground">{formatFileSizeShort(doc.file_size)}</span>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <IconButton label={`Download ${doc.file_name}`} onClick={() => onDownload(doc)}>
-                    <DownloadIcon className="size-4" />
-                  </IconButton>
-                  <IconButton label={`Delete ${doc.file_name}`} danger onClick={() => onDelete(doc.id)}>
-                    <Trash2Icon className="size-4" />
-                  </IconButton>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    aria-label={`${doc.file_name} options`}
+                    className="flex size-6 shrink-0 items-center justify-center rounded-md text-subtle outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/40 aria-expanded:bg-accent"
+                  >
+                    <DotsIcon className="text-current" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onSelect={() => download(doc)}>
+                      <DownloadIcon className="size-4" />
+                      Download Document
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDeleting({ id: doc.id, open: true })}>
+                      <Trash2Icon className="size-4" />
+                      Delete Document
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </li>
             ))}
           </ul>
@@ -130,6 +161,24 @@ export function DocumentsTabView({
           Upload Document
         </Button>
       </TabCta>
+
+      <ConfirmDialog
+        open={!!deleting?.open}
+        onOpenChange={(open) => setDeleting((d) => d && { ...d, open })}
+        title="Delete Document"
+        confirmLabel="Delete Document"
+        cancelLabel="Close"
+        pending={deletePending}
+        onConfirm={() =>
+          deleting &&
+          onDelete(deleting.id, () => {
+            setDeleting((d) => d && { ...d, open: false })
+            toastDone('Document has been deleted successfully!')
+          })
+        }
+      >
+        You’re about to delete this document. This means that this Document will be permanently removed. This action cannot be undone
+      </ConfirmDialog>
     </div>
   )
 }

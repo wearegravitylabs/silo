@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { PencilIcon, Trash2Icon } from 'lucide-react'
 import { EntryAction, EntryCard } from '@/components/entry-card'
 import { PlusCircleIcon } from '@/components/icons'
 import { NoteDialog, type NoteValues } from '@/components/note-dialog'
 import { TabBody, TabCta, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 import { Button } from '@/components/ui/button'
+import { toastDone } from '@/components/ui/sonner'
 import { formatDate } from '@/lib/format'
 
 export interface PanelNote extends NoteValues {
@@ -13,24 +16,32 @@ export interface PanelNote extends NoteValues {
 }
 
 /**
- * Note tab of a detail panel (asset, debt): the notes (edit, delete) and Add Note. The caller owns the data;
- * `onSave` gets the note id when editing and should call `done` once saved.
+ * Note tab of a detail panel (asset, debt): the notes (edit, delete after a confirm) and Add Note, with toasts. The
+ * caller owns the data; `onSave` gets the note id when editing; both handlers call `done` once saved.
  */
 export function NotesTabView({
   notes,
   loading,
   saving,
+  deletePending,
   onSave,
   onDelete,
 }: {
   notes: PanelNote[] | undefined
   loading: boolean
   saving: boolean
+  deletePending?: boolean
   onSave: (values: NoteValues & { noteId?: string }, done: () => void) => void
-  onDelete: (noteId: string) => void
+  /** Call `done` once it's deleted */
+  onDelete: (noteId: string, done: () => void) => void
 }) {
   const [dialog, setDialog] = useState<{ open: boolean; note: PanelNote | null }>({ open: false, note: null })
-  const close = () => setDialog((d) => ({ ...d, open: false }))
+  // Kept while the confirm closes.
+  const [deleting, setDeleting] = useState<{ id: string; open: boolean } | null>(null)
+  const saved = () => {
+    setDialog((d) => ({ ...d, open: false }))
+    toast.success(dialog.note ? 'Note has been updated successfully!' : 'Note has been added successfully!')
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -50,7 +61,7 @@ export function NotesTabView({
                     <EntryAction label="Edit note" onClick={() => setDialog({ open: true, note })}>
                       <PencilIcon className="size-3.5" />
                     </EntryAction>
-                    <EntryAction label="Delete note" tone="danger" onClick={() => onDelete(note.id)}>
+                    <EntryAction label="Delete note" tone="danger" onClick={() => setDeleting({ id: note.id, open: true })}>
                       <Trash2Icon className="size-3.5" />
                     </EntryAction>
                   </>
@@ -88,8 +99,25 @@ export function NotesTabView({
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
         saving={saving}
-        onSave={(values) => onSave({ noteId: dialog.note?.id, ...values }, close)}
+        onSave={(values) => onSave({ noteId: dialog.note?.id, ...values }, saved)}
       />
+      <ConfirmDialog
+        open={!!deleting?.open}
+        onOpenChange={(open) => setDeleting((d) => d && { ...d, open })}
+        title="Delete Note"
+        confirmLabel="Delete Note"
+        cancelLabel="Close"
+        pending={deletePending}
+        onConfirm={() =>
+          deleting &&
+          onDelete(deleting.id, () => {
+            setDeleting((d) => d && { ...d, open: false })
+            toastDone('Note has been deleted successfully!')
+          })
+        }
+      >
+        You’re about to delete this note. This means that this Note will be permanently removed. This action cannot be undone
+      </ConfirmDialog>
     </div>
   )
 }

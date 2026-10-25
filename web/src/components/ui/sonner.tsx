@@ -1,5 +1,5 @@
 import { toast, Toaster as Sonner, type ToasterProps } from 'sonner'
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon, XIcon } from 'lucide-react'
+import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, Loader2Icon, XIcon } from 'lucide-react'
 
 /**
  * App toasts, top right. Solid status colour with white text (success green, error red), dark for `toastDone`;
@@ -15,7 +15,7 @@ const Toaster = (props: ToasterProps) => (
       success: <CircleCheckIcon className="size-4 fill-white text-success" />,
       info: <InfoIcon className="size-4" />,
       warning: <TriangleAlertIcon className="size-4" />,
-      error: <OctagonXIcon className="size-4" />,
+      error: <TriangleAlertIcon className="size-4 fill-white text-destructive" />,
       loading: <Loader2Icon className="size-4 animate-spin" />,
       close: <XIcon className="size-4" />,
     }}

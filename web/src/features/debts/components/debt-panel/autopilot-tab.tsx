@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigation2Icon } from 'lucide-react'
 import { TabBody, TabCta, TabEmpty, TabListSkeleton } from '@/components/panel-layout'
 import { RuleCard } from '@/components/rule-card'
+import { useRuleConfirm } from '@/components/rule-confirm-dialog'
 import { Button } from '@/components/ui/button'
 import { formatDay, formatMoney } from '@/lib/format'
 import { nextRun } from '@/lib/schedule'
@@ -10,11 +11,16 @@ import { useDebtRuleMutations, useDebtRules } from '../../queries'
 import type { Debt, DebtRule } from '../../types'
 import { RuleDialog } from './rule-dialog'
 
-/** Auto-Pilot tab: the debt's recurring rules (pause, edit, delete) and Add Rule. `adding` opens the dialog on arrival. */
+/** Auto-Pilot tab: the debt's recurring rules (⋯ pause or resume, edit, delete — each confirmed) and Add Rule. `adding` opens the dialog on arrival. */
 export function AutopilotTab({ debt, portfolioId, adding = false }: { debt: Debt; portfolioId: string; adding?: boolean }) {
   const [dialog, setDialog] = useState<{ open: boolean; rule: DebtRule | null }>({ open: adding, rule: null })
   const { data: rules, isPending } = useDebtRules(portfolioId, debt.id)
   const { toggle, remove } = useDebtRuleMutations(portfolioId, debt.id)
+  const confirm = useRuleConfirm<DebtRule>({
+    toggle: (rule, done) => toggle.mutate(rule, { onSuccess: done }),
+    remove: (rule, done) => remove.mutate(rule.id, { onSuccess: done }),
+    pending: toggle.isPending || remove.isPending,
+  })
 
   return (
     <div className="flex flex-1 flex-col">
@@ -34,9 +40,9 @@ export function AutopilotTab({ debt, portfolioId, adding = false }: { debt: Debt
                 key={rule.id}
                 rule={rule}
                 currency={debt.currency}
-                onToggle={() => toggle.mutate(rule)}
+                onToggle={() => confirm.ask(rule, rule.is_active ? 'pause' : 'resume')}
                 onEdit={() => setDialog({ open: true, rule })}
-                onDelete={() => remove.mutate(rule.id)}
+                onDelete={() => confirm.ask(rule, 'delete')}
               />
             ))}
           </div>
@@ -57,6 +63,7 @@ export function AutopilotTab({ debt, portfolioId, adding = false }: { debt: Debt
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
       />
+      {confirm.dialog}
     </div>
   )
 }
@@ -85,7 +92,7 @@ function DebtRuleCard({
       frequency={FREQUENCY_LABELS[rule.frequency]}
       amount={`${payment ? '-' : '+'}${amount}`}
       tone={payment ? 'positive' : 'negative'}
-      status={!rule.is_active ? 'Paused' : next ? `Next Execution: ${formatDay(next)}` : 'Completed'}
+      status={next ? `Next Execution: ${formatDay(next)}` : 'Completed'}
       active={rule.is_active}
       onToggle={onToggle}
       onEdit={onEdit}

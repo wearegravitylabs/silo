@@ -12,7 +12,8 @@ export function NotesTab({ debt, portfolioId }: { debt: Debt; portfolioId: strin
       loading={isPending}
       saving={save.isPending}
       onSave={(input, done) => save.mutate(input, { onSuccess: done })}
-      onDelete={(id) => remove.mutate(id)}
+      deletePending={remove.isPending}
+      onDelete={(id, done) => remove.mutate(id, { onSuccess: done })}
     />
   )
 }

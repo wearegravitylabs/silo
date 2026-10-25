@@ -15,12 +15,13 @@ import {
   listAssetNotes,
   listAssetRules,
   saveAssetNote,
+  saveAssetRule,
   toggleAssetRule,
   updateAsset,
   uploadAssetDocument,
 } from './panel-api'
 import { assetKeys } from './queries'
-import type { AddAssetHistoryInput, AssetNoteInput, Investability } from './types'
+import type { AddAssetHistoryInput, AssetNoteInput, AssetRuleInput, Investability } from './types'
 
 // The detail panel's queries. Every key sits under the portfolio's asset key, and every change refetches all of
 // them: history moves the table, the header total and the panel together.
@@ -66,6 +67,10 @@ export const useAssetRules = (portfolioId: string, assetId: string) =>
 export const useAssetRuleMutations = (portfolioId: string) => {
   const onSuccess = useRefetchAssets(portfolioId)
   return {
+    save: useMutation({
+      mutationFn: ({ assetId, ...input }: AssetRuleInput & { assetId: string; ruleId?: string }) => saveAssetRule(assetId, input),
+      onSuccess,
+    }),
     toggle: useMutation({ mutationFn: toggleAssetRule, onSuccess }),
     remove: useMutation({ mutationFn: deleteAssetRule, onSuccess }),
   }

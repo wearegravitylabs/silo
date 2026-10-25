@@ -8,6 +8,7 @@ import type {
   AssetNote,
   AssetNoteInput,
   AssetRule,
+  AssetRuleInput,
   AssetStats,
   Investability,
 } from './types'
@@ -186,6 +187,13 @@ let rules: AssetRule[] = [
 ]
 
 export const listAssetRules = (assetId: string) => later(rules.filter((r) => r.asset_id === assetId))
+
+/** Adds a rule, or updates one (`ruleId`); a new rule starts active. */
+export const saveAssetRule = (assetId: string, { ruleId, ...input }: AssetRuleInput & { ruleId?: string }) => {
+  if (ruleId) rules = rules.map((r) => (r.id === ruleId ? { ...r, ...input } : r))
+  else rules = [{ id: crypto.randomUUID(), asset_id: assetId, is_active: true, created_at: new Date().toISOString(), ...input }, ...rules]
+  return later(null)
+}
 
 export const toggleAssetRule = (ruleId: string) => {
   rules = rules.map((r) => (r.id === ruleId ? { ...r, is_active: !r.is_active } : r))

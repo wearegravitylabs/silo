@@ -174,6 +174,8 @@ export interface AssetRule {
   created_at: string
 }
 
+export type AssetRuleInput = Pick<AssetRule, 'action' | 'amount' | 'frequency' | 'start_date' | 'end_date'>
+
 export interface AssetNote {
   id: string
   asset_id: string

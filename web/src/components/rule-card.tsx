@@ -1,10 +1,13 @@
-import { PauseIcon, PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
-import { EntryAction, EntryCard } from '@/components/entry-card'
+import { CirclePauseIcon, PauseIcon, PencilIcon, PlayIcon, Trash2Icon } from 'lucide-react'
+import { EntryCard } from '@/components/entry-card'
+import { DotsIcon } from '@/components/icons'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 /**
- * One Auto-Pilot rule (asset, debt): its dates over what it does and how often, then the signed amount (green or red)
- * and when it next runs. Pause/resume, edit and delete show for the handlers given. Paused rules are faded.
+ * One Auto-Pilot rule (asset, debt): its dates and a ⋯ menu (pause or resume, edit, delete — those with a handler)
+ * over what it does and how often, then the signed amount (green or red) and when it next runs. A paused rule shows
+ * a "Paused" badge, a grey amount and no next run.
  */
 export function RuleCard({
   label,
@@ -27,46 +30,65 @@ export function RuleCard({
   /** "+100 $MSFT" */
   amount: string
   tone: 'positive' | 'negative'
-  /** "Next Execution: Mar 1, 2026", "Paused" */
+  /** "Next Execution: Mar 1, 2026"; ignored while paused */
   status: string
   active: boolean
   onToggle?: () => void
   onEdit?: () => void
   onDelete?: () => void
 }) {
+  const hasMenu = onToggle || onEdit || onDelete
   return (
     <EntryCard
-      className={cn(!active && 'opacity-60')}
       label={label}
       actions={
-        (onToggle || onEdit || onDelete) && (
-          <>
-            {onToggle && (
-              <EntryAction label={active ? 'Pause rule' : 'Resume rule'} onClick={onToggle}>
-                {active ? <PauseIcon className="size-3.5" /> : <PlayIcon className="size-3.5" />}
-              </EntryAction>
-            )}
-            {onEdit && (
-              <EntryAction label="Edit rule" onClick={onEdit}>
-                <PencilIcon className="size-3.5" />
-              </EntryAction>
-            )}
-            {onDelete && (
-              <EntryAction label="Delete rule" tone="danger" onClick={onDelete}>
-                <Trash2Icon className="size-3.5" />
-              </EntryAction>
-            )}
-          </>
+        hasMenu && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={`${title} rule options`}
+              className="flex size-5 items-center justify-center rounded-sm outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40 aria-expanded:text-foreground"
+            >
+              <DotsIcon className="text-current" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              {onToggle && (
+                <DropdownMenuItem onSelect={onToggle}>
+                  {active ? <PauseIcon className="size-4" /> : <PlayIcon className="size-4" />}
+                  {active ? 'Pause Rule' : 'Resume Rule'}
+                </DropdownMenuItem>
+              )}
+              {onEdit && (
+                <DropdownMenuItem onSelect={onEdit}>
+                  <PencilIcon className="size-4" />
+                  Edit Rule
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem onSelect={onDelete}>
+                  <Trash2Icon className="size-4" />
+                  Delete Rule
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )
       }
     >
       <div className="flex items-center justify-between gap-4">
-        <span className="font-medium text-foreground">{title}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate font-medium text-foreground">{title}</span>
+          {!active && (
+            <span className="inline-flex h-5 shrink-0 items-center gap-1 rounded-md border-[0.5px] border-line bg-accent px-1.5 text-xs text-foreground">
+              <CirclePauseIcon className="size-3 text-muted-foreground" aria-hidden />
+              Paused
+            </span>
+          )}
+        </span>
         <span className="text-foreground">{frequency}</span>
       </div>
       <div className="flex items-center justify-between gap-4 text-xs leading-5">
-        <span className={tone === 'positive' ? 'text-success' : 'text-destructive'}>{amount}</span>
-        <span className="truncate text-muted-foreground">{status}</span>
+        <span className={cn(!active ? 'text-muted-foreground' : tone === 'positive' ? 'text-success' : 'text-destructive')}>{amount}</span>
+        <span className="truncate text-muted-foreground">{active ? status : '--'}</span>
       </div>
     </EntryCard>
   )
