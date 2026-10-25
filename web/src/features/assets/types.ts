@@ -26,6 +26,10 @@ export interface AssetItem {
   detail: string | null
   /** Second line under the type, e.g. "Active" */
   status: string | null
+  /** Disc colour (domains), a colour token; null for the default */
+  color: string | null
+  /** Photos (real estate) */
+  pictures: string[]
   created_at: string
   updated_at: string
 }
@@ -77,4 +81,28 @@ export interface CreateAssetInput {
   /** Manual: the price per unit you entered. Listed: today's price (each purchase is priced on its date). */
   price: number
   lots: AssetLotInput[]
+}
+
+/** An asset valued by you rather than by the market: real estate, a domain, a physical valuable. */
+export interface CreateValuedAssetInput {
+  folder_id: string | null
+  asset_type: 'real_estate' | 'domain' | 'physical'
+  /** The address, the domain ("https://www.johndoe.com/"), the item's name */
+  name: string
+  /** Estimated or current value, in `currency` */
+  value: number
+  currency: string
+  logo_url: string | null
+  color?: string | null
+  pictures?: string[]
+  /** Physical valuables: what kind ("vehicle") */
+  subtype?: string
+  /** Physical valuables: when and for how much it was bought */
+  acquisition?: { date: string; price: number; currency: string }
+}
+
+/** An address suggestion (Google Places). */
+export interface AddressSuggestion {
+  id: string
+  description: string
 }

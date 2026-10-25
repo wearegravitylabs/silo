@@ -1,4 +1,4 @@
-import type { AssetItem, TickerResult } from './types'
+import type { AddressSuggestion, AssetItem, TickerResult } from './types'
 
 // The design's assets (Assets page frames) plus a few more, in USD. Folder ids match the folders mock.
 export const CURRENCY = 'USD'
@@ -37,6 +37,8 @@ const asset = (seed: Seed): AssetItem => ({
   needs_attention: false,
   detail: seed.ticker ?? null,
   status: null,
+  color: null,
+  pictures: [],
   created_at: CREATED,
   updated_at: CREATED,
   ...seed,
@@ -179,3 +181,19 @@ export const MOCK_CRYPTO: TickerResult[] = [
 
 /** Shown before you type, per kind. */
 export const POPULAR = { stock: MOCK_STOCKS.slice(0, 5), crypto: MOCK_CRYPTO.slice(0, 5) }
+
+/** Addresses the mock "Google Places" can suggest (the design's two first). */
+export const MOCK_ADDRESSES: AddressSuggestion[] = [
+  '123, Abc road, London, United Kingdom',
+  '123, Abc road, London Area, United Kingdom',
+  '12 Admiralty Way, Lekki Phase 1, Lagos, Nigeria',
+  '4 Bourdillon Road, Ikoyi, Lagos, Nigeria',
+  '27 Aminu Kano Crescent, Wuse 2, Abuja, Nigeria',
+  '221B Baker Street, London, United Kingdom',
+  '10 Downing Street, London, United Kingdom',
+  '350 Fifth Avenue, New York, NY, United States',
+  '1600 Amphitheatre Parkway, Mountain View, CA, United States',
+  '1 Infinite Loop, Cupertino, CA, United States',
+  '88 Queensway, Admiralty, Hong Kong',
+  '5 Rue de Rivoli, Paris, France',
+].map((description, i) => ({ id: `place-${i + 1}`, description }))

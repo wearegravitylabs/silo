@@ -1,6 +1,14 @@
 import { defaultFolderId } from '@/lib/folders'
-import { CURRENCY, MOCK_ASSETS, MOCK_CRYPTO, MOCK_STOCKS, POPULAR, USD_RATES } from './mock-data'
-import type { AssetItem, AssetsOverview, CreateAssetInput, TickerKind, TickerResult } from './types'
+import { CURRENCY, MOCK_ADDRESSES, MOCK_ASSETS, MOCK_CRYPTO, MOCK_STOCKS, POPULAR, USD_RATES } from './mock-data'
+import type {
+  AddressSuggestion,
+  AssetItem,
+  AssetsOverview,
+  CreateAssetInput,
+  CreateValuedAssetInput,
+  TickerKind,
+  TickerResult,
+} from './types'
 
 // TODO: replace with the real endpoints once portfolios are real and the list has every field the page needs:
 //   GET    /portfolios/:id/assets?folder_id=…   (exists; lacks change_pct_1m, needs_attention, detail, status)
@@ -113,6 +121,48 @@ export const createAsset = (portfolioId: string, input: CreateAssetInput): Promi
     needs_attention: false,
     detail: input.ticker,
     status: null,
+    color: null,
+    pictures: [],
+    created_at: now,
+    updated_at: now,
+  }
+  assetsOf(portfolioId).push(asset)
+  return later({ ...asset })
+}
+
+/** Addresses containing what's typed (from 3 characters). TODO: Google Places Autocomplete via the backend. */
+export const searchAddresses = (q: string): Promise<AddressSuggestion[]> => {
+  const query = q.trim().toLowerCase()
+  if (query.length < 3) return Promise.resolve([])
+  return new Promise((resolve) =>
+    setTimeout(() => resolve(MOCK_ADDRESSES.filter((a) => a.description.toLowerCase().includes(query)).slice(0, 5)), 200),
+  )
+}
+
+/**
+ * Adds an asset you value yourself (real estate, a domain, a physical valuable) at its value, converted to the
+ * portfolio's currency like the API does. TODO: POST /portfolios/:id/assets with the matching asset_type.
+ */
+export const createValuedAsset = (portfolioId: string, input: CreateValuedAssetInput): Promise<AssetItem> => {
+  const now = new Date().toISOString()
+  const asset: AssetItem = {
+    id: crypto.randomUUID(),
+    portfolio_id: portfolioId,
+    folder_id: input.folder_id && input.folder_id !== defaultFolderId('asset') ? input.folder_id : null,
+    asset_type: input.asset_type,
+    name: input.name,
+    ticker: null,
+    logo_url: input.logo_url,
+    investability: 'non_investable',
+    owned_value_converted: input.value / (USD_RATES[input.currency] ?? 1),
+    converted_currency: CURRENCY,
+    total_quantity: null,
+    change_pct_1m: null,
+    needs_attention: false,
+    detail: null,
+    status: null,
+    color: input.color ?? null,
+    pictures: input.pictures ?? [],
     created_at: now,
     updated_at: now,
   }

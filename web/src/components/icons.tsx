@@ -276,3 +276,24 @@ export function CoinGeckoWordmark({ className }: { className?: string }) {
     </span>
   )
 }
+
+/** Google's four-colour "G", marking fields backed by Google Places. */
+export function GoogleGIcon({ className, ...props }: IconProps) {
+  return (
+    <Svg viewBox="0 0 24 24" className={cn('size-4', className)} {...props}>
+      <path
+        className="fill-brand-google-blue"
+        d="M23.5 12.27c0-.82-.07-1.6-.2-2.36H12v4.46h6.45a5.5 5.5 0 0 1-2.4 3.62v3h3.87c2.27-2.09 3.58-5.17 3.58-8.72Z"
+      />
+      <path
+        className="fill-brand-google-green"
+        d="M12 24c3.24 0 5.96-1.08 7.94-2.92l-3.87-3A7.2 7.2 0 0 1 12 19.25a7.15 7.15 0 0 1-6.72-4.95H1.28v3.09A12 12 0 0 0 12 24Z"
+      />
+      <path className="fill-brand-google-yellow" d="M5.28 14.3a7.2 7.2 0 0 1 0-4.6V6.6h-4a12 12 0 0 0 0 10.78l4-3.09Z" />
+      <path
+        className="fill-brand-google-red"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.43-3.43A11.5 11.5 0 0 0 12 0 12 12 0 0 0 1.28 6.6l4 3.1A7.15 7.15 0 0 1 12 4.75Z"
+      />
+    </Svg>
+  )
+}

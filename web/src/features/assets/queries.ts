@@ -1,6 +1,15 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { createAsset, deleteAsset, getAssetsOverview, listAssets, moveAsset, searchTickers } from './api'
-import type { CreateAssetInput, TickerKind } from './types'
+import {
+  createAsset,
+  createValuedAsset,
+  deleteAsset,
+  getAssetsOverview,
+  listAssets,
+  moveAsset,
+  searchAddresses,
+  searchTickers,
+} from './api'
+import type { CreateAssetInput, CreateValuedAssetInput, TickerKind } from './types'
 
 export const assetKeys = {
   all: (portfolioId: string) => ['assets', portfolioId] as const,
@@ -8,6 +17,7 @@ export const assetKeys = {
   list: (portfolioId: string, folderId: string | null) => ['assets', portfolioId, 'list', folderId ?? 'all'] as const,
   overview: (portfolioId: string) => ['assets', portfolioId, 'overview'] as const,
   tickerSearch: (kind: TickerKind, q: string) => ['ticker-search', kind, q] as const,
+  addressSearch: (q: string) => ['address-search', q] as const,
 }
 
 /** Assets in one folder (or the whole portfolio when folderId is null). */
@@ -37,12 +47,22 @@ export const useTickerSearch = (kind: TickerKind, q: string) =>
     placeholderData: keepPreviousData,
   })
 
+/** Address suggestions while typing; keeps the last ones on screen while the next load. */
+export const useAddressSearch = (q: string) =>
+  useQuery({
+    queryKey: assetKeys.addressSearch(q),
+    queryFn: () => searchAddresses(q),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  })
+
 /** Create, move to a folder, delete — each refetches every asset query for the portfolio (lists, total). */
 export const useAssetMutations = (portfolioId: string) => {
   const qc = useQueryClient()
   const refetch = () => qc.invalidateQueries({ queryKey: assetKeys.all(portfolioId) })
   return {
     create: useMutation({ mutationFn: (input: CreateAssetInput) => createAsset(portfolioId, input), onSuccess: refetch }),
+    createValued: useMutation({ mutationFn: (input: CreateValuedAssetInput) => createValuedAsset(portfolioId, input), onSuccess: refetch }),
     move: useMutation({
       mutationFn: ({ id, folderId }: { id: string; folderId: string }) => moveAsset(portfolioId, id, folderId),
       onSuccess: refetch,

@@ -2,14 +2,20 @@ import type { ReactNode } from 'react'
 import {
   AppleIcon,
   BriefcaseBusinessIcon,
+  CarIcon,
   CirclePlusIcon,
   Columns3Icon,
   DatabaseIcon,
   GemIcon,
   GlobeIcon,
+  InboxIcon,
   KeyRoundIcon,
   LandmarkIcon,
+  PaletteIcon,
+  SparklesIcon,
+  SunIcon,
   WalletIcon,
+  WatchIcon,
   type LucideIcon,
 } from 'lucide-react'
 import {
@@ -85,17 +91,17 @@ export interface CreatableAssetType {
   id: string
   label: string
   Icon: LucideIcon
-  /** Only stocks and crypto can be added today; the rest show "Coming soon". */
+  /** Types without a flow yet show "Coming soon". */
   enabled: boolean
 }
 
 /** Create Asset → Choose an Asset Type, in the design's order (two columns, read across). */
 export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
-  { id: 'stock_ticker', label: 'Stocks', Icon: AppleIcon, enabled: true },
-  { id: 'crypto_ticker', label: 'Crypto', Icon: DatabaseIcon, enabled: true },
-  { id: 'real_estate', label: 'Real Estate', Icon: KeyRoundIcon, enabled: false },
-  { id: 'domain', label: 'Domains', Icon: GlobeIcon, enabled: false },
-  { id: 'physical', label: 'Physical Valuables', Icon: GemIcon, enabled: false },
+  { id: 'stock_ticker', label: 'Stocks Tickers', Icon: AppleIcon, enabled: true },
+  { id: 'crypto_ticker', label: 'Crypto Tickers', Icon: DatabaseIcon, enabled: true },
+  { id: 'real_estate', label: 'Real Estate', Icon: KeyRoundIcon, enabled: true },
+  { id: 'domain', label: 'Domains', Icon: GlobeIcon, enabled: true },
+  { id: 'physical', label: 'Physical Valuables', Icon: GemIcon, enabled: true },
   { id: 'venture_capital', label: 'Venture Capital', Icon: BriefcaseBusinessIcon, enabled: false },
   { id: 'business', label: 'Business', Icon: Columns3Icon, enabled: false },
   { id: 'bank', label: 'Bank Connections', Icon: LandmarkIcon, enabled: false },
@@ -106,3 +112,37 @@ export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
 /** An asset's own image (manual stocks): what the upload accepts. */
 export const ASSET_IMAGE_TYPES = ['image/jpeg', 'image/png']
 export const ASSET_IMAGE_MAX_BYTES = 1024 * 1024 // 1MB
+
+export interface PhysicalKind {
+  id: string
+  /** The list ("Vehicles") */
+  label: string
+  /** One of them ("Vehicle"): "Add Vehicle", "Vehicle Name" */
+  singular: string
+  Icon: LucideIcon
+}
+
+/** Create Asset → Physical Valuables → what kind, in the design's order. */
+export const PHYSICAL_KINDS: PhysicalKind[] = [
+  { id: 'vehicle', label: 'Vehicles', singular: 'Vehicle', Icon: CarIcon },
+  { id: 'precious_metal', label: 'Gold/Precious Metals', singular: 'Precious Metal', Icon: SparklesIcon },
+  { id: 'jewellery', label: 'Jewellery', singular: 'Jewellery', Icon: SunIcon },
+  { id: 'art', label: 'Art', singular: 'Artwork', Icon: PaletteIcon },
+  { id: 'watch', label: 'Watch', singular: 'Watch', Icon: WatchIcon },
+  { id: 'collectible', label: 'Collectible', singular: 'Collectible', Icon: InboxIcon },
+  { id: 'other', label: 'Others', singular: 'Valuable', Icon: CirclePlusIcon },
+]
+
+/** Colours a domain's globe disc can take (the design's swatches, in order); the first is the default. */
+export const DOMAIN_COLORS = [
+  'var(--color-highlight)',
+  'var(--color-destructive)',
+  'var(--color-warning)',
+  'var(--color-success)',
+  'var(--color-swatch-blue)',
+  'var(--color-scenario-magenta)',
+  'var(--color-scenario-purple)',
+] as const
+
+/** Real estate photos one asset can hold. */
+export const MAX_PICTURES = 4

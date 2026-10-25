@@ -4,17 +4,28 @@ import type { AssetItem } from '../types'
 
 /**
  * An asset's round mark (table rows, ticker search, Projections): its logo, else its ticker's initials ("MS"), else
- * its type's icon on white — domains on a pink disc. Size the disc with className (default 40px).
+ * its type's icon on white — domains on a disc tinted with their colour (pink by default). Size the disc with className
+ * (default 40px).
  */
-export function AssetIconDisc({ asset, className }: { asset: Pick<AssetItem, 'asset_type' | 'logo_url' | 'ticker'>; className?: string }) {
+export function AssetIconDisc({
+  asset,
+  className,
+}: {
+  asset: Pick<AssetItem, 'asset_type' | 'logo_url' | 'ticker'> & { color?: string | null }
+  className?: string
+}) {
   const domain = asset.asset_type === 'domain'
+  const tinted = domain && !asset.logo_url && !!asset.color
   return (
     <span
+      style={tinted ? { color: asset.color! } : undefined}
       className={cn(
         'flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border',
-        domain
-          ? 'border-destructive-light/60 bg-destructive-subtle text-destructive [&_svg]:text-destructive'
-          : 'border-border bg-background',
+        tinted
+          ? 'border-current/20 bg-current/12 [&_svg]:text-current'
+          : domain
+            ? 'border-destructive-light/60 bg-destructive-subtle text-destructive [&_svg]:text-destructive'
+            : 'border-border bg-background',
         className,
       )}
     >

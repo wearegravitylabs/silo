@@ -13,7 +13,16 @@ const badge =
  * Remove image). Reports a local preview URL (the mock keeps it as the asset's image); a replaced or removed one is
  * revoked.
  */
-export function ImageUploadDisc({ value, onChange }: { value: string | null; onChange: (url: string | null) => void }) {
+export function ImageUploadDisc({
+  value,
+  onChange,
+  fallback,
+}: {
+  value: string | null
+  onChange: (url: string | null) => void
+  /** Shown until an image is picked (e.g. the first photo); never revoked here */
+  fallback?: string | null
+}) {
   const input = useRef<HTMLInputElement>(null)
 
   const replace = (url: string | null) => {
@@ -40,9 +49,13 @@ export function ImageUploadDisc({ value, onChange }: { value: string | null; onC
           type="button"
           onClick={() => input.current?.click()}
           aria-label="Upload asset image"
-          className="flex size-16 items-center justify-center rounded-full bg-accent text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="flex size-16 items-center justify-center overflow-hidden rounded-full bg-accent text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
         >
-          <ImageIcon className="size-5" aria-hidden />
+          {fallback ? (
+            <img src={fallback} alt="" className="size-full rounded-full object-cover" />
+          ) : (
+            <ImageIcon className="size-5" aria-hidden />
+          )}
         </button>
       )}
 

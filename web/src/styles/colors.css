@@ -176,6 +176,10 @@
   /* Third-party wordmarks (data attributions) */
   --color-brand-yahoo: #6001d2;
   --color-brand-coingecko: #8dc63f;
+  --color-brand-google-blue: #4285f4;
+  --color-brand-google-red: #ea4335;
+  --color-brand-google-yellow: #fbbc05;
+  --color-brand-google-green: #34a853;
 
   /* Folder tab badges, cycled in order */
   --color-folder-1: #1a56db;

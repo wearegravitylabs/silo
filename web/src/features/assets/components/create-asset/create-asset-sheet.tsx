@@ -1,13 +1,15 @@
-import { useState, type ReactNode } from 'react'
-import { ProgressLine } from '@/components/progress-line'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useState } from 'react'
+import { Dialog } from '@/components/ui/dialog'
 import { SheetContent } from '@/components/ui/sheet'
 import { getErrorMessage } from '@/lib/api-client'
 import { useAssetMutations } from '../../queries'
 import type { AssetItem, TickerResult } from '../../types'
 import { AssetTypeStep } from './asset-type-step'
+import { DomainFlow } from './domain-flow'
 import { ManualTickerStep } from './manual-ticker-step'
+import { PhysicalFlow } from './physical-flow'
+import { RealEstateFlow } from './real-estate-flow'
+import { SheetFooter, SheetHeader, StepBody, type FlowProps } from './sheet-chrome'
 import { kindForType, type TickerKindConfig } from './ticker-kinds'
 import { TickerDetailsStep } from './ticker-details-step'
 import { TickerSearchStep } from './ticker-search-step'
@@ -26,9 +28,16 @@ interface Props {
   onCreated?: (asset: AssetItem) => void
 }
 
+/** Types with their own flow beyond the ticker ones. */
+const FLOWS: Record<string, (props: FlowProps) => React.ReactNode> = {
+  real_estate: RealEstateFlow,
+  domain: DomainFlow,
+  physical: PhysicalFlow,
+}
+
 /**
- * Full-height Create Asset sheet: asset type → search (stocks or crypto) → quantities and summary, or → Add Ticker
- * (one that isn't listed). Every open starts over.
+ * Full-height Create Asset sheet: asset type → its flow — search (stocks, crypto) → quantities, or Add Ticker; real
+ * estate; a domain; physical valuables (kind → details). Every open starts over.
  */
 export function CreateAssetSheet({ open, onOpenChange, ...props }: Props) {
   return (
@@ -41,17 +50,16 @@ export function CreateAssetSheet({ open, onOpenChange, ...props }: Props) {
   )
 }
 
-type FlowProps = Omit<Props, 'open' | 'onOpenChange'> & { onClose: () => void }
-
-function CreateAssetFlow(props: FlowProps) {
+function CreateAssetFlow({ defaultCurrency = 'USD', ...props }: Omit<Props, 'open' | 'onOpenChange'> & { onClose: () => void }) {
   const [type, setType] = useState<string | null>(null)
   const [started, setStarted] = useState(false)
-  const config = kindForType(type)
+  const ticker = kindForType(type)
+  const Flow = type ? FLOWS[type] : undefined
+  const flowProps: FlowProps = { ...props, defaultCurrency, onBack: () => setStarted(false) }
 
-  if (started && config) {
-    // Keyed by kind: stocks and crypto never share a search, a pick or purchases.
-    return <TickerFlow key={config.kind} config={config} {...props} onBack={() => setStarted(false)} />
-  }
+  // Keyed by type: each flow starts fresh, and stocks and crypto never share a search, a pick or purchases.
+  if (started && ticker) return <TickerFlow key={ticker.kind} config={ticker} {...flowProps} />
+  if (started && Flow && type) return <Flow key={type} {...flowProps} />
 
   return (
     <>
@@ -59,7 +67,10 @@ function CreateAssetFlow(props: FlowProps) {
       <StepBody>
         <AssetTypeStep selected={type} onSelect={setType} />
       </StepBody>
-      <SheetFooter back={{ label: 'Close', onClick: props.onClose }} next={{ onClick: () => setStarted(true), disabled: !config }} />
+      <SheetFooter
+        back={{ label: 'Close', onClick: props.onClose }}
+        next={{ onClick: () => setStarted(true), disabled: !ticker && !Flow }}
+      />
     </>
   )
 }
@@ -69,11 +80,11 @@ function TickerFlow({
   config,
   portfolioId,
   folderId,
-  defaultCurrency = 'USD',
+  defaultCurrency,
   onCreated,
   onClose,
   onBack,
-}: FlowProps & { config: TickerKindConfig; onBack: () => void }) {
+}: FlowProps & { config: TickerKindConfig }) {
   const [step, setStep] = useState<'search' | 'details' | 'manual'>('search')
   const [query, setQuery] = useState('')
   const [ticker, setTicker] = useState<TickerResult | null>(null)
@@ -133,37 +144,5 @@ function TickerFlow({
         next={step === 'search' ? { onClick: () => setStep('details'), disabled: !ticker } : undefined}
       />
     </>
-  )
-}
-
-function SheetHeader({ progress }: { progress: number }) {
-  return (
-    <div className="flex shrink-0 flex-col">
-      <DialogHeader className="border-b-0 px-4 md:px-5">
-        <DialogTitle>Create Asset</DialogTitle>
-      </DialogHeader>
-      <ProgressLine value={progress} label="Create Asset progress" />
-    </div>
-  )
-}
-
-/** Scrolling, centred body for the single-column steps (type, search). */
-function StepBody({ children }: { children: ReactNode }) {
-  return <div className="flex flex-1 justify-center overflow-y-auto px-4 pt-10 pb-8 md:pt-14">{children}</div>
-}
-
-/** Close/Back on the left; Continue on the right when the step has one. */
-function SheetFooter({ back, next }: { back: { label: string; onClick: () => void }; next?: { onClick: () => void; disabled: boolean } }) {
-  return (
-    <div className="flex h-15 shrink-0 items-center justify-between border-t border-border px-4 md:px-5">
-      <Button variant="secondary" size="xs" onClick={back.onClick} className="px-3">
-        {back.label}
-      </Button>
-      {next && (
-        <Button size="xs" onClick={next.onClick} disabled={next.disabled} className="px-3">
-          Continue
-        </Button>
-      )}
-    </div>
   )
 }
