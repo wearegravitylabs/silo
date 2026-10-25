@@ -5,7 +5,10 @@ import { getErrorMessage } from '@/lib/api-client'
 import { useAssetMutations } from '../../queries'
 import type { AssetItem, TickerResult } from '../../types'
 import { AssetTypeStep } from './asset-type-step'
+import { BusinessFlow } from './business-flow'
+import { BankFlow, CryptoWalletFlow } from './connect-flows'
 import { DomainFlow } from './domain-flow'
+import { ManualAssetFlow } from './manual-asset-flow'
 import { ManualTickerStep } from './manual-ticker-step'
 import { PhysicalFlow } from './physical-flow'
 import { RealEstateFlow } from './real-estate-flow'
@@ -13,6 +16,7 @@ import { SheetFooter, SheetHeader, StepBody, type FlowProps } from './sheet-chro
 import { kindForType, type TickerKindConfig } from './ticker-kinds'
 import { TickerDetailsStep } from './ticker-details-step'
 import { TickerSearchStep } from './ticker-search-step'
+import { VentureCapitalFlow } from './venture-capital-flow'
 import { useLots } from './use-lots'
 import { useManualTicker } from './use-manual-ticker'
 
@@ -33,6 +37,11 @@ const FLOWS: Record<string, (props: FlowProps) => React.ReactNode> = {
   real_estate: RealEstateFlow,
   domain: DomainFlow,
   physical: PhysicalFlow,
+  venture_capital: VentureCapitalFlow,
+  business: BusinessFlow,
+  bank: BankFlow,
+  crypto_wallet: CryptoWalletFlow,
+  manual: ManualAssetFlow,
 }
 
 /**

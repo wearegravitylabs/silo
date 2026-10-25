@@ -86,11 +86,16 @@ export interface CreateAssetInput {
 /** An asset valued by you rather than by the market: real estate, a domain, a physical valuable. */
 export interface CreateValuedAssetInput {
   folder_id: string | null
-  asset_type: 'real_estate' | 'domain' | 'physical'
+  asset_type: 'real_estate' | 'domain' | 'physical' | 'venture_capital' | 'business' | 'manual'
   /** The address, the domain ("https://www.johndoe.com/"), the item's name */
   name: string
-  /** Estimated or current value, in `currency` */
+  /** Estimated or current value of your share, in `currency` */
   value: number
+  /** Second lines in the table: under the name ("Seed") and under the type ("Active", "Loan") */
+  detail?: string | null
+  status?: string | null
+  /** Counts toward investable assets (venture capital, a business) */
+  investable?: boolean
   currency: string
   logo_url: string | null
   color?: string | null
@@ -105,4 +110,10 @@ export interface CreateValuedAssetInput {
 export interface AddressSuggestion {
   id: string
   description: string
+}
+
+/** A bank (Plaid) or crypto exchange/wallet to connect; balances sync from there. */
+export interface ConnectInput {
+  folder_id: string | null
+  provider: 'plaid' | string
 }

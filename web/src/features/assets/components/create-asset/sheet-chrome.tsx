@@ -28,7 +28,7 @@ export function SheetFooter({
   next,
 }: {
   back: { label: string; onClick: () => void }
-  next?: { onClick: () => void; disabled: boolean }
+  next?: { onClick: () => void; disabled: boolean; loading?: boolean; label?: string; loadingLabel?: string }
 }) {
   return (
     <div className="flex h-15 shrink-0 items-center justify-between border-t border-border px-4 md:px-5">
@@ -36,8 +36,15 @@ export function SheetFooter({
         {back.label}
       </Button>
       {next && (
-        <Button size="xs" onClick={next.onClick} disabled={next.disabled} className="px-3">
-          Continue
+        <Button
+          size="xs"
+          onClick={next.onClick}
+          disabled={next.disabled}
+          loading={next.loading}
+          loadingText={next.loadingLabel}
+          className="px-3"
+        >
+          {next.label ?? 'Continue'}
         </Button>
       )}
     </div>

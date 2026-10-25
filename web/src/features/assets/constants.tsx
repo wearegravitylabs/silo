@@ -102,11 +102,11 @@ export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
   { id: 'real_estate', label: 'Real Estate', Icon: KeyRoundIcon, enabled: true },
   { id: 'domain', label: 'Domains', Icon: GlobeIcon, enabled: true },
   { id: 'physical', label: 'Physical Valuables', Icon: GemIcon, enabled: true },
-  { id: 'venture_capital', label: 'Venture Capital', Icon: BriefcaseBusinessIcon, enabled: false },
-  { id: 'business', label: 'Business', Icon: Columns3Icon, enabled: false },
-  { id: 'bank', label: 'Bank Connections', Icon: LandmarkIcon, enabled: false },
-  { id: 'crypto_wallet', label: 'Crypto Exchanges/Wallet', Icon: WalletIcon, enabled: false },
-  { id: 'manual', label: 'Manual Assets', Icon: CirclePlusIcon, enabled: false },
+  { id: 'venture_capital', label: 'Venture Capital', Icon: BriefcaseBusinessIcon, enabled: true },
+  { id: 'business', label: 'Business', Icon: Columns3Icon, enabled: true },
+  { id: 'bank', label: 'Bank Connections', Icon: LandmarkIcon, enabled: true },
+  { id: 'crypto_wallet', label: 'Crypto Exchanges/Wallet', Icon: WalletIcon, enabled: true },
+  { id: 'manual', label: 'Manual Assets', Icon: CirclePlusIcon, enabled: true },
 ]
 
 /** An asset's own image (manual stocks): what the upload accepts. */
@@ -146,3 +146,25 @@ export const DOMAIN_COLORS = [
 
 /** Real estate photos one asset can hold. */
 export const MAX_PICTURES = 4
+
+/** Venture Capital → Investment Stage. */
+export const INVESTMENT_STAGES = ['Pre-Seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Series D+', 'Growth', 'Pre-IPO', 'Fund']
+
+/** Business → Business Type; a sole proprietorship is wholly yours, the rest ask for your share. */
+export const BUSINESS_TYPES = ['Sole Proprietorship', 'LLC', 'Partnership', 'C-Corp', 'S-Corp', 'Other']
+export const SOLE_OWNER_TYPE = 'Sole Proprietorship'
+
+export interface ConnectProvider {
+  id: string
+  name: string
+  kind: 'Exchange' | 'Wallet'
+}
+
+/** Create Asset → Crypto Exchanges/Wallet, in the design's order. */
+export const CRYPTO_PROVIDERS: ConnectProvider[] = [
+  { id: 'coinbase', name: 'Coinbase', kind: 'Exchange' },
+  { id: 'binance', name: 'Binance', kind: 'Exchange' },
+  { id: 'kraken', name: 'Kraken', kind: 'Exchange' },
+  { id: 'metamask', name: 'Metamask', kind: 'Wallet' },
+  { id: 'phantom', name: 'Phantom', kind: 'Wallet' },
+]

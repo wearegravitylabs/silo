@@ -1,5 +1,6 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import {
+  connectProvider,
   createAsset,
   createValuedAsset,
   deleteAsset,
@@ -9,7 +10,7 @@ import {
   searchAddresses,
   searchTickers,
 } from './api'
-import type { CreateAssetInput, CreateValuedAssetInput, TickerKind } from './types'
+import type { ConnectInput, CreateAssetInput, CreateValuedAssetInput, TickerKind } from './types'
 
 export const assetKeys = {
   all: (portfolioId: string) => ['assets', portfolioId] as const,
@@ -62,6 +63,7 @@ export const useAssetMutations = (portfolioId: string) => {
   const refetch = () => qc.invalidateQueries({ queryKey: assetKeys.all(portfolioId) })
   return {
     create: useMutation({ mutationFn: (input: CreateAssetInput) => createAsset(portfolioId, input), onSuccess: refetch }),
+    connect: useMutation({ mutationFn: (input: ConnectInput) => connectProvider(portfolioId, input), onSuccess: refetch }),
     createValued: useMutation({ mutationFn: (input: CreateValuedAssetInput) => createValuedAsset(portfolioId, input), onSuccess: refetch }),
     move: useMutation({
       mutationFn: ({ id, folderId }: { id: string; folderId: string }) => moveAsset(portfolioId, id, folderId),

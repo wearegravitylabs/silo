@@ -4,6 +4,7 @@ import type {
   AddressSuggestion,
   AssetItem,
   AssetsOverview,
+  ConnectInput,
   CreateAssetInput,
   CreateValuedAssetInput,
   TickerKind,
@@ -153,14 +154,14 @@ export const createValuedAsset = (portfolioId: string, input: CreateValuedAssetI
     name: input.name,
     ticker: null,
     logo_url: input.logo_url,
-    investability: 'non_investable',
+    investability: input.investable ? 'investable' : 'non_investable',
     owned_value_converted: input.value / (USD_RATES[input.currency] ?? 1),
     converted_currency: CURRENCY,
     total_quantity: null,
     change_pct_1m: null,
     needs_attention: false,
-    detail: null,
-    status: null,
+    detail: input.detail ?? null,
+    status: input.status ?? null,
     color: input.color ?? null,
     pictures: input.pictures ?? [],
     created_at: now,
@@ -168,4 +169,44 @@ export const createValuedAsset = (portfolioId: string, input: CreateValuedAssetI
   }
   assetsOf(portfolioId).push(asset)
   return later({ ...asset })
+}
+
+// What a mock connection brings in: one synced account per provider.
+const CONNECTED: Record<string, Pick<AssetItem, 'name' | 'asset_type' | 'detail' | 'owned_value_converted'>> = {
+  plaid: { name: 'Wells Fargo Checking', asset_type: 'bank', detail: '•••• 4821', owned_value_converted: 12_450 },
+  coinbase: { name: 'Coinbase', asset_type: 'crypto_wallet', detail: 'Exchange', owned_value_converted: 3_250 },
+  binance: { name: 'Binance', asset_type: 'crypto_wallet', detail: 'Exchange', owned_value_converted: 1_840.5 },
+  kraken: { name: 'Kraken', asset_type: 'crypto_wallet', detail: 'Exchange', owned_value_converted: 960 },
+  metamask: { name: 'Metamask', asset_type: 'crypto_wallet', detail: 'Wallet', owned_value_converted: 2_115.75 },
+  phantom: { name: 'Phantom', asset_type: 'crypto_wallet', detail: 'Wallet', owned_value_converted: 430.2 },
+}
+
+/**
+ * Connect a bank (Plaid) or a crypto exchange/wallet and add the synced account. TODO: Plaid Link / the exchange's
+ * OAuth, then POST /portfolios/:id/connections; balances would sync from the provider.
+ */
+export const connectProvider = (portfolioId: string, input: ConnectInput): Promise<AssetItem> => {
+  const synced = CONNECTED[input.provider]
+  if (!synced) return Promise.reject(new Error('This provider isn’t supported yet'))
+  const now = new Date().toISOString()
+  const asset: AssetItem = {
+    id: crypto.randomUUID(),
+    portfolio_id: portfolioId,
+    folder_id: input.folder_id && input.folder_id !== defaultFolderId('asset') ? input.folder_id : null,
+    ticker: null,
+    logo_url: null,
+    investability: 'investable',
+    converted_currency: CURRENCY,
+    total_quantity: null,
+    change_pct_1m: null,
+    needs_attention: false,
+    status: 'Connected',
+    color: null,
+    pictures: [],
+    created_at: now,
+    updated_at: now,
+    ...synced,
+  }
+  assetsOf(portfolioId).push(asset)
+  return new Promise((resolve) => setTimeout(() => resolve({ ...asset }), 1200))
 }

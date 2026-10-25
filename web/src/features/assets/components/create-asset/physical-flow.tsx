@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
 import { ChoiceCard } from '@/components/choice-card'
 import { DateField, todayIso } from '@/components/date-field'
 import { FormField } from '@/components/form-field'
@@ -10,12 +9,12 @@ import { TwoPane } from '@/components/two-pane'
 import { Input } from '@/components/ui/input'
 import { getErrorMessage } from '@/lib/api-client'
 import { formatDayMonthTime, formatMoney } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import { PHYSICAL_KINDS, type PhysicalKind } from '../../constants'
 import { useAssetMutations } from '../../queries'
 import { ImageUploadDisc } from './image-upload-disc'
 import { SheetFooter, SheetHeader, StepBody, type FlowProps } from './sheet-chrome'
 import { StepHeading } from './step-heading'
+import { ValueChange } from './value-change'
 import { ValueSummary } from './value-summary'
 
 const EMPTY = '--'
@@ -181,17 +180,5 @@ function PhysicalDetails({ kind, portfolioId, folderId, onCreated, onClose, onBa
       />
       <SheetFooter back={{ label: 'Back', onClick: onBack }} />
     </>
-  )
-}
-
-/** "↓ 43%": a fall is red, a rise green. */
-function ValueChange({ pct }: { pct: number }) {
-  const up = pct > 0
-  const Icon = up ? ArrowUpIcon : ArrowDownIcon
-  return (
-    <span className={cn('flex items-center gap-1', up ? 'text-success' : 'text-destructive')}>
-      <Icon className="size-3.5" aria-label={up ? 'Up' : 'Down'} />
-      {Math.round(Math.abs(pct))}%
-    </span>
   )
 }
