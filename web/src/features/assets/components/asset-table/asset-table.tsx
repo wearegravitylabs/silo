@@ -4,7 +4,7 @@ import { MultiFilterMenu } from '@/components/multi-filter-menu'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ASSET_TYPE_FILTER_OPTIONS, ASSET_TYPE_LABELS, INVESTABILITY_FILTER_OPTIONS } from '../../constants'
-import type { AssetItem, FolderRef } from '../../types'
+import type { AssetItem } from '../../types'
 import { AssetRow } from './asset-row'
 
 type SortKey = 'name' | 'type' | 'change' | 'value'
@@ -34,8 +34,6 @@ const typeKey = (type: string) => type.replace('_manual', '_ticker')
  */
 export function AssetTable({
   assets,
-  folders,
-  defaultFolderId,
   loading,
   dimmed,
   className,
@@ -45,14 +43,12 @@ export function AssetTable({
   onDelete,
 }: {
   assets: AssetItem[]
-  /** For the row menus' Move Folders */
-  folders: FolderRef[]
-  defaultFolderId: string
   loading?: boolean
   dimmed?: boolean
   className?: string
   onView?: (asset: AssetItem) => void
-  onMove?: (asset: AssetItem, folderId: string) => void
+  /** Move Folders (the page opens its folder picker) */
+  onMove?: (asset: AssetItem) => void
   onAddRule?: (asset: AssetItem) => void
   onDelete?: (asset: AssetItem) => void
 }) {
@@ -120,12 +116,10 @@ export function AssetTable({
         <AssetRow
           key={asset.id}
           asset={asset}
-          folders={folders}
-          defaultFolderId={defaultFolderId}
           selected={view.isSelected(asset.id)}
           onSelect={(on) => view.toggle(asset.id, on)}
           onView={onView && (() => onView(asset))}
-          onMove={onMove && ((folderId) => onMove(asset, folderId))}
+          onMove={onMove && (() => onMove(asset))}
           onAddRule={onAddRule && (() => onAddRule(asset))}
           onDelete={onDelete && (() => onDelete(asset))}
         />

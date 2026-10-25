@@ -17,9 +17,16 @@ export function SheetHeader({ progress }: { progress: number }) {
   )
 }
 
-/** Scrolling, centred body for the single-column steps (type, search, a kind list). */
+/**
+ * Scrolling, centred body for the single-column steps (type, search, a kind list). The padding is on the inner box,
+ * not the scroller, so the last item keeps its space above the footer when the list scrolls.
+ */
 export function StepBody({ children }: { children: ReactNode }) {
-  return <div className="flex flex-1 justify-center overflow-y-auto px-4 pt-10 pb-8 md:pt-14">{children}</div>
+  return (
+    <div className="flex flex-1 overflow-y-auto px-4">
+      <div className="flex h-fit w-full justify-center pt-10 pb-10 md:pt-14">{children}</div>
+    </div>
+  )
 }
 
 /** Close/Back on the left; Continue on the right when the step has one. */

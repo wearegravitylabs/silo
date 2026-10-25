@@ -1,4 +1,5 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { defaultFolderId } from '@/lib/folders'
 import {
   connectProvider,
   createAsset,
@@ -7,6 +8,7 @@ import {
   getAssetsOverview,
   listAssets,
   moveAsset,
+  refileFolder,
   searchAddresses,
   searchTickers,
 } from './api'
@@ -39,6 +41,14 @@ export const useAssets = (portfolioId: string, folderId: string | null) =>
 /** Portfolio asset total. Suspends — preload with `assetsOverviewQuery` in the route loader. */
 export const useAssetsOverview = (portfolioId: string) => useSuspenseQuery(assetsOverviewQuery(portfolioId)).data
 
+/** How many assets each folder holds (by folder id); the default folder lists them all. */
+export const useAssetFolderCounts = (portfolioId: string) => {
+  const { data: assets = [] } = useQuery(assetsQuery(portfolioId, null))
+  const counts: Record<string, number> = { [defaultFolderId('asset')]: assets.length }
+  for (const a of assets) if (a.folder_id) counts[a.folder_id] = (counts[a.folder_id] ?? 0) + 1
+  return counts
+}
+
 /** Ticker search; keeps the last results on screen while the next query loads. */
 export const useTickerSearch = (kind: TickerKind, q: string) =>
   useQuery({
@@ -70,5 +80,10 @@ export const useAssetMutations = (portfolioId: string) => {
       onSuccess: refetch,
     }),
     remove: useMutation({ mutationFn: (id: string) => deleteAsset(portfolioId, id), onSuccess: refetch }),
+    /** A deleted folder's assets go to another folder */
+    refile: useMutation({
+      mutationFn: ({ from, to }: { from: string; to: string }) => refileFolder(portfolioId, from, to),
+      onSuccess: refetch,
+    }),
   }
 }

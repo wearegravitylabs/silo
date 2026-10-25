@@ -24,10 +24,11 @@ const Toaster = (props: ToasterProps) => (
       classNames: {
         toast:
           'flex w-full items-center gap-3 rounded-lg border border-border bg-popover px-4 py-3 font-medium text-popover-foreground shadow-elevated sm:w-99',
-        success: 'border-transparent bg-success text-white',
-        error: 'border-transparent bg-destructive text-white',
+        // `!` so these beat the base card's bg/text whatever their order in the CSS
+        success: 'border-transparent! bg-success! text-white!',
+        error: 'border-transparent! bg-destructive! text-white!',
         // Only toastDone uses the info type
-        info: 'border-transparent bg-foreground text-background',
+        info: 'border-transparent! bg-foreground! text-background!',
         icon: 'flex shrink-0',
         content: 'min-w-0 flex-1',
         description: 'text-xs font-normal opacity-80',

@@ -58,8 +58,9 @@ export function BankFlow(props: FlowProps) {
   return (
     <>
       <SheetHeader progress={0.5} />
-      <div className="flex flex-1 items-center justify-center overflow-y-auto px-4 py-10">
-        <div className="flex w-full max-w-100 flex-col items-center gap-8">
+      {/* m-auto centres without clipping the top when the screen is short; the padding stays inside the scroller */}
+      <div className="flex flex-1 overflow-y-auto px-4">
+        <div className="m-auto flex w-full max-w-100 flex-col items-center gap-8 py-10">
           <div className="flex flex-col items-center gap-4">
             <span className="flex size-16 items-center justify-center rounded-full border border-border bg-background">
               <PlaidMark className="size-9" />

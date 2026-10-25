@@ -1,4 +1,4 @@
-import { CheckIcon, FolderIcon, Navigation2Icon, Trash2Icon } from 'lucide-react'
+import { FolderIcon, Navigation2Icon, Trash2Icon } from 'lucide-react'
 import { DotsIcon, EyeIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import {
@@ -6,21 +6,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { FolderRef } from '../../types'
 
 /**
- * ⋯ menu on an asset row: View details, Move Folders (a list of folders, the current one ticked), Add Auto-pilot Rule,
+ * ⋯ menu on an asset row: View details, Move Folders (the page opens its folder picker), Add Auto-pilot Rule,
  * Delete Asset. Items without a handler are disabled. `onOpenChange` lets the row shade itself while open.
  */
 export function AssetRowMenu({
   name,
-  folders,
-  folderId,
   onOpenChange,
   onView,
   onMove,
@@ -28,12 +22,9 @@ export function AssetRowMenu({
   onDelete,
 }: {
   name: string
-  folders: FolderRef[]
-  /** The folder it's filed in (the default folder when unfiled) */
-  folderId: string
   onOpenChange?: (open: boolean) => void
   onView?: () => void
-  onMove?: (folderId: string) => void
+  onMove?: () => void
   onAddRule?: () => void
   onDelete?: () => void
 }) {
@@ -49,20 +40,10 @@ export function AssetRowMenu({
           <EyeIcon className="size-4" />
           View details
         </DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger disabled={!onMove || folders.length < 2}>
-            <FolderIcon className="size-4" />
-            Move Folders
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-52">
-            {folders.map((f) => (
-              <DropdownMenuItem key={f.id} onSelect={() => f.id !== folderId && onMove?.(f.id)}>
-                <span className="min-w-0 flex-1 truncate">{f.name}</span>
-                {f.id === folderId && <CheckIcon className="size-3.5" aria-label="Current folder" />}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={onMove} disabled={!onMove}>
+          <FolderIcon className="size-4" />
+          Move Folders
+        </DropdownMenuItem>
         <DropdownMenuItem onSelect={onAddRule} disabled={!onAddRule}>
           <Navigation2Icon className="size-4 -rotate-90" />
           Add Auto-pilot Rule

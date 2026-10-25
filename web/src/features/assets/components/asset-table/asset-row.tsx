@@ -5,7 +5,7 @@ import { SelectCell } from '@/components/data-table'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { ASSET_TYPE_LABELS } from '../../constants'
-import type { AssetItem, FolderRef } from '../../types'
+import type { AssetItem } from '../../types'
 import { AssetIconDisc } from '../asset-icon-disc'
 import { AssetRowMenu } from './asset-row-menu'
 
@@ -15,8 +15,6 @@ import { AssetRowMenu } from './asset-row-menu'
  */
 export function AssetRow({
   asset,
-  folders,
-  defaultFolderId,
   selected,
   onSelect,
   onView,
@@ -25,12 +23,10 @@ export function AssetRow({
   onDelete,
 }: {
   asset: AssetItem
-  folders: FolderRef[]
-  defaultFolderId: string
   selected: boolean
   onSelect: (selected: boolean) => void
   onView?: () => void
-  onMove?: (folderId: string) => void
+  onMove?: () => void
   onAddRule?: () => void
   onDelete?: () => void
 }) {
@@ -72,8 +68,6 @@ export function AssetRow({
       <td className="pr-3 text-right md:pr-4">
         <AssetRowMenu
           name={asset.name}
-          folders={folders}
-          folderId={asset.folder_id ?? defaultFolderId}
           onOpenChange={setMenuOpen}
           onView={onView}
           onMove={onMove}

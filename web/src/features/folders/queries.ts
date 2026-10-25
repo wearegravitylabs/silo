@@ -12,6 +12,11 @@ export const foldersQuery = (portfolioId: string, type: FolderType) =>
 /** Folder list. Suspends — preload with `foldersQuery` in the route loader. */
 export const useFolders = (portfolioId: string, type: FolderType) => useSuspenseQuery(foldersQuery(portfolioId, type)).data
 
+export interface FolderInput {
+  name: string
+  color: string
+}
+
 /** Mutations for one portfolio's folder list. Each refetches the list when done. */
 export const useFolderMutations = (portfolioId: string, type: FolderType) => {
   const qc = useQueryClient()
@@ -19,12 +24,18 @@ export const useFolderMutations = (portfolioId: string, type: FolderType) => {
   const refetch = () => qc.invalidateQueries({ queryKey })
 
   return {
-    create: useMutation({ mutationFn: (name: string) => createFolder(portfolioId, { name, folder_type: type }), onSuccess: refetch }),
-    rename: useMutation({
-      mutationFn: ({ id, name }: { id: string; name: string }) => updateFolder(portfolioId, id, { name }),
+    create: useMutation({
+      mutationFn: ({ name, color }: FolderInput) => createFolder(portfolioId, { name, color, folder_type: type }),
       onSuccess: refetch,
     }),
-    remove: useMutation({ mutationFn: (id: string) => deleteFolder(portfolioId, id), onSuccess: refetch }),
+    update: useMutation({
+      mutationFn: ({ id, ...data }: FolderInput & { id: string }) => updateFolder(portfolioId, id, data),
+      onSuccess: refetch,
+    }),
+    remove: useMutation({
+      mutationFn: ({ id, moveTo }: { id: string; moveTo: string }) => deleteFolder(portfolioId, id, moveTo),
+      onSuccess: refetch,
+    }),
     reorder: useMutation({
       mutationFn: (ordered: Folder[]) =>
         reorderFolders(

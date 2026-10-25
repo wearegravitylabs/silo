@@ -1,7 +1,17 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ExportDialog } from '@/components/export-dialog'
-import { AddDebtSheet, DebtPanel, debtsOverviewQuery, debtsQuery, DebtsSummaryHeader, DebtTable, useDebts } from '@/features/debts'
+import {
+  AddDebtSheet,
+  DebtPanel,
+  debtsOverviewQuery,
+  debtsQuery,
+  DebtsSummaryHeader,
+  DebtTable,
+  useDebtFolderCounts,
+  useDebts,
+  useRefileDebtFolder,
+} from '@/features/debts'
 import { foldersQuery, FolderTabs, useFolders } from '@/features/folders'
 import { useAskSiloAi } from '@/features/silo-ai'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
@@ -54,6 +64,8 @@ function DebtsPage() {
   const navigate = Route.useNavigate()
   const portfolio = usePortfolio(portfolioId)
   const folders = useFolders(portfolioId, 'debt')
+  const counts = useDebtFolderCounts(portfolioId)
+  const refile = useRefileDebtFolder(portfolioId)
   const ask = useAskSiloAi()
   const [exporting, setExporting] = useState(false)
   // The opened debt outlives `open` so the panel can animate closed; `n` gives each opening a fresh panel.
@@ -82,6 +94,8 @@ function DebtsPage() {
         portfolioId={portfolioId}
         folderType="debt"
         onOrganize={() => ask('Organize my debts into folders')}
+        counts={counts}
+        onDeleted={(from, to) => refile.mutate({ from, to })}
       />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
       <DebtTable

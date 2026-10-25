@@ -42,6 +42,17 @@ export const listDebts = (portfolioId: string, folderId?: string): Promise<Debt[
   return later(!folderId || folderId === defaultFolderId('debt') ? [...all] : all.filter((d) => d.folder_id === folderId))
 }
 
+/**
+ * Files a deleted folder's debts in `to` (the default folder unfiles them). TODO: mock only — the backend does this
+ * when the folder is deleted (DELETE …/folders/:id?move_to=…).
+ */
+export const refileDebtFolder = (portfolioId: string, from: string, to: string) => {
+  const folderId = to === defaultFolderId('debt') ? null : to
+  const list = debtsOf(portfolioId)
+  list.forEach((d, i) => d.folder_id === from && (list[i] = { ...d, folder_id: folderId }))
+  return later(null)
+}
+
 export const createDebt = (portfolioId: string, input: CreateDebtInput): Promise<Debt> => {
   const now = new Date().toISOString()
   const debt: Debt = {

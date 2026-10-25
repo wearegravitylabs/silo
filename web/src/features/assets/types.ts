@@ -38,6 +38,8 @@ export interface AssetItem {
 export interface FolderRef {
   id: string
   name: string
+  /** Its colour token; null picks one by position */
+  color?: string | null
 }
 
 /** The Assets page heading: everything the portfolio owns, and its 1M change. */

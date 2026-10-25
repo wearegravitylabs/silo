@@ -11,15 +11,17 @@ import {
   AssetTable,
   CreateAssetSheet,
   DeleteAssetDialog,
+  MoveAssetDialog,
+  useAssetFolderCounts,
   useAssetMutations,
   useAssets,
   useAssetsOverview,
   type AssetItem,
 } from '@/features/assets'
-import { foldersQuery, FolderTabs, useFolders } from '@/features/folders'
+import { FolderFormDialog, foldersQuery, FolderTabs, useFolderMutations, useFolders } from '@/features/folders'
 import { usePortfolio } from '@/features/portfolios'
 import { useAskSiloAi } from '@/features/silo-ai'
-import { defaultFolderId } from '@/lib/folders'
+import { defaultFolderId, folderColor } from '@/lib/folders'
 import { AssetsSkeleton } from './-components/assets-skeleton'
 
 interface AssetsSearch {
@@ -66,11 +68,16 @@ function AssetsPage() {
   const portfolio = usePortfolio(portfolioId)
   const folders = useFolders(portfolioId, 'asset')
   const { currency } = useAssetsOverview(portfolioId)
-  const { move, remove } = useAssetMutations(portfolioId)
+  const { move, remove, refile } = useAssetMutations(portfolioId)
+  const { create: createFolder } = useFolderMutations(portfolioId, 'asset')
+  const counts = useAssetFolderCounts(portfolioId)
   const ask = useAskSiloAi()
   const [exporting, setExporting] = useState(false)
-  // Kept while the dialog animates closed.
+  // Kept while the dialogs close. `picked`: a folder made from the Move dialog's Add Folder, preselected there.
   const [deleting, setDeleting] = useState<{ asset: AssetItem; open: boolean } | null>(null)
+  const [moving, setMoving] = useState<{ asset: AssetItem; open: boolean; picked?: string } | null>(null)
+  const [addingFolder, setAddingFolder] = useState(false)
+  const coloredFolders = folders.map((f, i) => ({ ...f, color: folderColor(f, i) }))
 
   const folder = folders.find((f) => f.id === search.folder) ?? folders[0]
   const folderId = folder?.id ?? null
@@ -79,21 +86,35 @@ function AssetsPage() {
   const setFolder = (id: string) => setSearch({ folder: id })
   const setCreating = (create: boolean) => setSearch({ create: create || undefined })
 
-  const moveAsset = (asset: AssetItem, to: string) =>
+  const moveAsset = (to: string) =>
+    moving &&
     move.mutate(
-      { id: asset.id, folderId: to },
+      { id: moving.asset.id, folderId: to },
       {
-        onSuccess: () => toast.success(`${asset.name} moved to ${folders.find((f) => f.id === to)?.name ?? 'the folder'}`),
+        onSuccess: () => {
+          setMoving((m) => m && { ...m, open: false })
+          toast.success('Asset has been moved to a different folder successfully!')
+        },
         onError: () => toast.error('Couldn’t move this asset. Try again.'),
       },
     )
+
+  const addFolder = (values: { name: string; color: string }) =>
+    createFolder.mutate(values, {
+      onSuccess: (folder) => {
+        setAddingFolder(false)
+        setMoving((m) => m && { ...m, picked: folder.id })
+        toast.success('Folder has been created successfully!')
+      },
+      onError: () => toast.error('Couldn’t create the folder. Try again.'),
+    })
 
   const confirmDelete = () =>
     deleting &&
     remove.mutate(deleting.asset.id, {
       onSuccess: () => {
         setDeleting((d) => d && { ...d, open: false })
-        toastDone('Asset has been deleted successfully')
+        toastDone('Asset has been deleted successfully!')
       },
       onError: () => toast.error('Couldn’t delete this asset. Try again.'),
     })
@@ -108,6 +129,8 @@ function AssetsPage() {
         portfolioId={portfolioId}
         folderType="asset"
         onOrganize={() => ask('Organize my assets into folders')}
+        counts={counts}
+        onDeleted={(from, to) => refile.mutate({ from, to })}
       >
         <AssetsOverview folderName={folder?.name ?? 'Assets'} assets={assets} currency={currency} loading={isPending} />
       </FolderTabs>
@@ -115,12 +138,10 @@ function AssetsPage() {
       <AssetTable
         key={folderId}
         assets={assets}
-        folders={folders}
-        defaultFolderId={DEFAULT_FOLDER}
         loading={isPending}
         dimmed={isPlaceholderData}
         className="min-h-120"
-        onMove={moveAsset}
+        onMove={(asset) => setMoving({ asset, open: true })}
         onDelete={(asset) => setDeleting({ asset, open: true })}
       />
 
@@ -131,6 +152,20 @@ function AssetsPage() {
         pending={remove.isPending}
         onConfirm={confirmDelete}
       />
+      <MoveAssetDialog
+        assetId={moving?.asset.id ?? null}
+        currentId={moving?.asset.folder_id ?? DEFAULT_FOLDER}
+        selectedId={moving?.picked}
+        folders={coloredFolders}
+        counts={counts}
+        open={!!moving?.open}
+        onOpenChange={(open) => setMoving((m) => m && { ...m, open })}
+        pending={move.isPending}
+        onMove={moveAsset}
+        onAddFolder={() => setAddingFolder(true)}
+      />
+      {/* Add Folder from the Move dialog opens over it */}
+      <FolderFormDialog open={addingFolder} onOpenChange={setAddingFolder} onSave={addFolder} saving={createFolder.isPending} />
       <CreateAssetSheet
         portfolioId={portfolioId}
         folderId={folderId}

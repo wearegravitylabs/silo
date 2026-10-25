@@ -1,6 +1,6 @@
 import { ConfirmDialog } from '@/components/confirm-dialog'
 
-/** Confirms deleting an asset from the portfolio. */
+/** Delete Asset – {name}: confirms removing an asset from the portfolio for good. */
 export function DeleteAssetDialog({
   open,
   onOpenChange,
@@ -18,16 +18,13 @@ export function DeleteAssetDialog({
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Delete Asset"
+      title={`Delete Asset - ${assetName}`}
       confirmLabel="Delete Asset"
       cancelLabel="Close"
-      size="sm"
-      position="high"
-      descriptionClassName="text-sm leading-5.5"
       pending={pending}
       onConfirm={onConfirm}
     >
-      You’re about to delete {assetName}. This removes it and its value from this portfolio permanently
+      You’re about to delete this asset. This means that this asset will be permanently removed. This action cannot be undone
     </ConfirmDialog>
   )
 }

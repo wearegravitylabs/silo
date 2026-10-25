@@ -56,6 +56,16 @@ export const moveAsset = (portfolioId: string, assetId: string, folderId: string
   return later({ ...target })
 }
 
+/**
+ * Files a deleted folder's assets in `to` (the default folder unfiles them). TODO: mock only — the backend does this
+ * when the folder is deleted (DELETE …/folders/:id?move_to=…).
+ */
+export const refileFolder = (portfolioId: string, from: string, to: string) => {
+  const folderId = to === defaultFolderId('asset') ? null : to
+  for (const asset of assetsOf(portfolioId)) if (asset.folder_id === from) asset.folder_id = folderId
+  return later(null)
+}
+
 export const deleteAsset = (portfolioId: string, assetId: string) => {
   const list = assetsOf(portfolioId)
   const i = list.findIndex((a) => a.id === assetId)
