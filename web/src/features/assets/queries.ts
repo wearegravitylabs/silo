@@ -1,36 +1,27 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { defaultFolderId } from '@/lib/folders'
 import {
-  addNote,
+  connectProvider,
   createAsset,
+  createValuedAsset,
   deleteAsset,
-  deleteDocument,
-  deleteNote,
-  getAssetOverview,
+  getAssetsOverview,
   listAssets,
-  listDocuments,
-  listLots,
-  listNotes,
-  previewTicker,
-  searchTicker,
-  updateAsset,
-  updateNote,
-  uploadDocument,
+  moveAsset,
+  refileFolder,
+  searchAddresses,
+  searchTickers,
 } from './api'
-import type { CreateAssetInput, NoteInput, UpdateAssetInput } from './types'
+import type { ConnectInput, CreateAssetInput, CreateValuedAssetInput, TickerKind } from './types'
 
 export const assetKeys = {
   all: (portfolioId: string) => ['assets', portfolioId] as const,
   /** folderId null = every asset in the portfolio */
   list: (portfolioId: string, folderId: string | null) => ['assets', portfolioId, 'list', folderId ?? 'all'] as const,
   overview: (portfolioId: string) => ['assets', portfolioId, 'overview'] as const,
-  lots: (portfolioId: string, assetId: string) => ['assets', portfolioId, 'lots', assetId] as const,
-  notes: (portfolioId: string, assetId: string) => ['assets', portfolioId, 'notes', assetId] as const,
-  documents: (portfolioId: string, assetId: string) => ['assets', portfolioId, 'documents', assetId] as const,
-  tickerSearch: (portfolioId: string, q: string) => ['ticker', portfolioId, 'search', q] as const,
-  tickerPreview: (portfolioId: string, ticker: string) => ['ticker', portfolioId, 'preview', ticker] as const,
+  tickerSearch: (kind: TickerKind, q: string) => ['ticker-search', kind, q] as const,
+  addressSearch: (q: string) => ['address-search', q] as const,
 }
-
-// ─── Lists & overview ─────────────────────────────────────────────────────────
 
 /** Assets in one folder (or the whole portfolio when folderId is null). */
 export const assetsQuery = (portfolioId: string, folderId: string | null) =>
@@ -40,105 +31,63 @@ export const assetsQuery = (portfolioId: string, folderId: string | null) =>
     staleTime: 60_000,
   })
 
-export const assetOverviewQuery = (portfolioId: string) =>
-  queryOptions({ queryKey: assetKeys.overview(portfolioId), queryFn: () => getAssetOverview(portfolioId), staleTime: 60_000 })
+export const assetsOverviewQuery = (portfolioId: string) =>
+  queryOptions({ queryKey: assetKeys.overview(portfolioId), queryFn: () => getAssetsOverview(portfolioId), staleTime: 60_000 })
 
 /** Folder's assets; keeps the previous folder's rows visible while switching (isPlaceholderData). */
-export const useAssets = (portfolioId: string, folderId: string | null, { enabled = true } = {}) =>
-  useQuery({ ...assetsQuery(portfolioId, folderId), enabled, placeholderData: keepPreviousData })
+export const useAssets = (portfolioId: string, folderId: string | null) =>
+  useQuery({ ...assetsQuery(portfolioId, folderId), placeholderData: keepPreviousData })
 
-/** Portfolio totals. Suspends — preload with `assetOverviewQuery` in the route loader. */
-export const useAssetOverview = (portfolioId: string) => useSuspenseQuery(assetOverviewQuery(portfolioId)).data
+/** Portfolio asset total. Suspends — preload with `assetsOverviewQuery` in the route loader. */
+export const useAssetsOverview = (portfolioId: string) => useSuspenseQuery(assetsOverviewQuery(portfolioId)).data
 
-// ─── Ticker lookup ────────────────────────────────────────────────────────────
+/** One asset, from the whole-portfolio list (so it stays found when it moves folders). */
+export const useAsset = (portfolioId: string, assetId: string | null) =>
+  useQuery({ ...assetsQuery(portfolioId, null), select: (list) => list.find((a) => a.id === assetId), enabled: !!assetId })
 
-export const useTickerSearch = (portfolioId: string, q: string) =>
+/** How many assets each folder holds (by folder id); the default folder lists them all. */
+export const useAssetFolderCounts = (portfolioId: string) => {
+  const { data: assets = [] } = useQuery(assetsQuery(portfolioId, null))
+  const counts: Record<string, number> = { [defaultFolderId('asset')]: assets.length }
+  for (const a of assets) if (a.folder_id) counts[a.folder_id] = (counts[a.folder_id] ?? 0) + 1
+  return counts
+}
+
+/** Ticker search; keeps the last results on screen while the next query loads. */
+export const useTickerSearch = (kind: TickerKind, q: string) =>
   useQuery({
-    queryKey: assetKeys.tickerSearch(portfolioId, q),
-    queryFn: () => searchTicker(portfolioId, q, 'stock'),
-    enabled: q.length >= 1 && !!portfolioId,
-    staleTime: 30_000,
-  })
-
-export const useTickerPreview = (portfolioId: string, ticker: string) =>
-  useQuery({
-    queryKey: assetKeys.tickerPreview(portfolioId, ticker),
-    queryFn: () => previewTicker(portfolioId, ticker),
-    enabled: !!portfolioId,
+    queryKey: assetKeys.tickerSearch(kind, q),
+    queryFn: () => searchTickers(kind, q),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   })
 
-// ─── Asset mutations ──────────────────────────────────────────────────────────
-// Any asset change can move totals, so each one refetches every asset query for the portfolio.
-
-const useInvalidateAssets = (portfolioId: string) => {
-  const qc = useQueryClient()
-  return () => qc.invalidateQueries({ queryKey: assetKeys.all(portfolioId) })
-}
-
-export const useCreateAsset = (portfolioId: string) => {
-  const invalidate = useInvalidateAssets(portfolioId)
-  return useMutation({
-    mutationFn: (data: CreateAssetInput) => createAsset(portfolioId, data),
-    onSuccess: invalidate,
-  })
-}
-
-export const useUpdateAsset = (portfolioId: string, assetId: string) => {
-  const invalidate = useInvalidateAssets(portfolioId)
-  return useMutation({
-    mutationFn: (data: UpdateAssetInput) => updateAsset(portfolioId, assetId, data),
-    onSuccess: invalidate,
-  })
-}
-
-export const useDeleteAsset = (portfolioId: string, assetId: string) => {
-  const invalidate = useInvalidateAssets(portfolioId)
-  return useMutation({ mutationFn: () => deleteAsset(portfolioId, assetId), onSuccess: invalidate })
-}
-
-// ─── Per-asset sub-resources ──────────────────────────────────────────────────
-
-export const useAssetLots = (portfolioId: string, assetId: string) =>
+/** Address suggestions while typing; keeps the last ones on screen while the next load. */
+export const useAddressSearch = (q: string) =>
   useQuery({
-    queryKey: assetKeys.lots(portfolioId, assetId),
-    queryFn: () => listLots(portfolioId, assetId),
+    queryKey: assetKeys.addressSearch(q),
+    queryFn: () => searchAddresses(q),
     staleTime: 60_000,
+    placeholderData: keepPreviousData,
   })
 
-export const useAssetNotes = (portfolioId: string, assetId: string, { enabled = true } = {}) =>
-  useQuery({
-    queryKey: assetKeys.notes(portfolioId, assetId),
-    queryFn: () => listNotes(portfolioId, assetId),
-    enabled,
-    staleTime: 30_000,
-  })
-
-export const useNoteMutations = (portfolioId: string, assetId: string) => {
+/** Create, move to a folder, delete — each refetches every asset query for the portfolio (lists, total). */
+export const useAssetMutations = (portfolioId: string) => {
   const qc = useQueryClient()
-  const refetch = () => qc.invalidateQueries({ queryKey: assetKeys.notes(portfolioId, assetId) })
+  const refetch = () => qc.invalidateQueries({ queryKey: assetKeys.all(portfolioId) })
   return {
-    save: useMutation({
-      mutationFn: ({ noteId, ...data }: NoteInput & { noteId?: string }) =>
-        noteId ? updateNote(portfolioId, assetId, noteId, data) : addNote(portfolioId, assetId, data),
+    create: useMutation({ mutationFn: (input: CreateAssetInput) => createAsset(portfolioId, input), onSuccess: refetch }),
+    connect: useMutation({ mutationFn: (input: ConnectInput) => connectProvider(portfolioId, input), onSuccess: refetch }),
+    createValued: useMutation({ mutationFn: (input: CreateValuedAssetInput) => createValuedAsset(portfolioId, input), onSuccess: refetch }),
+    move: useMutation({
+      mutationFn: ({ id, folderId }: { id: string; folderId: string }) => moveAsset(portfolioId, id, folderId),
       onSuccess: refetch,
     }),
-    remove: useMutation({ mutationFn: (noteId: string) => deleteNote(portfolioId, assetId, noteId), onSuccess: refetch }),
-  }
-}
-
-export const useAssetDocuments = (portfolioId: string, assetId: string) =>
-  useQuery({
-    queryKey: assetKeys.documents(portfolioId, assetId),
-    queryFn: () => listDocuments(portfolioId, assetId),
-    staleTime: 30_000,
-  })
-
-export const useDocumentMutations = (portfolioId: string, assetId: string) => {
-  const qc = useQueryClient()
-  const refetch = () => qc.invalidateQueries({ queryKey: assetKeys.documents(portfolioId, assetId) })
-  return {
-    upload: useMutation({ mutationFn: (file: File) => uploadDocument(portfolioId, assetId, file), onSuccess: refetch }),
-    remove: useMutation({ mutationFn: (docId: string) => deleteDocument(portfolioId, assetId, docId), onSuccess: refetch }),
+    remove: useMutation({ mutationFn: (id: string) => deleteAsset(portfolioId, id), onSuccess: refetch }),
+    /** A deleted folder's assets go to another folder */
+    refile: useMutation({
+      mutationFn: ({ from, to }: { from: string; to: string }) => refileFolder(portfolioId, from, to),
+      onSuccess: refetch,
+    }),
   }
 }

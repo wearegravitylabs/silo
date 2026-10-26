@@ -1,0 +1,170 @@
+import type { ReactNode } from 'react'
+import {
+  AppleIcon,
+  BriefcaseBusinessIcon,
+  CarIcon,
+  CirclePlusIcon,
+  Columns3Icon,
+  DatabaseIcon,
+  GemIcon,
+  GlobeIcon,
+  InboxIcon,
+  KeyRoundIcon,
+  LandmarkIcon,
+  PaletteIcon,
+  SparklesIcon,
+  SunIcon,
+  WalletIcon,
+  WatchIcon,
+  type LucideIcon,
+} from 'lucide-react'
+import {
+  BankConnectionsIcon,
+  BusinessIcon,
+  CryptoTickerIcon,
+  CryptoWalletIcon,
+  DomainsIcon,
+  ManualAssetIcon,
+  PhysicalIcon,
+  RealEstateIcon,
+  StockTickerIcon,
+  VentureCapitalIcon,
+} from './components/icons'
+import type { Investability } from './types'
+
+export const ASSET_TYPE_LABELS: Record<string, string> = {
+  stock_ticker: 'Stock',
+  stock_manual: 'Stock',
+  crypto_ticker: 'Crypto',
+  crypto_manual: 'Crypto',
+  real_estate: 'Real Estate',
+  domain: 'Domain',
+  physical: 'Physical Valuable',
+  venture_capital: 'Venture Capital',
+  business: 'Business',
+  bank: 'Bank Connection',
+  crypto_wallet: 'Crypto Wallet',
+  manual: 'Manual',
+}
+
+export interface AssetTypeConfig {
+  id: string
+  label: string
+  icon: ReactNode
+}
+
+/** Every asset kind with its icon (asset discs without a logo, Projections' asset lists). */
+export const ASSET_TYPES: AssetTypeConfig[] = [
+  { id: 'stock_ticker', label: 'Stocks', icon: <StockTickerIcon /> },
+  { id: 'crypto_ticker', label: 'Crypto', icon: <CryptoTickerIcon /> },
+  { id: 'real_estate', label: 'Real Estate', icon: <RealEstateIcon /> },
+  { id: 'domain', label: 'Domains', icon: <DomainsIcon /> },
+  { id: 'physical', label: 'Physical Valuables', icon: <PhysicalIcon /> },
+  { id: 'venture_capital', label: 'Venture Capital', icon: <VentureCapitalIcon /> },
+  { id: 'business', label: 'Business', icon: <BusinessIcon /> },
+  { id: 'bank', label: 'Bank Connections', icon: <BankConnectionsIcon /> },
+  { id: 'crypto_wallet', label: 'Crypto Wallets', icon: <CryptoWalletIcon /> },
+  { id: 'manual', label: 'Manual Assets', icon: <ManualAssetIcon /> },
+]
+
+/** Manual stock/crypto share their ticker cousin's icon. */
+export const assetTypeIcon = (type: string) =>
+  (ASSET_TYPES.find((t) => t.id === type.replace('_manual', '_ticker')) ?? ASSET_TYPES.at(-1)!).icon
+
+/** Asset Type filter: one entry per label (manual and ticker stocks are both "Stock"), A–Z. */
+export const ASSET_TYPE_FILTER_OPTIONS = Object.entries(ASSET_TYPE_LABELS)
+  .filter(([id]) => !id.endsWith('_manual'))
+  .map(([value, label]) => ({ value, label }))
+  .sort((a, b) => a.label.localeCompare(b.label))
+
+export const INVESTABILITY_LABELS: Record<Investability, string> = {
+  investable: 'Investable',
+  non_investable: 'Non-Investable',
+}
+
+export const INVESTABILITY_FILTER_OPTIONS = (Object.keys(INVESTABILITY_LABELS) as Investability[]).map((value) => ({
+  value,
+  label: INVESTABILITY_LABELS[value],
+}))
+
+export interface CreatableAssetType {
+  id: string
+  label: string
+  Icon: LucideIcon
+  /** Types without a flow yet show "Coming soon". */
+  enabled: boolean
+}
+
+/** Create Asset → Choose an Asset Type, in the design's order (two columns, read across). */
+export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
+  { id: 'stock_ticker', label: 'Stocks Tickers', Icon: AppleIcon, enabled: true },
+  { id: 'crypto_ticker', label: 'Crypto Tickers', Icon: DatabaseIcon, enabled: true },
+  { id: 'real_estate', label: 'Real Estate', Icon: KeyRoundIcon, enabled: true },
+  { id: 'domain', label: 'Domains', Icon: GlobeIcon, enabled: true },
+  { id: 'physical', label: 'Physical Valuables', Icon: GemIcon, enabled: true },
+  { id: 'venture_capital', label: 'Venture Capital', Icon: BriefcaseBusinessIcon, enabled: true },
+  { id: 'business', label: 'Business', Icon: Columns3Icon, enabled: true },
+  { id: 'bank', label: 'Bank Connections', Icon: LandmarkIcon, enabled: true },
+  { id: 'crypto_wallet', label: 'Crypto Exchanges/Wallet', Icon: WalletIcon, enabled: true },
+  { id: 'manual', label: 'Manual Assets', Icon: CirclePlusIcon, enabled: true },
+]
+
+/** An asset's own image (manual stocks): what the upload accepts. */
+export const ASSET_IMAGE_TYPES = ['image/jpeg', 'image/png']
+export const ASSET_IMAGE_MAX_BYTES = 1024 * 1024 // 1MB
+
+export interface PhysicalKind {
+  id: string
+  /** The list ("Vehicles") */
+  label: string
+  /** One of them ("Vehicle"): "Add Vehicle", "Vehicle Name" */
+  singular: string
+  Icon: LucideIcon
+}
+
+/** Create Asset → Physical Valuables → what kind, in the design's order. */
+export const PHYSICAL_KINDS: PhysicalKind[] = [
+  { id: 'vehicle', label: 'Vehicles', singular: 'Vehicle', Icon: CarIcon },
+  { id: 'precious_metal', label: 'Gold/Precious Metals', singular: 'Precious Metal', Icon: SparklesIcon },
+  { id: 'jewellery', label: 'Jewellery', singular: 'Jewellery', Icon: SunIcon },
+  { id: 'art', label: 'Art', singular: 'Artwork', Icon: PaletteIcon },
+  { id: 'watch', label: 'Watch', singular: 'Watch', Icon: WatchIcon },
+  { id: 'collectible', label: 'Collectible', singular: 'Collectible', Icon: InboxIcon },
+  { id: 'other', label: 'Others', singular: 'Valuable', Icon: CirclePlusIcon },
+]
+
+/** Colours a domain's globe disc can take (the design's swatches, in order); the first is the default. */
+export const DOMAIN_COLORS = [
+  'var(--color-highlight)',
+  'var(--color-destructive)',
+  'var(--color-warning)',
+  'var(--color-success)',
+  'var(--color-swatch-blue)',
+  'var(--color-scenario-magenta)',
+  'var(--color-scenario-purple)',
+] as const
+
+/** Real estate photos one asset can hold. */
+export const MAX_PICTURES = 4
+
+/** Venture Capital → Investment Stage. */
+export const INVESTMENT_STAGES = ['Pre-Seed', 'Seed', 'Series A', 'Series B', 'Series C', 'Series D+', 'Growth', 'Pre-IPO', 'Fund']
+
+/** Business → Business Type; a sole proprietorship is wholly yours, the rest ask for your share. */
+export const BUSINESS_TYPES = ['Sole Proprietorship', 'LLC', 'Partnership', 'C-Corp', 'S-Corp', 'Other']
+export const SOLE_OWNER_TYPE = 'Sole Proprietorship'
+
+export interface ConnectProvider {
+  id: string
+  name: string
+  kind: 'Exchange' | 'Wallet'
+}
+
+/** Create Asset → Crypto Exchanges/Wallet, in the design's order. */
+export const CRYPTO_PROVIDERS: ConnectProvider[] = [
+  { id: 'coinbase', name: 'Coinbase', kind: 'Exchange' },
+  { id: 'binance', name: 'Binance', kind: 'Exchange' },
+  { id: 'kraken', name: 'Kraken', kind: 'Exchange' },
+  { id: 'metamask', name: 'Metamask', kind: 'Wallet' },
+  { id: 'phantom', name: 'Phantom', kind: 'Wallet' },
+]

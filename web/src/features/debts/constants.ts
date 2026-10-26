@@ -78,15 +78,7 @@ export const debtIconId = (debt: { debt_type: DebtType; icon?: string | null }) 
   return id && id in DEBT_ICONS ? id : 'fallback'
 }
 
-export const FREQUENCY_LABELS: Record<PaymentFrequency, string> = {
-  daily: 'Daily',
-  weekly: 'Weekly',
-  biweekly: 'Bi-weekly',
-  monthly: 'Monthly',
-  quarterly: 'Quarterly',
-  biannual: 'Every 6 Months',
-  annually: 'Annually',
-}
+export { FREQUENCY_LABELS } from '@/lib/schedule'
 
 /** Payments per year, for interest per period. */
 export const PERIODS_PER_YEAR: Record<PaymentFrequency, number> = {

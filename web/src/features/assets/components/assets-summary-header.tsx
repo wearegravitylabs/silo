@@ -1,39 +1,41 @@
+import { CirclePlusIcon, UploadIcon } from 'lucide-react'
+import { ChangeText } from '@/components/change-text'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/format'
-import { useAssetOverview } from '../queries'
-import { ChangeBadge } from '@/components/change-badge'
-import { ExportIcon } from '@/components/icons'
+import { formatMoney } from '@/lib/format'
+import { useAssetsOverview } from '../queries'
 
-/** "Assets" heading: portfolio total, 30-day growth, Export and Create Asset actions. */
-export function AssetsSummaryHeader({ portfolioId, currency, onCreate }: { portfolioId: string; currency: string; onCreate: () => void }) {
-  const { total_assets, growth_30d: growth } = useAssetOverview(portfolioId)
+/** "Assets" heading: portfolio asset total, its 1M change, Export and Create Asset actions. */
+export function AssetsSummaryHeader({
+  portfolioId,
+  onExport,
+  onCreate,
+}: {
+  portfolioId: string
+  onExport?: () => void
+  /** Create Asset (disabled without it) */
+  onCreate?: () => void
+}) {
+  const overview = useAssetsOverview(portfolioId)
 
   return (
     <PageHeader
       eyebrow="Assets"
-      className="items-center pt-5"
+      className="items-center px-4 pt-5 pb-5 md:px-10"
       title={
-        <div className="flex items-center gap-3">
-          <h1 className="font-heading font-bold tracking-[-0.3px]">{formatCurrency(total_assets.value, currency)}</h1>
-          {growth && (
-            <ChangeBadge pct={growth.percentage}>
-              {formatCurrency(Math.abs(growth.amount), currency)} ({Math.abs(growth.percentage).toFixed(1)}%)
-            </ChangeBadge>
-          )}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h1 className="font-heading text-xl leading-7 font-bold tracking-[-0.3px]">{formatMoney(overview.total, overview.currency)}</h1>
+          {overview.change && <ChangeText change={overview.change} currency={overview.currency} />}
         </div>
       }
       actions={
         <>
-          <Button variant="secondary" disabled className="font-medium">
-            <ExportIcon />
+          <Button variant="secondary" onClick={onExport} className="font-medium">
+            <UploadIcon className="size-3.5 text-muted-foreground" aria-hidden />
             Export
           </Button>
-          <Button onClick={onCreate} className="px-3.5">
-            <svg viewBox="0 0 14 14" fill="none" aria-hidden="true" className="size-3.5">
-              <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.3" />
-              <path d="M7 4v6M4 7h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-            </svg>
+          <Button onClick={onCreate} disabled={!onCreate} className="px-3.5">
+            <CirclePlusIcon className="size-3.5" aria-hidden />
             Create Asset
           </Button>
         </>

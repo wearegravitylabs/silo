@@ -173,13 +173,22 @@
   --color-file-excel: #107c41;
   --color-file-pdf: #b30c00;
 
-  /* Folder tab badges, cycled in order */
-  --color-folder-1: #1a56db;
-  --color-folder-2: #7c3aed;
-  --color-folder-3: #059669;
-  --color-folder-4: #d97706;
-  --color-folder-5: #dc2626;
-  --color-folder-6: #0891b2;
+  /* Third-party wordmarks (data attributions) */
+  --color-brand-yahoo: #6001d2;
+  --color-brand-coingecko: #8dc63f;
+  --color-brand-google-blue: #4285f4;
+  --color-brand-google-red: #ea4335;
+  --color-brand-google-yellow: #fbbc05;
+  --color-brand-google-green: #34a853;
+
+  /* Folder colours (Create/Edit Folder swatches, in order); a folder without one cycles through them */
+  --color-folder-1: #2549f5; /* blue */
+  --color-folder-2: var(--color-highlight); /* lime */
+  --color-folder-3: var(--color-destructive); /* red */
+  --color-folder-4: var(--color-warning); /* orange */
+  --color-folder-5: var(--color-success); /* green */
+  --color-folder-6: var(--color-scenario-magenta);
+  --color-folder-7: var(--color-scenario-purple);
 
   /* Silo AI: multicolour sparkle, pink→orange card border, red-pink action text */
   --color-ai: #e0284a;

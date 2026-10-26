@@ -1,218 +1,161 @@
 import { useState } from 'react'
-import { ChangeBadge } from '@/components/change-badge'
-import { FilterMenu } from '@/components/filter-menu'
-import { DotsIcon, SortIcon } from '@/components/icons'
-import { SearchInput } from '@/components/search-input'
+import { DataTable, TableSearch, useTableView, type DataColumn } from '@/components/data-table'
+import { MultiFilterMenu } from '@/components/multi-filter-menu'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatCurrency } from '@/lib/format'
-import { cn } from '@/lib/utils'
-import { ASSET_TYPE_LABELS } from '../../constants'
+import { ASSET_TYPE_FILTER_OPTIONS, ASSET_TYPE_LABELS, INVESTABILITY_FILTER_OPTIONS } from '../../constants'
 import type { AssetItem } from '../../types'
-import { AssetLogo } from '../asset-logo'
+import { AssetRow } from './asset-row'
 
-const INVESTABILITY = [
-  { label: 'All', value: null },
-  { label: 'Investable', value: 'investable' },
-  { label: 'Non-Investable', value: 'non_investable' },
+type SortKey = 'name' | 'type' | 'change' | 'value'
+
+// Type and 1M drop out on small screens; Asset and Value always show.
+const COLUMNS: DataColumn<SortKey>[] = [
+  { key: 'name', label: 'Asset' },
+  { key: 'type', label: 'Type', hideOnMobile: true, width: 'w-50' },
+  { key: 'change', label: '1M', hideOnMobile: true, width: 'w-30' },
+  { key: 'value', label: 'Value', align: 'right', width: 'w-32 md:w-36' },
 ]
 
-/** Filterable asset list. `loading` shows skeleton rows; `dimmed` while another folder loads. */
+/** Sort value per column; assets without a 1M change sink to the bottom either way. */
+const SORT_VALUE: Record<SortKey, (a: AssetItem) => string | number | null> = {
+  name: (a) => a.name.toLowerCase(),
+  type: (a) => ASSET_TYPE_LABELS[a.asset_type] ?? a.asset_type,
+  change: (a) => a.change_pct_1m,
+  value: (a) => a.owned_value_converted,
+}
+
+/** Manual and ticker stocks (or crypto) filter as one type. */
+const typeKey = (type: string) => type.replace('_manual', '_ticker')
+
+/**
+ * Filterable, sortable, paginated asset list for one folder. `loading` shows skeleton rows; `dimmed` while another
+ * folder loads. Any change to filters, search, sort or page size goes back to page 1.
+ */
 export function AssetTable({
   assets,
   loading,
   dimmed,
-  onAddAsset,
-  onOpenAsset,
+  className,
+  onView,
+  onMove,
+  onAddRule,
+  onDelete,
 }: {
   assets: AssetItem[]
   loading?: boolean
   dimmed?: boolean
-  onAddAsset: () => void
-  onOpenAsset: (asset: AssetItem) => void
+  className?: string
+  onView?: (asset: AssetItem) => void
+  /** Move Folders (the page opens its folder picker) */
+  onMove?: (asset: AssetItem) => void
+  onAddRule?: (asset: AssetItem) => void
+  onDelete?: (asset: AssetItem) => void
 }) {
-  const [type, setType] = useState<string | null>(null)
-  const [investability, setInvestability] = useState<string | null>(null)
+  const [types, setTypes] = useState<string[]>([])
+  const [investability, setInvestability] = useState<string[]>([])
   const [search, setSearch] = useState('')
 
   const q = search.trim().toLowerCase()
-  const rows = assets.filter(
+  const filtered = assets.filter(
     (a) =>
-      (!type || a.asset_type === type) &&
-      (!investability || (investability === 'investable') === (a.investability === 'investable')) &&
-      (!q || a.name.toLowerCase().includes(q) || a.ticker?.toLowerCase().includes(q)),
+      (types.length === 0 || types.includes(typeKey(a.asset_type))) &&
+      (investability.length === 0 || investability.includes(a.investability)) &&
+      (!q || a.name.toLowerCase().includes(q) || !!a.ticker?.toLowerCase().includes(q)),
   )
-  const types = [...new Set(assets.map((a) => a.asset_type))]
+  const view = useTableView(filtered, SORT_VALUE)
+  const clearFilters = () => {
+    setTypes([])
+    setInvestability([])
+    view.setPage(1)
+  }
+
+  // No assets at all → "No Assets Yet", no footer. Assets hidden by filters/search → "No result found" with the footer.
+  const none = assets.length === 0
+  const empty = !loading && view.rows.length === 0
 
   return (
-    <section className="mx-10 mb-10 flex min-h-0 flex-1 flex-col" aria-label="Assets">
-      <div className="flex shrink-0 items-center justify-between gap-2 py-4">
-        <div className="flex items-center gap-2">
-          <FilterMenu
-            label="Asset Type"
-            value={type}
-            onChange={setType}
-            options={[{ label: 'All Types', value: null }, ...types.map((t) => ({ label: ASSET_TYPE_LABELS[t] ?? t, value: t }))]}
+    <DataTable
+      label="Assets"
+      columns={COLUMNS}
+      view={view}
+      loading={loading}
+      dimmed={dimmed}
+      className={className}
+      toolbarClassName="pt-6 pb-6"
+      skeleton={Array.from({ length: 4 }, (_, i) => (
+        <SkeletonRow key={i} />
+      ))}
+      empty={
+        !empty
+          ? null
+          : none
+            ? { title: 'No Assets Yet', body: 'Once you create an asset, it will appear here' }
+            : { title: 'No result found', body: 'We couldn’t find any result based on the filter' }
+      }
+      footer={!loading && !none}
+      toolbarEnd={<TableSearch value={search} onChange={view.firstPage(setSearch)} label="Search assets" />}
+      toolbarStart={
+        <>
+          <MultiFilterMenu label="Asset Type" options={ASSET_TYPE_FILTER_OPTIONS} values={types} onChange={view.firstPage(setTypes)} />
+          <MultiFilterMenu
+            label="Investability"
+            options={INVESTABILITY_FILTER_OPTIONS}
+            values={investability}
+            onChange={view.firstPage(setInvestability)}
           />
-          <FilterMenu label="Investability" value={investability} onChange={setInvestability} options={INVESTABILITY} />
-        </div>
-        <SearchInput value={search} onChange={setSearch} label="Search assets" />
-      </div>
-
-      <Card className={cn('flex flex-1 flex-col transition-opacity', dimmed && 'opacity-60')} aria-busy={loading || dimmed}>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <table className="w-full table-fixed border-collapse">
-            <colgroup>
-              <col className="w-11" />
-              <col />
-              <col className="w-35" />
-              <col className="w-25" />
-              <col className="w-40" />
-              <col className="w-12" />
-            </colgroup>
-            <thead className="sticky top-0 z-1 bg-card">
-              <tr className="h-10 border-b text-left font-medium tracking-[0.5px] text-muted-foreground uppercase">
-                <th className="pl-4">
-                  <input type="checkbox" aria-label="Select all assets" className="cursor-pointer align-middle" />
-                </th>
-                {['Asset', 'Type', '1M'].map((label) => (
-                  <th key={label} className="font-medium">
-                    <span className="inline-flex items-center gap-1">
-                      {label}
-                      <SortIcon />
-                    </span>
-                  </th>
-                ))}
-                <th className="text-right font-medium">
-                  <span className="inline-flex items-center gap-1">
-                    Value
-                    <SortIcon />
-                  </span>
-                </th>
-                <th>
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {loading
-                ? Array.from({ length: 4 }, (_, i) => <SkeletonRow key={i} />)
-                : rows.map((asset) => <AssetRow key={asset.id} asset={asset} onOpen={() => onOpenAsset(asset)} />)}
-            </tbody>
-          </table>
-
-          {!loading && rows.length === 0 && (
-            <div className="flex animate-rise flex-col items-center justify-center gap-4 px-10 py-12">
-              <div className="flex size-12 items-center justify-center rounded-xl bg-accent">
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" className="size-6 text-primary-dark">
-                  <path
-                    fillRule="evenodd"
-                    clipRule="evenodd"
-                    fill="currentColor"
-                    opacity="0.25"
-                    d="M3 6a2 2 0 0 1 2-2h4.586L11 5.414A2 2 0 0 0 12.414 6H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6Z"
-                  />
-                  <path d="M12 9v6M9 12h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                </svg>
-              </div>
-              <div className="flex flex-col gap-1 text-center">
-                <p className="font-heading font-bold">No assets found</p>
-                <p className="text-muted-foreground">
-                  {assets.length === 0 ? 'Add your first asset to get started' : 'Try adjusting your filters'}
-                </p>
-              </div>
-              {assets.length === 0 && (
-                <Button onClick={onAddAsset} className="px-4">
-                  <PlusIcon />
-                  Create Asset
-                </Button>
-              )}
-            </div>
+          {(types.length > 0 || investability.length > 0) && (
+            <Button variant="link" size="xs" onClick={clearFilters} className="ml-4 animate-rise px-0">
+              Clear filter
+            </Button>
           )}
-        </div>
-      </Card>
-    </section>
-  )
-}
-
-function AssetRow({ asset, onOpen }: { asset: AssetItem; onOpen: () => void }) {
-  return (
-    <tr className="h-15">
-      <td className="pl-4">
-        <input type="checkbox" aria-label={`Select ${asset.name}`} className="cursor-pointer align-middle" />
-      </td>
-      <td>
-        <div className="flex min-w-0 items-center gap-3">
-          <AssetLogo asset={asset} />
-          <div className="flex min-w-0 flex-col gap-px">
-            <span className="truncate font-semibold">{asset.name}</span>
-            {asset.ticker && <span className="text-subtle">{asset.ticker}</span>}
-          </div>
-        </div>
-      </td>
-      <td className="text-muted-foreground">{ASSET_TYPE_LABELS[asset.asset_type] ?? asset.asset_type}</td>
-      <td>
-        <ChangeBadge pct={asset.change_pct} />
-      </td>
-      <td className="text-right">
-        <div className="font-semibold">{formatCurrency(asset.owned_value_converted, asset.converted_currency)}</div>
-        {asset.total_quantity != null && asset.ticker && (
-          <div className="text-subtle">
-            {asset.total_quantity.toLocaleString()} {asset.ticker}
-          </div>
-        )}
-      </td>
-      <td className="pr-4 text-right">
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label={`Open ${asset.name}`}
-          className="inline-flex size-6 items-center justify-center rounded-md transition-opacity hover:opacity-70 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
-        >
-          <DotsIcon />
-        </button>
-      </td>
-    </tr>
+        </>
+      }
+    >
+      {view.rows.map((asset) => (
+        <AssetRow
+          key={asset.id}
+          asset={asset}
+          selected={view.isSelected(asset.id)}
+          onSelect={(on) => view.toggle(asset.id, on)}
+          onView={onView && (() => onView(asset))}
+          onMove={onMove && (() => onMove(asset))}
+          onAddRule={onAddRule && (() => onAddRule(asset))}
+          onDelete={onDelete && (() => onDelete(asset))}
+        />
+      ))}
+    </DataTable>
   )
 }
 
 function SkeletonRow() {
   return (
-    <tr className="h-15" aria-hidden>
-      <td className="pl-4">
-        <Skeleton className="size-3.5" />
+    <tr className="h-18" aria-hidden>
+      <td className="pl-3 md:pl-4">
+        <Skeleton className="size-4" />
       </td>
       <td>
-        <div className="flex items-center gap-3">
-          <Skeleton className="size-9 rounded-full" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-10 rounded-full" />
           <div className="flex flex-col gap-1.5">
             <Skeleton className="h-3 w-32" />
             <Skeleton className="h-2.5 w-12" />
           </div>
         </div>
       </td>
-      <td>
-        <Skeleton className="h-3 w-14" />
+      <td className="hidden md:table-cell">
+        <Skeleton className="h-3 w-20" />
       </td>
-      <td>
+      <td className="hidden md:table-cell">
         <Skeleton className="h-5.5 w-14 rounded-md" />
       </td>
       <td>
         <div className="flex flex-col items-end gap-1.5">
           <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-2.5 w-12" />
+          <Skeleton className="h-2.5 w-14" />
         </div>
       </td>
       <td />
     </tr>
-  )
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 12 12" fill="none" aria-hidden="true" className="size-3">
-      <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
   )
 }

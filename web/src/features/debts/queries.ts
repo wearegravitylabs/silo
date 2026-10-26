@@ -1,4 +1,5 @@
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { defaultFolderId } from '@/lib/folders'
 import type { ChartPeriod } from '@/lib/periods'
 import {
   addDebtRepayment,
@@ -11,11 +12,11 @@ import {
   getDebtChart,
   getDebtsOverview,
   listDebtDocuments,
-  listDebtFolders,
   listDebtHistory,
   listDebtNotes,
   listDebtRules,
   listDebts,
+  refileDebtFolder,
   saveDebtNote,
   updateDebtRule,
   uploadDebtDocument,
@@ -27,7 +28,6 @@ export const debtKeys = {
   /** folderId null = every debt in the portfolio */
   list: (portfolioId: string, folderId: string | null) => ['debts', portfolioId, 'list', folderId ?? 'all'] as const,
   overview: (portfolioId: string) => ['debts', portfolioId, 'overview'] as const,
-  folders: (portfolioId: string) => ['debts', portfolioId, 'folders'] as const,
   history: (portfolioId: string, debtId: string) => ['debts', portfolioId, 'history', debtId] as const,
   chart: (portfolioId: string, debtId: string, period: ChartPeriod) => ['debts', portfolioId, 'chart', debtId, period] as const,
   rules: (portfolioId: string, debtId: string) => ['debts', portfolioId, 'rules', debtId] as const,
@@ -57,17 +57,28 @@ export const useDebts = (portfolioId: string, folderId: string | null) =>
 /** Portfolio debt total. Suspends — preload with `debtsOverviewQuery` in the route loader. */
 export const useDebtsOverview = (portfolioId: string, currency: string) => useSuspenseQuery(debtsOverviewQuery(portfolioId, currency)).data
 
-export const debtFoldersQuery = (portfolioId: string) =>
-  queryOptions({ queryKey: debtKeys.folders(portfolioId), queryFn: () => listDebtFolders(portfolioId), staleTime: 2 * 60_000 })
-
-/** Debt folder tabs. Suspends — preload with `debtFoldersQuery` in the route loader. */
-export const useDebtFolders = (portfolioId: string) => useSuspenseQuery(debtFoldersQuery(portfolioId)).data
-
 /** Adds a debt; refetches every debt query for the portfolio (list, total). */
 export const useCreateDebt = (portfolioId: string) => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: CreateDebtInput) => createDebt(portfolioId, input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: debtKeys.all(portfolioId) }),
+  })
+}
+
+/** How many debts each folder holds (by folder id); the default folder lists them all. */
+export const useDebtFolderCounts = (portfolioId: string) => {
+  const { data: debts = [] } = useQuery(debtsQuery(portfolioId, null))
+  const counts: Record<string, number> = { [defaultFolderId('debt')]: debts.length }
+  for (const d of debts) if (d.folder_id) counts[d.folder_id] = (counts[d.folder_id] ?? 0) + 1
+  return counts
+}
+
+/** A deleted folder's debts go to another folder. */
+export const useRefileDebtFolder = (portfolioId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ from, to }: { from: string; to: string }) => refileDebtFolder(portfolioId, from, to),
     onSuccess: () => qc.invalidateQueries({ queryKey: debtKeys.all(portfolioId) }),
   })
 }

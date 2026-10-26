@@ -1,16 +1,27 @@
-import { useRef, useState } from 'react'
-import { CloseIcon, DotsIcon, EyeIcon, EyeOffIcon } from '@/components/icons'
-import { Button } from '@/components/ui/button'
+import { useRef, useState, type ReactNode } from 'react'
+import { CirclePlusIcon, PencilIcon, Trash2Icon } from 'lucide-react'
+import { toast } from 'sonner'
+import { FolderGlyph } from '@/components/folder-glyph'
+import { AiSparkleIcon, DotsIcon } from '@/components/icons'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { toastDone } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
+import { defaultFolderId, folderColor } from '@/lib/folders'
 import { useFolderMutations } from '../queries'
 import type { Folder, FolderType } from '../types'
+import { DeleteFolderDialog } from './delete-folder-dialog'
+import { FolderFormDialog } from './folder-form-dialog'
 
-const TAB_COLORS = ['bg-folder-1', 'bg-folder-2', 'bg-folder-3', 'bg-folder-4', 'bg-folder-5', 'bg-folder-6']
+const NOUN: Record<FolderType, string> = { asset: 'Asset', debt: 'Debt' }
+
+// One boxed cell of the tab bar: full height, divided from the next by a rule.
+const cell = 'flex h-full shrink-0 items-center border-r border-border'
 
 /**
- * Folder tab strip: select, drag to reorder, rename inline, delete, create.
- * The stats toggle sits at the far right.
+ * Folder card: a grey tab bar (select, drag to reorder, ⋯ to edit or delete, + to create a folder or organize them)
+ * over `children` — the selected folder's overview. Each tab shows its folder's colour. Create and Edit open the folder
+ * dialog; Delete asks which folder takes its items. The default folder ("All Assets") comes first, stays put and has
+ * no menu. The bar scrolls sideways when the tabs don't fit.
  */
 export function FolderTabs({
   folders,
@@ -18,23 +29,39 @@ export function FolderTabs({
   onSelect,
   portfolioId,
   folderType,
-  showCards,
-  onToggleCards,
+  onOrganize,
+  counts,
+  onDeleted,
+  className,
+  children,
 }: {
   folders: Folder[]
   selectedId: string | null
   onSelect: (id: string) => void
   portfolioId: string
   folderType: FolderType
-  /** Pass both to show the Hide/Show stats toggle at the far right. */
-  showCards?: boolean
-  onToggleCards?: () => void
+  /** Shows "Organize … into Folders" in the + menu (e.g. asks Silo AI) */
+  onOrganize?: () => void
+  /** Items per folder, for Delete Folder's list (the default folder counts everything) */
+  counts?: Record<string, number>
+  /**
+   * After a folder is deleted, with the folder its items went to. TODO: the backend refiles them itself; this lets the
+   * page refile them in its mock.
+   */
+  onDeleted?: (id: string, moveTo: string) => void
+  className?: string
+  /** Shown under the tab bar (e.g. the folder's stats) */
+  children?: ReactNode
 }) {
-  const { create, rename, remove, reorder } = useFolderMutations(portfolioId, folderType)
-  const [creating, setCreating] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const { create, update, remove, reorder } = useFolderMutations(portfolioId, folderType)
+  // The form dialog: create (null folder) or edit; kept while it closes.
+  const [form, setForm] = useState<{ folder: Folder | null; open: boolean } | null>(null)
+  const [deleting, setDeleting] = useState<{ folder: Folder; open: boolean } | null>(null)
+  const defaultId = defaultFolderId(folderType)
+  const noun = NOUN[folderType]
+  const colorOf = (folder: Folder) => folderColor(folder, folders.indexOf(folder))
 
-  // Drag & drop: a local order while dragging, committed (optimistically) on drop.
+  // Drag & drop: a local order while dragging, committed (optimistically) on drop. The default folder stays first.
   const [dragOrder, setDragOrder] = useState<Folder[] | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const lastOver = useRef<string | null>(null)
@@ -48,7 +75,7 @@ export function FolderTabs({
 
   const dragOver = (e: React.DragEvent, overId: string) => {
     e.preventDefault()
-    if (overId === draggedId || overId === lastOver.current) return
+    if (overId === draggedId || overId === defaultId || overId === lastOver.current) return
     lastOver.current = overId
     setDragOrder((prev) => {
       if (!prev) return prev
@@ -61,197 +88,162 @@ export function FolderTabs({
     })
   }
 
-  const deleteFolder = (id: string) =>
-    remove.mutate(id, {
-      onSuccess: () => {
-        const next = ordered.find((f) => f.id !== id)
-        if (id === selectedId && next) onSelect(next.id)
+  const closeForm = () => setForm((f) => f && { ...f, open: false })
+  const save = (values: { name: string; color: string }) => {
+    const editing = form?.folder
+    if (editing)
+      update.mutate(
+        { id: editing.id, ...values },
+        {
+          onSuccess: () => {
+            closeForm()
+            toast.success('Folder has been updated successfully!')
+          },
+          onError: () => toast.error('Couldn’t update this folder. Try again.'),
+        },
+      )
+    else
+      create.mutate(values, {
+        onSuccess: (folder) => {
+          closeForm()
+          onSelect(folder.id)
+          toast.success('Folder has been created successfully!')
+        },
+        onError: () => toast.error('Couldn’t create the folder. Try again.'),
+      })
+  }
+
+  const confirmDelete = (moveTo: string) => {
+    if (!deleting) return
+    const { id } = deleting.folder
+    remove.mutate(
+      { id, moveTo },
+      {
+        onSuccess: () => {
+          onDeleted?.(id, moveTo)
+          setDeleting((d) => d && { ...d, open: false })
+          toastDone('Folder has been deleted successfully!')
+          if (id === selectedId) onSelect(moveTo)
+        },
+        onError: () => toast.error('Couldn’t delete this folder. Try again.'),
       },
-    })
+    )
+  }
 
   return (
-    <div className="relative flex shrink-0 items-end overflow-x-auto border-b border-border px-4 md:px-10">
-      <div role="tablist" aria-label="Folders" className="flex items-end">
-        {ordered.map((folder, i) => {
-          const color = TAB_COLORS[i % TAB_COLORS.length]
-          const active = folder.id === selectedId
+    <section className={cn('mx-4 flex shrink-0 flex-col overflow-hidden rounded-2xl border md:mx-10', className)}>
+      <div className={cn('flex h-11.5 shrink-0 overflow-x-auto bg-surface', children && 'border-b border-border')}>
+        <div role="tablist" aria-label="Folders" className="flex h-full">
+          {ordered.map((folder) => {
+            const active = folder.id === selectedId
+            const isDefault = folder.id === defaultId
+            const color = colorOf(folder)
 
-          if (editingId === folder.id) {
             return (
-              <div key={folder.id} className="-mb-px flex items-center gap-1.5 border-b-2 border-primary-dark px-3 py-2">
-                <FolderBadge className={color} />
-                <RenameInput
-                  initial={folder.name}
-                  onCommit={(name) =>
-                    name && name !== folder.name
-                      ? rename.mutate({ id: folder.id, name }, { onSettled: () => setEditingId(null) })
-                      : setEditingId(null)
-                  }
-                  onCancel={() => setEditingId(null)}
-                />
-              </div>
-            )
-          }
-
-          return (
-            <div
-              key={folder.id}
-              draggable
-              onDragStart={() => {
-                setDraggedId(folder.id)
-                setDragOrder(folders)
-              }}
-              onDragOver={(e) => dragOver(e, folder.id)}
-              onDrop={() => {
-                if (draggedId) reorder.mutate(ordered)
-                endDrag()
-              }}
-              onDragEnd={endDrag}
-              className={cn(
-                '-mb-px flex cursor-grab items-center border-b-2 transition-opacity',
-                active ? 'border-primary-dark' : 'border-transparent',
-                folder.id === draggedId && 'opacity-35',
-              )}
-            >
-              <button
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onSelect(folder.id)}
+              <div
+                key={folder.id}
+                draggable={!isDefault}
+                onDragStart={() => {
+                  setDraggedId(folder.id)
+                  setDragOrder(folders)
+                }}
+                onDragOver={(e) => dragOver(e, folder.id)}
+                onDrop={() => {
+                  if (draggedId) reorder.mutate(ordered)
+                  endDrag()
+                }}
+                onDragEnd={endDrag}
                 className={cn(
-                  'flex items-center gap-2 py-2.5 pr-1.5 pl-3.5 whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none',
-                  active ? 'font-semibold text-foreground' : 'font-medium text-muted-foreground',
+                  cell,
+                  'relative gap-2.5 pr-4 transition-[opacity,background-color]',
+                  !isDefault && 'cursor-grab',
+                  active ? 'bg-background' : 'hover:bg-accent/50',
+                  folder.id === draggedId && 'opacity-35',
                 )}
               >
-                <FolderBadge className={color} />
-                {folder.name}
-              </button>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  aria-label={`${folder.name} options`}
-                  className="mr-2.5 flex size-4.5 items-center justify-center rounded-sm text-subtle outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/40 aria-expanded:text-muted-foreground"
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onSelect(folder.id)}
+                  className="flex h-full items-center gap-2 pl-4 font-medium whitespace-nowrap text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
                 >
-                  <DotsIcon className="text-current" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-35">
-                  <DropdownMenuItem onSelect={() => setEditingId(folder.id)}>Edit</DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" onSelect={() => deleteFolder(folder.id)}>
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )
-        })}
+                  <FolderGlyph style={{ color }} />
+                  {folder.name}
+                </button>
+
+                {!isDefault && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      aria-label={`${folder.name} options`}
+                      className="flex size-5 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 aria-expanded:text-foreground"
+                    >
+                      <DotsIcon className="text-current" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-35">
+                      <DropdownMenuItem onSelect={() => setForm({ folder, open: true })}>
+                        <PencilIcon className="size-4" />
+                        Edit Folder
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setDeleting({ folder, open: true })}>
+                        <Trash2Icon className="size-4" />
+                        Delete Folder
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+
+                {active && <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-primary-dark" />}
+              </div>
+            )
+          })}
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Add folder"
+            className={cn(
+              cell,
+              'w-11.5 justify-center text-muted-foreground outline-none hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset aria-expanded:bg-accent/50',
+            )}
+          >
+            <CirclePlusIcon className="size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-65">
+            <DropdownMenuItem onSelect={() => setForm({ folder: null, open: true })}>
+              <CirclePlusIcon className="size-4" />
+              Create Folder
+            </DropdownMenuItem>
+            {onOrganize && (
+              <DropdownMenuItem onSelect={onOrganize}>
+                <AiSparkleIcon />
+                Organize {noun.toLowerCase()}s into Folders
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {creating ? (
-        <NewFolderForm
-          pending={create.isPending}
-          onCancel={() => setCreating(false)}
-          onCreate={(name) =>
-            create.mutate(name, {
-              onSuccess: (folder) => {
-                setCreating(false)
-                onSelect(folder.id)
-              },
-            })
-          }
-        />
-      ) : (
-        <button
-          type="button"
-          aria-label="New folder"
-          onClick={() => setCreating(true)}
-          className="mb-1 ml-1 flex size-8 items-center justify-center rounded-lg text-subtle transition-opacity hover:opacity-70"
-        >
-          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className="size-4">
-            <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.2" />
-            <path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
-          </svg>
-        </button>
-      )}
+      {children}
 
-      {onToggleCards && (
-        <button
-          type="button"
-          onClick={onToggleCards}
-          aria-pressed={!showCards}
-          title={showCards ? 'Hide stats' : 'Show stats'}
-          className="mb-1.5 ml-auto flex shrink-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs font-medium text-subtle transition-colors hover:text-muted-foreground"
-        >
-          {showCards ? <EyeOffIcon /> : <EyeIcon />}
-          {showCards ? 'Hide' : 'Show'}
-        </button>
-      )}
-    </div>
-  )
-}
-
-function FolderBadge({ className }: { className: string }) {
-  return (
-    <span className={cn('flex size-4.5 shrink-0 items-center justify-center rounded-[5px]', className)}>
-      <svg viewBox="0 0 11 10" fill="none" aria-hidden="true" className="h-2.5 w-2.75">
-        <path d="M.5 2a1 1 0 0 1 1-1H4l1 1h4.5a1 1 0 0 1 1 1V8a1 1 0 0 1-1 1H1.5A1 1 0 0 1 .5 8V2Z" className="fill-white/90" />
-      </svg>
-    </span>
-  )
-}
-
-/** Inline rename: Enter or blur commits the trimmed value, Escape cancels. */
-function RenameInput({ initial, onCommit, onCancel }: { initial: string; onCommit: (name: string) => void; onCancel: () => void }) {
-  const [value, setValue] = useState(initial)
-  const done = useRef(false) // Enter then blur must commit only once
-  const finish = (commit: boolean) => {
-    if (done.current) return
-    done.current = true
-    if (commit) onCommit(value.trim())
-    else onCancel()
-  }
-  return (
-    <input
-      autoFocus
-      value={value}
-      aria-label="Folder name"
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') finish(true)
-        if (e.key === 'Escape') finish(false)
-      }}
-      onBlur={() => finish(true)}
-      className="h-6 w-27.5 rounded-[5px] border border-primary-dark bg-background px-2 outline-none"
-    />
-  )
-}
-
-function NewFolderForm({ pending, onCreate, onCancel }: { pending: boolean; onCreate: (name: string) => void; onCancel: () => void }) {
-  const [name, setName] = useState('')
-  return (
-    <form
-      className="mb-1 flex items-center gap-2 px-2 py-1.5"
-      onSubmit={(e) => {
-        e.preventDefault()
-        if (name.trim()) onCreate(name.trim())
-        else onCancel()
-      }}
-    >
-      <input
-        autoFocus
-        value={name}
-        disabled={pending}
-        placeholder="Folder name"
-        aria-label="New folder name"
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === 'Escape' && onCancel()}
-        className="h-7 w-35 rounded-md border border-primary-dark bg-background px-2.5 outline-none"
+      <FolderFormDialog
+        folder={form?.folder && { name: form.folder.name, color: colorOf(form.folder) }}
+        open={!!form?.open}
+        onOpenChange={(open) => setForm((f) => f && { ...f, open })}
+        onSave={save}
+        saving={create.isPending || update.isPending}
       />
-      <Button size="xs" type="submit" loading={pending} loadingText="Creating…">
-        Create
-      </Button>
-      <button type="button" aria-label="Cancel" onClick={onCancel} className="flex p-1">
-        <CloseIcon className="size-3.5" />
-      </button>
-    </form>
+      <DeleteFolderDialog
+        folder={deleting?.folder ?? null}
+        folders={folders.filter((f) => f.id !== deleting?.folder.id).map((f) => ({ ...f, color: colorOf(f) }))}
+        defaultId={defaultId}
+        counts={counts}
+        noun={noun}
+        open={!!deleting?.open}
+        onOpenChange={(open) => setDeleting((d) => d && { ...d, open })}
+        pending={remove.isPending}
+        onConfirm={confirmDelete}
+      />
+    </section>
   )
 }

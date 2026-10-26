@@ -1,3 +1,4 @@
+export { FolderFormDialog } from './components/folder-form-dialog'
 export { FolderTabs } from './components/folder-tabs'
-export { foldersQuery, useFolders } from './queries'
-export type { Folder } from './types'
+export { foldersQuery, useFolderMutations, useFolders, type FolderInput } from './queries'
+export type { Folder, FolderType } from './types'

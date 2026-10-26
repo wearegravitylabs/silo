@@ -4,15 +4,16 @@ import { ExportDialog } from '@/components/export-dialog'
 import {
   AddDebtSheet,
   DebtPanel,
-  debtFoldersQuery,
   debtsOverviewQuery,
   debtsQuery,
   DebtsSummaryHeader,
   DebtTable,
-  useDebtFolders,
+  useDebtFolderCounts,
   useDebts,
+  useRefileDebtFolder,
 } from '@/features/debts'
-import { FolderTabs } from '@/features/folders'
+import { foldersQuery, FolderTabs, useFolders } from '@/features/folders'
+import { useAskSiloAi } from '@/features/silo-ai'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import { DebtsSkeleton } from './-components/debts-skeleton'
 
@@ -32,7 +33,7 @@ export const Route = createFileRoute('/portfolio/$portfolioId/debts')({
   loader: async ({ context: { queryClient }, params: { portfolioId }, location }) => {
     // Portfolios are already cached by the parent route; the overview needs the base currency.
     const [folders, portfolios] = await Promise.all([
-      queryClient.query({ ...debtFoldersQuery(portfolioId), staleTime: 'static' }),
+      queryClient.query({ ...foldersQuery(portfolioId, 'debt'), staleTime: 'static' }),
       queryClient.query({ ...portfoliosQuery, staleTime: 'static' }),
     ])
     const currency = portfolios.find((p) => p.id === portfolioId)?.base_currency ?? 'USD'
@@ -62,7 +63,10 @@ function DebtsPage() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const portfolio = usePortfolio(portfolioId)
-  const folders = useDebtFolders(portfolioId)
+  const folders = useFolders(portfolioId, 'debt')
+  const counts = useDebtFolderCounts(portfolioId)
+  const refile = useRefileDebtFolder(portfolioId)
+  const ask = useAskSiloAi()
   const [exporting, setExporting] = useState(false)
   // The opened debt outlives `open` so the panel can animate closed; `n` gives each opening a fresh panel.
   const [panel, setPanel] = useState<{ id: string; addingRule: boolean; open: boolean; n: number } | null>(null)
@@ -83,7 +87,16 @@ function DebtsPage() {
         onExport={() => setExporting(true)}
         onAddDebt={() => setCreating(true)}
       />
-      <FolderTabs folders={folders} selectedId={folderId} onSelect={setFolder} portfolioId={portfolioId} folderType="debt" />
+      <FolderTabs
+        folders={folders}
+        selectedId={folderId}
+        onSelect={setFolder}
+        portfolioId={portfolioId}
+        folderType="debt"
+        onOrganize={() => ask('Organize my debts into folders')}
+        counts={counts}
+        onDeleted={(from, to) => refile.mutate({ from, to })}
+      />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
       <DebtTable
         key={folderId}

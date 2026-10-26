@@ -1,8 +1,10 @@
+import type { Frequency } from '@/lib/schedule'
+
 // Mirrors api/model/debt.go. Fields marked "not in the API yet" come from the mock until the backend adds them.
 
 export type DebtType = 'mortgage' | 'student_loan' | 'car_loan' | 'personal' | 'credit_card' | 'manual'
 
-export type PaymentFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'biannual' | 'annually'
+export type PaymentFrequency = Frequency
 
 export interface Debt {
   id: string
@@ -53,19 +55,6 @@ export interface DebtsOverview {
   currency: string
   total: number
   change: { amount: number; pct: number } | null
-}
-
-/** A debt folder tab. Same shape as the folders feature's Folder, which FolderTabs takes. */
-export interface DebtFolder {
-  id: string
-  portfolio_id: string
-  folder_type: 'debt'
-  name: string
-  icon: string | null
-  image_url: string | null
-  position: number
-  created_at: string
-  updated_at: string
 }
 
 // ─── Detail panel (none of this is in the API yet) ───────────────────────────

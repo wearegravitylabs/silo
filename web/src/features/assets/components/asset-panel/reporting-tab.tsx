@@ -1,109 +1,79 @@
-import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
-import { useUpdateAsset } from '../../queries'
-import type { AssetItem } from '../../types'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { parseNumber } from '@/components/number-input'
 import { TabBody } from '@/components/panel-layout'
+import { PercentInput } from '@/components/percent-input'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { cn } from '@/lib/utils'
+import { useUpdateAsset } from '../../panel-queries'
+import type { AssetItem, Investability } from '../../types'
 
-const CLASSIFICATIONS = [
-  { value: 'cash', label: 'Investable', desc: 'Cash (Checking, Savings, Money Market)' },
-  { value: 'investable', label: 'Investable', desc: 'Can be easily converted to cash (stocks, bonds, crypto, mutual funds)' },
-  { value: 'non_investable', label: 'Non-Investable', desc: 'Real estate, Physical valuables, Illiquid private investments' },
+const CLASSES: Array<{ value: Investability; label: string; description: string }> = [
+  { value: 'investable', label: 'Investable', description: 'Can be easily converted to cash (stocks, bonds, crypto, mutual funds)' },
+  { value: 'non_investable', label: 'Non-Investable', description: 'Real estate, Physical valuables, Illiquid private investments' },
 ]
 
-/** Reporting tab: investability classification and ownership percentage. */
+/**
+ * Reporting tab: whether the asset counts as investable (saved on pick) and the share of it you own (saved when the
+ * field is left; the value scales with it).
+ */
 export function ReportingTab({ asset, portfolioId }: { asset: AssetItem; portfolioId: string }) {
-  const [investability, setInvestability] = useState(asset.investability)
-  const [ownership, setOwnership] = useState(String(asset.ownership_pct))
-  const [saved, setSaved] = useState(false)
-  const { mutate: update, isPending } = useUpdateAsset(portfolioId, asset.id)
+  const { mutate } = useUpdateAsset(portfolioId, asset.id)
+  const [share, setShare] = useState(asset.ownership_pct.toFixed(2))
+  const pct = parseNumber(share)
+  const invalid = pct === null || pct <= 0 || pct > 100
+  const failed = () => toast.error('Couldn’t save this change. Try again.')
 
-  // Flash "Saved!" on the button for 2s after a save
-  useEffect(() => {
-    if (!saved) return
-    const t = setTimeout(() => setSaved(false), 2000)
-    return () => clearTimeout(t)
-  }, [saved])
-
-  const save = () =>
-    update(
-      { ownership_pct: parseFloat(ownership), ...(asset.investability_editable ? { investability } : {}) },
-      { onSuccess: () => setSaved(true) },
-    )
+  const saveShare = () => {
+    if (invalid || pct === asset.ownership_pct) return
+    mutate({ ownership_pct: pct }, { onError: failed })
+  }
 
   return (
-    <TabBody>
-      <div className="flex flex-1 flex-col gap-6">
-        <fieldset className="flex flex-col gap-3" disabled={!asset.investability_editable}>
-          <Legend title="Asset Classification" hint="This determines whether an asset can be easily accessible as cash or not" />
-          <div role="radiogroup" className="flex flex-col gap-3">
-            {CLASSIFICATIONS.map((opt) => {
-              const selected = investability === opt.value
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  onClick={() => setInvestability(opt.value)}
-                  className={cn('flex items-start gap-2 text-left transition-opacity disabled:cursor-default', !selected && 'opacity-50')}
-                >
-                  <span
-                    className={cn(
-                      'mt-0.75 flex size-4 shrink-0 items-center justify-center rounded-full',
-                      selected ? 'bg-gradient-primary' : 'bg-background shadow-panel',
-                    )}
-                  >
-                    {selected && <span className="size-1.5 rounded-full bg-white" />}
-                  </span>
-                  <span className="flex flex-col gap-1">
-                    <span className="leading-5.5 font-medium">{opt.label}</span>
-                    <span className="text-xs leading-5 text-muted-foreground">{opt.desc}</span>
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </fieldset>
-
-        <fieldset className="flex flex-col gap-3">
-          <Legend title="Ownership Percentage" hint="This is how much of the asset you own" />
-          <label className="flex h-10 items-center overflow-hidden rounded-xl bg-accent">
-            <span className="px-3 py-2 leading-5.5 text-subtle">%</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={100}
-              step={0.01}
-              value={ownership}
-              onChange={(e) => setOwnership(e.target.value)}
-              placeholder="0.00"
-              aria-label="Ownership percentage"
-              className="flex-1 bg-transparent py-2 pr-4 leading-5.5 outline-none"
-            />
-          </label>
-        </fieldset>
-
-        <Button
-          size="md"
-          onClick={save}
-          loading={isPending}
-          loadingText="Saving…"
-          className={cn('mt-auto w-full', saved && 'bg-success bg-none')}
+    <TabBody className="gap-8 overflow-y-visible">
+      <section className="flex flex-col gap-4">
+        <Heading title="Asset Classification" body="This determines whether an asset can be easily accessible as cash or not" />
+        <RadioGroup
+          value={asset.investability}
+          onValueChange={(v) => mutate({ investability: v as Investability }, { onError: failed })}
+          aria-label="Asset classification"
+          className="gap-4"
         >
-          {saved ? 'Saved!' : 'Save Changes'}
-        </Button>
-      </div>
+          {CLASSES.map((c) => {
+            const checked = asset.investability === c.value
+            return (
+              <label key={c.value} className="flex cursor-pointer items-start gap-2">
+                <RadioGroupItem value={c.value} className="mt-0.75" />
+                <span className="flex flex-col gap-1">
+                  <span className={cn('leading-5.5 transition-colors', checked ? 'text-foreground' : 'text-muted-foreground')}>
+                    {c.label}
+                  </span>
+                  <span className={cn('text-xs leading-4 transition-colors', checked ? 'text-muted-foreground' : 'text-subtle')}>
+                    {c.description}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </RadioGroup>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <Heading title="Ownership Percentage" body="This is how much of the asset you own" />
+        <div className="flex flex-col gap-1.5" onBlur={saveShare}>
+          <PercentInput id="ownership-pct" value={share} onChange={setShare} invalid={invalid} placeholder="100.00" />
+          {invalid && <span className="text-xs leading-5 text-destructive">Enter a share between 0 and 100%</span>}
+        </div>
+      </section>
     </TabBody>
   )
 }
 
-function Legend({ title, hint }: { title: string; hint: string }) {
+function Heading({ title, body }: { title: string; body: string }) {
   return (
-    <legend className="mb-3 flex flex-col gap-1.5">
-      <span className="font-medium">{title}</span>
-      <span className="text-xs leading-5 text-muted-foreground">{hint}</span>
-    </legend>
+    <div className="flex flex-col gap-1.5">
+      <h3 className="font-sans text-sm leading-5.5 font-medium tracking-normal text-foreground">{title}</h3>
+      <p className="text-xs leading-4 text-muted-foreground">{body}</p>
+    </div>
   )
 }

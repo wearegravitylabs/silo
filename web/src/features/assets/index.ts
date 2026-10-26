@@ -1,10 +1,19 @@
-export { AddAssetModal } from './components/add-asset/add-asset-modal'
-export { AssetSidePanel } from './components/asset-panel/asset-side-panel'
+export { AssetIconDisc } from './components/asset-icon-disc'
+export { AssetPanel } from './components/asset-panel/asset-panel'
 export { AssetTable } from './components/asset-table/asset-table'
+export { CreateAssetSheet } from './components/create-asset/create-asset-sheet'
 export { AssetsOverview } from './components/assets-overview'
 export { AssetsSummaryHeader } from './components/assets-summary-header'
-export { assetOverviewQuery, assetsQuery, useAssets } from './queries'
+export { DeleteAssetDialog } from './components/delete-asset-dialog'
+export { MoveAssetDialog } from './components/move-asset-dialog'
+export { ASSET_TYPE_LABELS, ASSET_TYPES } from './constants'
+export {
+  assetsOverviewQuery,
+  assetsQuery,
+  useAsset,
+  useAssetFolderCounts,
+  useAssetMutations,
+  useAssets,
+  useAssetsOverview,
+} from './queries'
 export type { AssetItem } from './types'
-export { ASSET_TYPES } from './components/add-asset/asset-types'
-export { AssetLogo } from './components/asset-logo'
-export { ASSET_TYPE_LABELS } from './constants'

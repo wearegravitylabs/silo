@@ -2,6 +2,12 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+/** A dated event drawn on the line: ⊕ (green) for an addition, ⊖ (red) for a removal. */
+export interface ChartMarker {
+  date: string
+  kind: 'add' | 'remove'
+}
+
 export interface ChartPoint {
   /** YYYY-MM-DD, or a full ISO timestamp for intraday points */
   date: string
@@ -16,9 +22,11 @@ const TIP_ROOM = 64 // below this many px from the top, the tooltip drops under 
  * Smooth money-over-time line. Hover, touch-drag or arrow keys pick a point: guide line(s), dot, value + date
  * tooltip, and the line fades after it. Fills its box: size it with className (e.g. h-50, or flex-1 in a fixed card).
  *
- * - `tone`: 'trend' is brand blue when the period ends up and red when down (net worth); 'danger' is always red (debts).
+ * - `tone`: 'trend' is brand blue when the period ends up and red when down (net worth); 'danger' is always red (debts);
+ *   'brand' always blue (an asset's value).
  * - `fill`: 'glow' is a soft blurred shadow under the line; 'area' a gradient fill down to the bottom.
  * - `guides`: 'xy' crosshair, or 'x' a vertical line only. `startDot` marks the first point.
+ * - `markers`: events (an asset's history) pinned to the point nearest their date; ones outside the period are skipped.
  */
 export function LineChart({
   points,
@@ -27,16 +35,18 @@ export function LineChart({
   fill = 'glow',
   guides = 'xy',
   startDot = false,
+  markers,
   valueDecimals = 0,
   label = 'Value',
   className,
 }: {
   points: ChartPoint[]
   currency: string
-  tone?: 'trend' | 'danger'
+  tone?: 'trend' | 'danger' | 'brand'
   fill?: 'glow' | 'area'
   guides?: 'xy' | 'x'
   startDot?: boolean
+  markers?: ChartMarker[]
   /** Decimals in the tooltip amount */
   valueDecimals?: number
   /** What the line measures, for screen readers ("Net worth", "Balance") */
@@ -58,11 +68,13 @@ export function LineChart({
   const last = points.length - 1
   const values = points.map((p) => p.value)
   const min = Math.min(...values)
-  const range = Math.max(...values) - min || 1
+  const range = Math.max(...values) - min
   const up = values[last] >= values[0]
   const cw = Math.max(width - PAD.l - PAD.r, 0)
   const ch = Math.max(height - PAD.t - PAD.b, 0)
-  const xy = points.map((p, i): [number, number] => [PAD.l + (i / last) * cw, PAD.t + ch - ((p.value - min) / range) * ch])
+  // A flat line sits mid-height, with the fill below it.
+  const y = (value: number) => (range ? PAD.t + ch - ((value - min) / range) * ch : PAD.t + ch / 2)
+  const xy = points.map((p, i): [number, number] => [PAD.l + (i / last) * cw, y(p.value)])
   const line = smoothPath(xy)
   const area = `${line} L${xy[last][0].toFixed(1)},${height} L${xy[0][0].toFixed(1)},${height} Z`
   const money = (value: number) => formatMoney(value, currency, { decimals: valueDecimals })
@@ -117,7 +129,7 @@ export function LineChart({
       onBlur={() => setActive(null)}
       className={cn(
         'relative w-full touch-pan-y rounded-md outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/40',
-        tone === 'trend' && up ? 'text-primary-dark' : 'text-destructive',
+        tone === 'brand' || (tone === 'trend' && up) ? 'text-primary-dark' : 'text-destructive',
         className,
       )}
     >
@@ -160,6 +172,22 @@ export function LineChart({
               <circle cx={cx} cy={cy} r="4.5" className="fill-white" stroke="currentColor" strokeWidth="1.5" />
             </>
           )}
+          {markers?.map((m, n) => {
+            const at = nearestIndex(points, m.date)
+            if (at == null) return null
+            const [mx, my] = xy[at]
+            return (
+              <g key={n} transform={`translate(${mx.toFixed(1)} ${my.toFixed(1)})`} aria-hidden>
+                <circle r="5" className={cn('stroke-white', m.kind === 'add' ? 'fill-success' : 'fill-destructive')} strokeWidth="1" />
+                <path
+                  d={m.kind === 'add' ? 'M-2.5 0h5M0 -2.5v5' : 'M-2.5 0h5'}
+                  className="stroke-white"
+                  strokeWidth="1.25"
+                  strokeLinecap="round"
+                />
+              </g>
+            )
+          })}
           {startDot && <circle cx={xy[0][0]} cy={xy[0][1]} r="4" fill="currentColor" className="stroke-white" strokeWidth="1.5" />}
         </svg>
       )}
@@ -194,7 +222,20 @@ export function formatPointDate(date: string) {
   return `${dayMonth}, ${tail}`
 }
 
-/** Catmull-Rom spline through the points, as cubic Béziers. */
+/** The point closest in time to `date` (YYYY-MM-DD or ISO); null when it falls outside the series. */
+function nearestIndex(points: ChartPoint[], date: string) {
+  const time = (d: string) => (d.includes('T') ? new Date(d) : new Date(`${d.slice(0, 10)}T00:00:00`)).getTime()
+  const t = time(date)
+  const first = time(points[0].date)
+  const last = time(points[points.length - 1].date)
+  const slack = (last - first) / Math.max(points.length - 1, 1) // half a step either side still counts
+  if (t < first - slack || t > last + slack) return null
+  let best = 0
+  for (let i = 1; i < points.length; i++) if (Math.abs(time(points[i].date) - t) < Math.abs(time(points[best].date) - t)) best = i
+  return best
+}
+
+/** Catmull-Rom spline through the points, as cubic Béziers, without overshooting between points. */
 export function smoothPath(pts: [number, number][]) {
   let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
   for (let i = 0; i < pts.length - 1; i++) {
@@ -202,8 +243,12 @@ export function smoothPath(pts: [number, number][]) {
     const [x1, y1] = pts[i]
     const [x2, y2] = pts[i + 1]
     const [x3, y3] = pts[i + 2] ?? pts[i + 1]
-    const c1 = [x1 + (x2 - x0) / 6, y1 + (y2 - y0) / 6]
-    const c2 = [x2 - (x3 - x1) / 6, y2 - (y3 - y1) / 6]
+    // Control points stay within the segment's own height, so a flat run before a jump doesn't dip under itself.
+    const lo = Math.min(y1, y2)
+    const hi = Math.max(y1, y2)
+    const clamp = (y: number) => Math.min(Math.max(y, lo), hi)
+    const c1 = [x1 + (x2 - x0) / 6, clamp(y1 + (y2 - y0) / 6)]
+    const c2 = [x2 - (x3 - x1) / 6, clamp(y2 - (y3 - y1) / 6)]
     d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`
   }
   return d

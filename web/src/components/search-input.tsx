@@ -8,6 +8,7 @@ export function SearchInput({
   onChange,
   label,
   placeholder = 'Search...',
+  autoFocus,
   className,
 }: {
   value: string
@@ -15,6 +16,7 @@ export function SearchInput({
   /** Accessible name, e.g. "Search assets" */
   label: string
   placeholder?: string
+  autoFocus?: boolean
   className?: string
 }) {
   return (
@@ -29,6 +31,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        autoFocus={autoFocus}
         aria-label={label}
         className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-subtle"
       />

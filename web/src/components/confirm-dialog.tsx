@@ -11,7 +11,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-/** Destructive confirmation: title, a short warning, Cancel + a red confirm button that shows progress while `pending`. */
+/**
+ * Confirmation: title, a short warning, Cancel + a confirm button that shows progress while `pending` — red by
+ * default, blue with `tone="primary"` for steps that aren't destructive (pause, resume).
+ */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -25,6 +28,7 @@ export function ConfirmDialog({
   size,
   position,
   descriptionClassName,
+  tone = 'destructive',
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -42,6 +46,7 @@ export function ConfirmDialog({
   position?: 'default' | 'high'
   /** e.g. larger body text ("text-sm leading-5.5") */
   descriptionClassName?: string
+  tone?: 'destructive' | 'primary'
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -58,7 +63,7 @@ export function ConfirmDialog({
               {cancelLabel}
             </Button>
           </DialogClose>
-          <Button variant="destructive" size="xs" loading={pending} loadingText={pendingLabel} onClick={onConfirm}>
+          <Button variant={tone} size="xs" loading={pending} loadingText={pendingLabel} onClick={onConfirm}>
             {confirmLabel}
           </Button>
         </DialogFooter>
