@@ -50,6 +50,9 @@ const MSFT_LOTS: Array<[number, number, number]> = [
   [3, 200, 4.3],
 ]
 
+// The design's Solana purchase: 10 SOL at 84.5 at the start of the month (so it sits at the 1M chart's left edge).
+const SOL_LOT: [number, number, number] = [30, 10, 84.5]
+
 const history = new Map<string, AssetHistoryEntry[]>()
 
 const entry = (
@@ -70,20 +73,24 @@ const entry = (
   created_at: `${date}T09:00:00Z`,
 })
 
-/** Oldest first. Each asset starts with what it was created with (the demo MSFT with the design's purchases). */
+const lot = (asset: AssetItem, [ago, qty, price]: [number, number, number]) =>
+  entry(asset, daysAgo(ago), qty > 0 ? 'add' : 'remove', Math.abs(qty), Math.abs(qty) * price, price)
+
+/** Oldest first. Each asset starts with what it was created with (the demo MSFT and Solana with the design's purchases). */
 const historyOf = (asset: AssetItem) => {
   if (!history.has(asset.id)) {
     const start = asset.created_at.slice(0, 10)
+    const demo = asset.portfolio_id === 'demo'
     const list =
-      asset.portfolio_id === 'demo' && asset.id === 'a1'
-        ? MSFT_LOTS.map(([ago, qty, price]) =>
-            entry(asset, daysAgo(ago), qty > 0 ? 'add' : 'remove', Math.abs(qty), Math.abs(qty) * price, price),
-          )
-        : [
-            asset.total_quantity
-              ? entry(asset, start, 'add', asset.total_quantity, asset.owned_value_converted, unitPrice(asset))
-              : entry(asset, start, 'add', null, asset.owned_value_converted, null),
-          ]
+      demo && asset.id === 'a1'
+        ? MSFT_LOTS.map((l) => lot(asset, l))
+        : demo && asset.id === 'a2'
+          ? [lot(asset, SOL_LOT)]
+          : [
+              asset.total_quantity
+                ? entry(asset, start, 'add', asset.total_quantity, asset.owned_value_converted, unitPrice(asset))
+                : entry(asset, start, 'add', null, asset.owned_value_converted, null),
+            ]
     history.set(asset.id, list)
   }
   return history.get(asset.id)!
@@ -127,14 +134,17 @@ export const addAssetHistory = (portfolioId: string, assetId: string, input: Add
 }
 
 /**
- * The asset's value across a period. Ticker assets: units held on each day × a price that wanders around today's;
- * others step with their history.
+ * The asset's value across a period. Ticker assets: units held on each day × a price that wanders around today's —
+ * as far as the asset has gained or lost overall, so one bought at today's price draws flat; others step with their
+ * history.
  */
 export const getAssetChart = (portfolioId: string, assetId: string, period: ChartPeriod) => {
   const asset = find(portfolioId, assetId)
   const entries = historyOf(asset)
   const price = unitPrice(asset)
   const seed = [...asset.id].reduce((sum, c) => sum + c.charCodeAt(0), 0)
+  const invested = entries.reduce((sum, e) => sum + (e.kind === 'add' ? e.amount : -e.amount), 0)
+  const swing = invested > 0 ? Math.min(1, Math.abs(asset.owned_value_converted - invested) / invested / 0.1) : 0
   const end = Date.now()
   const span = periodDays(period) * 86_400_000
   const points = Array.from({ length: CHART_POINTS }, (_, i) => {
@@ -142,7 +152,7 @@ export const getAssetChart = (portfolioId: string, assetId: string, period: Char
     const day = isoDay(at)
     const held = entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount), 0)
     const left = CHART_POINTS - 1 - i // 0 at today, so the line ends on the current value
-    const wobble = left === 0 ? 1 : 1 + 0.06 * Math.sin((i + seed) * 0.45) + 0.03 * Math.sin((i + seed) * 1.3)
+    const wobble = left === 0 ? 1 : 1 + swing * (0.06 * Math.sin((i + seed) * 0.45) + 0.03 * Math.sin((i + seed) * 1.3))
     const value = asset.total_quantity != null ? held * price * wobble : held
     return { date: period === '1D' ? at.toISOString() : day, value: Math.max(0, Number(value.toFixed(2))) }
   })

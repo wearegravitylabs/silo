@@ -233,7 +233,7 @@ function nearestIndex(points: ChartPoint[], date: string) {
   return best
 }
 
-/** Catmull-Rom spline through the points, as cubic Béziers. */
+/** Catmull-Rom spline through the points, as cubic Béziers, without overshooting between points. */
 export function smoothPath(pts: [number, number][]) {
   let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
   for (let i = 0; i < pts.length - 1; i++) {
@@ -241,8 +241,12 @@ export function smoothPath(pts: [number, number][]) {
     const [x1, y1] = pts[i]
     const [x2, y2] = pts[i + 1]
     const [x3, y3] = pts[i + 2] ?? pts[i + 1]
-    const c1 = [x1 + (x2 - x0) / 6, y1 + (y2 - y0) / 6]
-    const c2 = [x2 - (x3 - x1) / 6, y2 - (y3 - y1) / 6]
+    // Control points stay within the segment's own height, so a flat run before a jump doesn't dip under itself.
+    const lo = Math.min(y1, y2)
+    const hi = Math.max(y1, y2)
+    const clamp = (y: number) => Math.min(Math.max(y, lo), hi)
+    const c1 = [x1 + (x2 - x0) / 6, clamp(y1 + (y2 - y0) / 6)]
+    const c2 = [x2 - (x3 - x1) / 6, clamp(y2 - (y3 - y1) / 6)]
     d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`
   }
   return d

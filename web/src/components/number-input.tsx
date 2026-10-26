@@ -25,6 +25,7 @@ export function NumberInput({
   decimals = 2,
   grouping = true,
   pad = true,
+  minDecimals = 0,
   placeholder = '0.00',
   invalid,
   onBlur,
@@ -37,6 +38,8 @@ export function NumberInput({
   grouping?: boolean
   /** Tidy to exactly `decimals` places ("10.00"); off keeps only the places typed, up to `decimals` ("0.0001") */
   pad?: boolean
+  /** With `pad` off: places always shown when tidied ("10" → "10.00" with 2) */
+  minDecimals?: number
   invalid?: boolean
 }) {
   const sanitize = (raw: string) => {
@@ -67,7 +70,7 @@ export function NumberInput({
           onChange(
             pad
               ? formatNumber(n, decimals, grouping)
-              : n.toLocaleString('en-US', { maximumFractionDigits: decimals, useGrouping: grouping }),
+              : n.toLocaleString('en-US', { minimumFractionDigits: minDecimals, maximumFractionDigits: decimals, useGrouping: grouping }),
           )
         onBlur?.(e)
       }}

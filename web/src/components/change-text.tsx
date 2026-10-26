@@ -1,4 +1,4 @@
-import { ArrowDownIcon, ArrowUpIcon } from 'lucide-react'
+import { ArrowDownIcon, ArrowUpIcon, MinusIcon } from 'lucide-react'
 import { formatCompactMoney, formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -21,15 +21,16 @@ export function ChangeText({
   className?: string
 }) {
   const dir = change.amount > 0 ? 'up' : change.amount < 0 ? 'down' : 'flat'
-  const Icon = dir === 'up' ? ArrowUpIcon : dir === 'down' ? ArrowDownIcon : null
+  // The exact form marks no change with a dash ("— $0.00 (0.0%)"); the compact one shows nothing.
+  const Icon = dir === 'up' ? ArrowUpIcon : dir === 'down' ? ArrowDownIcon : compact ? null : MinusIcon
   const good = (dir === 'up') !== inverse
   const amount =
     dir === 'flat'
-      ? formatMoney(0, currency)
+      ? formatMoney(0, currency, { spaced: compact })
       : compact
         ? formatCompactMoney(Math.abs(change.amount), currency)
         : formatMoney(Math.abs(change.amount), currency, { spaced: false })
-  const pct = Number(Math.abs(change.pct).toFixed(1))
+  const pct = dir === 'flat' && !compact ? '0.0' : Number(Math.abs(change.pct).toFixed(1))
 
   return (
     <span
@@ -39,7 +40,7 @@ export function ChangeText({
         className,
       )}
     >
-      {Icon && <Icon className="size-3.5" aria-label={dir === 'up' ? 'Up' : 'Down'} />}
+      {Icon && <Icon className="size-3.5" aria-label={dir === 'up' ? 'Up' : dir === 'down' ? 'Down' : 'No change'} />}
       {amount} ({pct}%)
     </span>
   )

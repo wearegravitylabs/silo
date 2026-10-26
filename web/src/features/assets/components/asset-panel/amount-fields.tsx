@@ -21,7 +21,10 @@ export function AddRemoveToggle({ value, onChange }: { value: 'add' | 'remove'; 
   )
 }
 
-/** Units of a ticker asset (its logo and ticker in front: "MSFT ⌄ 100"), or money for the rest. */
+/**
+ * Units of a ticker asset (its logo and ticker in front: "MSFT ⌄ 100") — whole shares, or coins to 8 places shown as
+ * "10.00" — or money for the rest.
+ */
 export function AssetAmountInput({
   id,
   asset,
@@ -37,6 +40,7 @@ export function AssetAmountInput({
   invalid?: boolean
   placeholder?: string
 }) {
+  const crypto = asset.asset_type.startsWith('crypto')
   if (!countsUnits(asset))
     return (
       <MoneyInput
@@ -55,7 +59,16 @@ export function AssetAmountInput({
         <span>{asset.ticker}</span>
         <ChevronDownIcon className="size-2.5 text-muted-foreground" aria-hidden />
       </InputGroupAddon>
-      <NumberInput id={id} value={value} onChange={onChange} decimals={8} pad={false} invalid={invalid} placeholder={placeholder} />
+      <NumberInput
+        id={id}
+        value={value}
+        onChange={onChange}
+        decimals={crypto ? 8 : 0}
+        pad={false}
+        minDecimals={crypto ? 2 : 0}
+        invalid={invalid}
+        placeholder={placeholder ?? (crypto ? '0.00' : '0')}
+      />
     </InputGroup>
   )
 }

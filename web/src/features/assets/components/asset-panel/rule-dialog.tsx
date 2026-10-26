@@ -52,7 +52,14 @@ function RuleForm({
   onDone: () => void
 }) {
   const [action, setAction] = useState<AssetRule['action']>(rule?.action ?? 'add')
-  const [amountText, setAmountText] = useState(rule ? rule.amount.toLocaleString('en-US', { maximumFractionDigits: 8 }) : '')
+  const [amountText, setAmountText] = useState(
+    rule
+      ? rule.amount.toLocaleString('en-US', {
+          minimumFractionDigits: asset.asset_type.startsWith('crypto') ? 2 : 0,
+          maximumFractionDigits: 8,
+        })
+      : '',
+  )
   const [frequency, setFrequency] = useState<Frequency>(rule?.frequency ?? 'weekly')
   const [start, setStart] = useState(rule?.start_date ?? '')
   const [end, setEnd] = useState(rule?.end_date ?? '')
@@ -92,7 +99,7 @@ function RuleForm({
       <DialogBody className="flex flex-col gap-4">
         <AddRemoveToggle value={action} onChange={setAction} />
         <FormField label="Amount" htmlFor="rule-amount" required>
-          <AssetAmountInput id="rule-amount" asset={asset} value={amountText} onChange={setAmountText} placeholder="0" />
+          <AssetAmountInput id="rule-amount" asset={asset} value={amountText} onChange={setAmountText} />
         </FormField>
         <FormField label="Frequency" htmlFor="rule-frequency" required>
           <Select value={frequency} onValueChange={(v) => setFrequency(v as Frequency)}>
