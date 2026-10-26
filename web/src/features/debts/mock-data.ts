@@ -1,4 +1,5 @@
 // Temporary debts, used by api.ts until the Debts page is wired to the backend. Mirrors the design.
+import { daysFromToday } from '@/lib/dates'
 import type { Debt, DebtDocument, DebtHistoryEntry, DebtNote, DebtRule, DebtsOverview } from './types'
 
 const CURRENCY = 'USD'
@@ -72,13 +73,6 @@ export const MOCK_HISTORY: DebtHistoryEntry[] = [
   },
 ]
 
-/** A day relative to today, as YYYY-MM-DD — seeded rules stay current whenever the demo runs. */
-const dayFromToday = (days: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() + days)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 export const MOCK_RULES: DebtRule[] = [
   {
     id: 'r1',
@@ -86,8 +80,8 @@ export const MOCK_RULES: DebtRule[] = [
     action: 'payment',
     amount: 100,
     frequency: 'daily',
-    start_date: dayFromToday(-14),
-    end_date: dayFromToday(46),
+    start_date: daysFromToday(-14),
+    end_date: daysFromToday(46),
     is_active: true,
     created_at: '2026-02-28T09:00:00Z',
   },
@@ -97,8 +91,8 @@ export const MOCK_RULES: DebtRule[] = [
     action: 'add',
     amount: 100,
     frequency: 'weekly',
-    start_date: dayFromToday(-14),
-    end_date: dayFromToday(46),
+    start_date: daysFromToday(-14),
+    end_date: daysFromToday(46),
     is_active: true,
     created_at: '2026-02-27T09:00:00Z',
   },

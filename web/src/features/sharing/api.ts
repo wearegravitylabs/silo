@@ -1,10 +1,11 @@
+import { mockDelay } from '@/lib/mock'
 import { MOCK_MEMBERS } from './mock-data'
 import type { AccessRole, Member, MemberInput, SectionKey } from './types'
 
 // TODO: mocked until the sharing endpoints exist — GET/POST /portfolios/:id/members, PATCH …/:memberId,
 // POST …/:memberId/resend, DELETE …/:memberId. In memory per portfolio; the demo portfolio starts with MOCK_MEMBERS.
 const DELAY = 500
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(DELAY)
 const fail = (message: string) => new Promise<never>((_, reject) => setTimeout(() => reject(new Error(message)), DELAY))
 
 const store = new Map<string, Member[]>()

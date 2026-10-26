@@ -3,7 +3,7 @@ import { PencilIcon } from 'lucide-react'
 import { EntryCard } from '@/components/entry-card'
 import { PlusCircleIcon } from '@/components/icons'
 import { LineChart } from '@/components/line-chart'
-import { TabBody, TabCta, TabListSkeleton } from '@/components/panel-layout'
+import { Stat, StatList, TabBody, TabCta, TabListSkeleton } from '@/components/panel-layout'
 import { PeriodTabs } from '@/components/period-tabs'
 import { Button } from '@/components/ui/button'
 import { currencySymbol, formatDay, formatMoney } from '@/lib/format'
@@ -31,7 +31,7 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
   return (
     <div className="flex flex-1 flex-col">
       <TabBody className="overflow-y-visible">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <StatList>
           <Stat label="Initial Balance">{formatMoney(initial, debt.currency)}</Stat>
           <Stat label="Current Value">{formatMoney(debt.owned_balance, debt.currency)}</Stat>
           {debt.interest_rate > 0 && (
@@ -39,7 +39,7 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
               {debt.interest_rate.toFixed(2)}%
             </Stat>
           )}
-        </dl>
+        </StatList>
 
         <LineChart
           points={points}
@@ -81,15 +81,6 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
         open={dialog.open}
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
       />
-    </div>
-  )
-}
-
-function Stat({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <dt className="text-xs leading-4 text-muted-foreground">{label}</dt>
-      <dd className={cn('truncate text-foreground', className)}>{children}</dd>
     </div>
   )
 }

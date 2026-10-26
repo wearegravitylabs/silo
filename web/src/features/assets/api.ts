@@ -1,3 +1,4 @@
+import { mockDelay } from '@/lib/mock'
 import { defaultFolderId } from '@/lib/folders'
 import { CURRENCY, MOCK_ADDRESSES, MOCK_ASSETS, MOCK_CRYPTO, MOCK_STOCKS, POPULAR, USD_RATES } from './mock-data'
 import type {
@@ -19,8 +20,7 @@ import type {
 //   GET    /portfolios/:id/assets/ticker/search?q=…  (exists)
 //   POST   /portfolios/:id/assets              (exists; CreateAssetRequest with lots)
 // Mock: the demo portfolio starts with the design's assets, every other portfolio empty; changes live in memory.
-const DELAY = 500
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(500)
 
 const store = new Map<string, AssetItem[]>()
 /** The mock store (shared with panel-api). */

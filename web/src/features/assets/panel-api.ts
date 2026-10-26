@@ -1,3 +1,5 @@
+import { daysFromToday, isoDay } from '@/lib/dates'
+import { mockDelay } from '@/lib/mock'
 import { periodDays, type ChartPeriod } from '@/lib/periods'
 import { assetsOf } from './api'
 import type {
@@ -17,17 +19,10 @@ import type {
 // TODO: mocked — the backend has no endpoints for an asset's history, Auto-Pilot rules, notes or documents yet, and
 // PATCH /portfolios/:id/assets/:assetId doesn't take investability or ownership. Changes live in memory; history
 // moves the asset's units and value, so the table and header follow.
-const DELAY = 400
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(400)
 const CHART_POINTS = 40
 
-const isoDay = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-const daysAgo = (n: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return isoDay(d)
-}
+const daysAgo = (n: number) => daysFromToday(-n)
 
 const find = (portfolioId: string, assetId: string) => {
   const asset = assetsOf(portfolioId).find((a) => a.id === assetId)

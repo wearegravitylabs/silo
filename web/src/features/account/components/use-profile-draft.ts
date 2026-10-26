@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useFormDraft } from '@/hooks/use-form-draft'
 import { ALL_COUNTRIES, findCountry, findCountryByDialCode, validatePhoneNumber, type Country } from '@/lib/countries'
 import { useUpdateProfile } from '../queries'
 import type { User } from '../types'
@@ -39,12 +40,12 @@ function validate(d: ProfileDraft): ProfileErrors {
  */
 export function useProfileDraft(user: User) {
   const saved = draftFrom(user)
-  const [draft, setDraft] = useState(saved)
+  const { values: draft, setValues: setDraft, change: changeField, dirty } = useFormDraft(saved, { same: sameDraft })
   const [errors, setErrors] = useState<ProfileErrors>({})
   const update = useUpdateProfile()
 
   const change = <K extends keyof ProfileDraft>(key: K, value: ProfileDraft[K]) => {
-    setDraft((d) => ({ ...d, [key]: value }))
+    changeField(key, value)
     setErrors(({ [key as keyof ProfileErrors]: _, ...rest }) => rest)
   }
 
@@ -75,5 +76,5 @@ export function useProfileDraft(user: User) {
     setErrors({})
   }
 
-  return { draft, errors, change, save, discard, dirty: !sameDraft(draft, saved), saving: update.isPending }
+  return { draft, errors, change, save, discard, dirty, saving: update.isPending }
 }

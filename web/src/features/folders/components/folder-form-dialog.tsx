@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import { ColorPickerDisc } from '@/components/color-picker-disc'
 import { FolderGlyph } from '@/components/folder-glyph'
 import { FormField } from '@/components/form-field'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useFormDraft } from '@/hooks/use-form-draft'
 import { FOLDER_COLORS } from '@/lib/folders'
 import type { FolderInput } from '../queries'
 
@@ -36,11 +36,15 @@ export function FolderFormDialog({
 }
 
 function FolderForm({ folder, onSave, saving }: { folder: FolderInput | null; onSave: (values: FolderInput) => void; saving?: boolean }) {
-  const [name, setName] = useState(folder?.name ?? '')
-  const [color, setColor] = useState(folder?.color ?? FOLDER_COLORS[0])
+  const { values, change, dirty } = useFormDraft(folder && { name: folder.name, color: folder.color }, {
+    initial: { name: '', color: FOLDER_COLORS[0] },
+    normalize: (v) => ({ ...v, name: v.name.trim() }),
+  })
+  const { name, color } = values
+  const setName = (value: string) => change('name', value)
+  const setColor = (value: string) => change('color', value)
   const trimmed = name.trim()
-  const changed = !folder || trimmed !== folder.name || color !== folder.color
-  const valid = !!trimmed && changed
+  const valid = !!trimmed && dirty
 
   return (
     <form

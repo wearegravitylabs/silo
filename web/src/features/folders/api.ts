@@ -1,3 +1,4 @@
+import { mockDelay } from '@/lib/mock'
 import { defaultFolderId, FOLDER_COLORS } from '@/lib/folders'
 import type { Folder, FolderType } from './types'
 
@@ -7,8 +8,7 @@ import type { Folder, FolderType } from './types'
 //   PUT    /portfolios/:id/folders/reorder
 // Every portfolio has a default folder per type ("All Assets" / "All Debts") that lists everything and can't be
 // renamed or deleted; the demo portfolio also has the design's asset folders.
-const DELAY = 300
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(300)
 const CREATED = '2026-01-01T00:00:00Z'
 
 const DEFAULT_NAME: Record<FolderType, string> = { asset: 'All Assets', debt: 'All Debts' }

@@ -5,6 +5,7 @@ import { InfoDotIcon } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useFormDraft } from '@/hooks/use-form-draft'
 
 export interface NoteValues {
   title: string
@@ -40,15 +41,19 @@ export function NoteDialog({
 }
 
 function NoteForm({ note, onSave, saving }: { note: NoteValues | null; onSave: (values: NoteValues) => void; saving?: boolean }) {
-  const [title, setTitle] = useState(note?.title ?? '')
-  const [content, setContent] = useState(note?.content ?? '')
-  const [tags, setTags] = useState<string[]>(note?.tags ?? [])
+  const draft = useFormDraft<NoteValues>(note && { title: note.title, content: note.content, tags: note.tags }, {
+    initial: { title: '', content: '', tags: [] },
+    normalize: (v) => ({ ...v, title: v.title.trim(), content: v.content.trim() }),
+  })
+  const { title, content, tags } = draft.values
+  const setTitle = (value: string) => draft.change('title', value)
+  const setContent = (value: string) => draft.change('content', value)
+  const setTags = (value: string[]) => draft.change('tags', value)
   const [tagText, setTagText] = useState('')
   const [tagsFocused, setTagsFocused] = useState(false)
 
   const values = { title: title.trim(), content: content.trim(), tags }
-  const changed = !note || values.title !== note.title || values.content !== note.content || tags.join('\n') !== note.tags.join('\n')
-  const valid = !!values.content && changed
+  const valid = !!values.content && draft.dirty
   // The tag limit shows once you start filling the note in.
   const showHint = tagsFocused || !!(title || content || tagText || tags.length)
   const full = tags.length >= MAX_TAGS

@@ -1,18 +1,17 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { DateField } from '@/components/date-field'
 import { FormField } from '@/components/form-field'
 import { parseNumber } from '@/components/number-input'
+import { ScheduleFields, useScheduleFields } from '@/components/schedule-fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { FREQUENCY_LABELS, type Frequency } from '@/lib/schedule'
+import { sameValues } from '@/hooks/use-form-draft'
+import type { Frequency } from '@/lib/schedule'
 import { useAssetRuleMutations } from '../../panel-queries'
 import type { AssetItem, AssetRule } from '../../types'
 import { AddRemoveToggle, AssetAmountInput } from './amount-fields'
 
 const FREQUENCIES: Frequency[] = ['daily', 'weekly', 'monthly']
-const END_BEFORE_START = 'End date must be after the start date'
 
 /**
  * Add an Auto-Pilot rule to an asset, or edit one (`rule`): add or remove, how much each run (units, or money), how
@@ -60,27 +59,23 @@ function RuleForm({
         })
       : '',
   )
-  const [frequency, setFrequency] = useState<Frequency>(rule?.frequency ?? 'weekly')
-  const [start, setStart] = useState(rule?.start_date ?? '')
-  const [end, setEnd] = useState(rule?.end_date ?? '')
+  const schedule = useScheduleFields(rule)
   const { save } = useAssetRuleMutations(portfolioId)
 
   const amount = parseNumber(amountText)
-  const endError = end && start && end < start ? END_BEFORE_START : undefined
   const changed =
     !rule ||
-    action !== rule.action ||
-    amount !== rule.amount ||
-    frequency !== rule.frequency ||
-    start !== rule.start_date ||
-    (end || null) !== rule.end_date
-  const valid = amount !== null && amount > 0 && start !== '' && !endError && changed
+    !sameValues(
+      { action, amount, ...schedule.value },
+      { action: rule.action, amount: rule.amount, frequency: rule.frequency, start_date: rule.start_date, end_date: rule.end_date },
+    )
+  const valid = amount !== null && amount > 0 && schedule.complete && changed
 
   const submit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!valid) return
     save.mutate(
-      { assetId: asset.id, ruleId: rule?.id, action, amount: amount!, frequency, start_date: start, end_date: end || null },
+      { assetId: asset.id, ruleId: rule?.id, action, amount: amount!, ...schedule.value },
       {
         onSuccess: () => {
           onDone()
@@ -101,26 +96,7 @@ function RuleForm({
         <FormField label="Amount" htmlFor="rule-amount" required>
           <AssetAmountInput id="rule-amount" asset={asset} value={amountText} onChange={setAmountText} />
         </FormField>
-        <FormField label="Frequency" htmlFor="rule-frequency" required>
-          <Select value={frequency} onValueChange={(v) => setFrequency(v as Frequency)}>
-            <SelectTrigger id="rule-frequency">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FREQUENCIES.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {FREQUENCY_LABELS[f]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-        <FormField label="Start Date" htmlFor="rule-start" required>
-          <DateField id="rule-start" value={start} onChange={setStart} />
-        </FormField>
-        <FormField label="End Date" htmlFor="rule-end" error={endError}>
-          <DateField id="rule-end" value={end} onChange={setEnd} min={start || undefined} invalid={!!endError} />
-        </FormField>
+        <ScheduleFields fields={schedule} frequencies={FREQUENCIES} />
       </DialogBody>
       <DialogFooter>
         <DialogClose asChild>

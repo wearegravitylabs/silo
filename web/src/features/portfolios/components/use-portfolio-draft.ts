@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { useFormDraft } from '@/hooks/use-form-draft'
 import { useUpdatePortfolio } from '../queries'
 import type { Portfolio } from '../types'
 import { avatarIdFromImageUrl, avatarImageUrl, type AvatarId } from './avatar-picker'
@@ -18,20 +19,18 @@ const draftFrom = (p: Portfolio): PortfolioDraft => ({
   avatar: avatarIdFromImageUrl(p.image_url),
 })
 
-const sameDraft = (a: PortfolioDraft, b: PortfolioDraft) => a.name === b.name && a.currency === b.currency && a.avatar === b.avatar
-
 /**
  * Editable copy of a portfolio's settings. `dirty` while it differs from what's saved; save validates then writes it,
  * discard drops it. Errors show only after a save attempt, and clear as the field is edited.
  */
 export function usePortfolioDraft(portfolio: Portfolio) {
   const saved = draftFrom(portfolio)
-  const [draft, setDraft] = useState(saved)
+  const { values: draft, setValues: setDraft, change: changeField, dirty } = useFormDraft(saved)
   const [errors, setErrors] = useState<PortfolioErrors>({})
   const update = useUpdatePortfolio(portfolio.id)
 
   const change = <K extends keyof PortfolioDraft>(key: K, value: PortfolioDraft[K]) => {
-    setDraft((d) => ({ ...d, [key]: value }))
+    changeField(key, value)
     setErrors(({ [key as keyof PortfolioErrors]: _, ...rest }) => rest)
   }
 
@@ -57,5 +56,5 @@ export function usePortfolioDraft(portfolio: Portfolio) {
     setErrors({})
   }
 
-  return { draft, errors, change, save, discard, dirty: !sameDraft(draft, saved), saving: update.isPending }
+  return { draft, errors, change, save, discard, dirty, saving: update.isPending }
 }

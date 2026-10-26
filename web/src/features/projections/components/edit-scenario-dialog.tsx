@@ -1,9 +1,10 @@
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { ColorSwatches } from '@/components/color-swatches'
 import { HexInput } from '@/components/hex-input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { useFormDraft } from '@/hooks/use-form-draft'
 import { HEX_RE, resolveColor } from '@/lib/colors'
 import { SCENARIO_SWATCHES } from '../constants'
 import type { Scenario } from '../types'
@@ -34,12 +35,17 @@ export function EditScenarioDialog({
 }
 
 function EditForm({ scenario, onSave }: { scenario: Scenario; onSave: (patch: { name: string; color: string }) => void }) {
-  const [name, setName] = useState(scenario.name)
-  const [color, setColor] = useState(scenario.color)
+  const {
+    values,
+    change,
+    dirty: changed,
+  } = useFormDraft({ name: scenario.name, color: scenario.color }, { normalize: (v) => ({ ...v, name: v.name.trim() }) })
+  const { name, color } = values
+  const setName = (value: string) => change('name', value)
+  const setColor = (value: string) => change('color', value)
   const nameId = useId()
 
   const valid = name.trim() !== '' && HEX_RE.test(resolveColor(color))
-  const changed = name.trim() !== scenario.name || color !== scenario.color
 
   // A typed hex matching a swatch selects that swatch; any other complete hex becomes a custom colour.
   const typeHex = (hex: string) => setColor(SCENARIO_SWATCHES.find((s) => resolveColor(s).toUpperCase() === hex) ?? hex)

@@ -1,3 +1,4 @@
+import { mockDelay } from '@/lib/mock'
 import { periodDays, type ChartPeriod } from '@/lib/periods'
 import { defaultFolderId } from '@/lib/folders'
 import { emptyOverview, MOCK_DEBTS, MOCK_DOCUMENTS, MOCK_HISTORY, MOCK_NOTES, MOCK_OVERVIEW, MOCK_RULES } from './mock-data'
@@ -18,8 +19,7 @@ import type {
 //   POST /portfolios/:id/debts               (exists; CreateDebtRequest)
 //   a debts overview (total + 1M change) — doesn't exist yet
 // Mock: the demo portfolio starts with the design's debts, every other portfolio empty; added debts live in memory.
-const DELAY = 600
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(600)
 
 const store = new Map<string, Debt[]>()
 const debtsOf = (portfolioId: string) => {

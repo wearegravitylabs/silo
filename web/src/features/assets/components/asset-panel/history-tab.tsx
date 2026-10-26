@@ -4,7 +4,7 @@ import { ChangeText } from '@/components/change-text'
 import { EntryCard } from '@/components/entry-card'
 import { PlusCircleIcon } from '@/components/icons'
 import { LineChart } from '@/components/line-chart'
-import { TabBody, TabCta, TabListSkeleton } from '@/components/panel-layout'
+import { Stat, StatList, TabBody, TabCta, TabListSkeleton } from '@/components/panel-layout'
 import { PeriodTabs } from '@/components/period-tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -37,7 +37,7 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
   return (
     <div className="flex flex-1 flex-col">
       <TabBody className="overflow-y-visible">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <StatList>
           <Stat label={units ? 'Total Invested' : 'Acquisition Price'}>
             {stats ? formatMoney(stats.invested, currency) : <Skeleton className="h-4 w-20" />}
           </Stat>
@@ -59,7 +59,7 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
               <Skeleton className="h-4 w-24" />
             )}
           </Stat>
-        </dl>
+        </StatList>
 
         <LineChart
           points={points}
@@ -101,15 +101,6 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
       ) : (
         <UpdatePriceDialog asset={asset} portfolioId={portfolioId} open={editing} onOpenChange={setEditing} />
       )}
-    </div>
-  )
-}
-
-function Stat({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <dt className="text-xs leading-4 text-muted-foreground">{label}</dt>
-      <dd className={cn('truncate text-foreground', className)}>{children}</dd>
     </div>
   )
 }

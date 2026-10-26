@@ -1,3 +1,4 @@
+import { mockDelay } from '@/lib/mock'
 import { MOCK_VAULT_DOCUMENTS } from './mock-data'
 import type { VaultDocument, VaultStatus } from './types'
 
@@ -7,7 +8,7 @@ import type { VaultDocument, VaultStatus } from './types'
 // Mock: the demo portfolio has a password set (any password unlocks it) and the design's four documents; other portfolios
 // start with no password and no documents. Everything lives in memory, so the vault locks again on reload.
 const DELAY = 600
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(DELAY)
 
 const documents = new Map<string, VaultDocument[]>()
 const files = new Map<string, Blob>()

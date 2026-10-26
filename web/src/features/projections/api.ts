@@ -1,11 +1,11 @@
+import { mockDelay } from '@/lib/mock'
 import { defaultScenario, demoScenarioB, MOCK_BASELINE } from './mock-data'
 import type { RuleTemplateId } from './templates'
 import type { ProjectionRule, ProjectionState, Scenario } from './types'
 
 // TODO: no projection endpoints exist yet (scenarios, rules, baseline balances).
 // Mock: every portfolio starts with the default Scenario A (the demo also has Scenario B); changes live in memory.
-const DELAY = 400
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+const later = mockDelay(400)
 
 const store = new Map<string, ProjectionState>()
 const stateOf = (portfolioId: string, currency: string) => {
