@@ -11,6 +11,7 @@ import type {
   AssetRuleInput,
   AssetStats,
   Investability,
+  UpdateAssetPriceInput,
 } from './types'
 
 // TODO: mocked — the backend has no endpoints for an asset's history, Auto-Pilot rules, notes or documents yet, and
@@ -62,6 +63,7 @@ const entry = (
   quantity: number | null,
   amount: number,
   price: number | null,
+  previous: number | null = null,
 ) => ({
   id: crypto.randomUUID(),
   asset_id: asset.id,
@@ -70,13 +72,19 @@ const entry = (
   quantity,
   amount,
   price,
+  previous,
   created_at: `${date}T09:00:00Z`,
 })
 
 const lot = (asset: AssetItem, [ago, qty, price]: [number, number, number]) =>
   entry(asset, daysAgo(ago), qty > 0 ? 'add' : 'remove', Math.abs(qty), Math.abs(qty) * price, price)
 
-/** Oldest first. Each asset starts with what it was created with (the demo MSFT and Solana with the design's purchases). */
+const isTicker = (asset: AssetItem) => asset.total_quantity != null
+
+/**
+ * Oldest first. Ticker assets start with the units they were created with (the demo MSFT and Solana with the design's
+ * purchases); the rest with their estimated price (the demo ones a month back, at the 1M chart's left edge).
+ */
 const historyOf = (asset: AssetItem) => {
   if (!history.has(asset.id)) {
     const start = asset.created_at.slice(0, 10)
@@ -87,22 +95,31 @@ const historyOf = (asset: AssetItem) => {
         : demo && asset.id === 'a2'
           ? [lot(asset, SOL_LOT)]
           : [
-              asset.total_quantity
+              isTicker(asset)
                 ? entry(asset, start, 'add', asset.total_quantity, asset.owned_value_converted, unitPrice(asset))
-                : entry(asset, start, 'add', null, asset.owned_value_converted, null),
+                : entry(asset, demo ? daysAgo(30) : start, 'price', null, asset.owned_value_converted, null),
             ]
     history.set(asset.id, list)
   }
   return history.get(asset.id)!
 }
 
+const byDate = (a: AssetHistoryEntry, b: AssetHistoryEntry) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at)
+
+/** Ticker assets: what went in less what came out. The rest: the first price. */
+const investedIn = (entries: AssetHistoryEntry[]) => {
+  const prices = entries.filter((e) => e.kind === 'price').sort(byDate)
+  if (prices.length) return prices[0].amount
+  return entries.reduce((sum, e) => sum + (e.kind === 'add' ? e.amount : -e.amount), 0)
+}
+
 /** Newest first, as the History tab lists them. */
 export const listAssetHistory = (portfolioId: string, assetId: string) =>
-  later([...historyOf(find(portfolioId, assetId))].sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at)))
+  later([...historyOf(find(portfolioId, assetId))].sort((a, b) => byDate(b, a)))
 
 export const getAssetStats = (portfolioId: string, assetId: string): Promise<AssetStats> => {
   const asset = find(portfolioId, assetId)
-  const invested = historyOf(asset).reduce((sum, e) => sum + (e.kind === 'add' ? e.amount : -e.amount), 0)
+  const invested = investedIn(historyOf(asset))
   const gain = asset.owned_value_converted - invested
   return later({ invested, gain, gain_pct: invested > 0 ? (gain / invested) * 100 : 0 })
 }
@@ -113,7 +130,7 @@ export const getAssetStats = (portfolioId: string, assetId: string): Promise<Ass
  */
 export const addAssetHistory = (portfolioId: string, assetId: string, input: AddAssetHistoryInput) => {
   const asset = find(portfolioId, assetId)
-  const ticker = asset.total_quantity != null
+  const ticker = isTicker(asset)
   const price = ticker ? unitPrice(asset) : null
   const amount = ticker ? input.value * price! : input.value
   const sign = input.kind === 'add' ? 1 : -1
@@ -133,27 +150,42 @@ export const addAssetHistory = (portfolioId: string, assetId: string, input: Add
   return later(created)
 }
 
+/** Sets the value of an asset priced in money (real estate, a domain, …), noting the price before. */
+export const updateAssetPrice = (portfolioId: string, assetId: string, input: UpdateAssetPriceInput) => {
+  const asset = find(portfolioId, assetId)
+  const created = {
+    ...entry(asset, input.date, 'price', null, input.value, null, asset.owned_value_converted),
+    created_at: new Date().toISOString(),
+  }
+  historyOf(asset).push(created)
+  Object.assign(asset, { owned_value_converted: input.value, updated_at: new Date().toISOString() })
+  return later(created)
+}
+
 /**
  * The asset's value across a period. Ticker assets: units held on each day × a price that wanders around today's —
- * as far as the asset has gained or lost overall, so one bought at today's price draws flat; others step with their
- * history.
+ * as far as the asset has gained or lost overall, so one bought at today's price draws flat. The rest: the latest
+ * price on each day.
  */
 export const getAssetChart = (portfolioId: string, assetId: string, period: ChartPeriod) => {
   const asset = find(portfolioId, assetId)
   const entries = historyOf(asset)
   const price = unitPrice(asset)
   const seed = [...asset.id].reduce((sum, c) => sum + c.charCodeAt(0), 0)
-  const invested = entries.reduce((sum, e) => sum + (e.kind === 'add' ? e.amount : -e.amount), 0)
+  const prices = entries.filter((e) => e.kind === 'price').sort(byDate)
+  const invested = investedIn(entries)
   const swing = invested > 0 ? Math.min(1, Math.abs(asset.owned_value_converted - invested) / invested / 0.1) : 0
   const end = Date.now()
   const span = periodDays(period) * 86_400_000
   const points = Array.from({ length: CHART_POINTS }, (_, i) => {
     const at = new Date(end - span + (span * i) / (CHART_POINTS - 1))
     const day = isoDay(at)
-    const held = entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount), 0)
+    const held = prices.length
+      ? (prices.findLast((e) => e.date <= day)?.amount ?? 0)
+      : entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount), 0)
     const left = CHART_POINTS - 1 - i // 0 at today, so the line ends on the current value
     const wobble = left === 0 ? 1 : 1 + swing * (0.06 * Math.sin((i + seed) * 0.45) + 0.03 * Math.sin((i + seed) * 1.3))
-    const value = asset.total_quantity != null ? held * price * wobble : held
+    const value = isTicker(asset) ? held * price * wobble : held
     return { date: period === '1D' ? at.toISOString() : day, value: Math.max(0, Number(value.toFixed(2))) }
   })
   return later(points)

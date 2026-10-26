@@ -127,20 +127,31 @@ export interface ConnectInput {
 // ─── Detail panel ─────────────────────────────────────────────────────────────
 // TODO: no backend endpoints for an asset's history, rules, notes or documents yet; the shapes follow the debt ones.
 
-/** One change to what you hold: units (ticker assets) or value added or removed. */
+/**
+ * One change to the asset: units added or removed (ticker assets), or a new price for the rest — the first is its
+ * estimated price, later ones adjust it.
+ */
 export interface AssetHistoryEntry {
   id: string
   asset_id: string
   /** YYYY-MM-DD */
   date: string
-  kind: 'add' | 'remove'
+  kind: 'add' | 'remove' | 'price'
   /** Units, for ticker assets */
   quantity: number | null
-  /** Value added or removed, in the asset's currency */
+  /** Value added or removed, or the new price, in the asset's currency */
   amount: number
   /** Price per unit at the time, for ticker assets */
   price: number | null
+  /** The price before (price changes after the first) */
+  previous: number | null
   created_at: string
+}
+
+export interface UpdateAssetPriceInput {
+  value: number
+  /** YYYY-MM-DD */
+  date: string
 }
 
 export interface AddAssetHistoryInput {
@@ -153,7 +164,7 @@ export interface AddAssetHistoryInput {
 
 /** An asset's totals for the History tab. */
 export interface AssetStats {
-  /** What went in, less what came out */
+  /** What went in, less what came out (ticker assets); the first price (the rest) */
   invested: number
   /** Current value less what's invested, and as a % of it */
   gain: number

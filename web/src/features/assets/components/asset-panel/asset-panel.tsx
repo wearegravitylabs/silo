@@ -12,6 +12,7 @@ import { ASSET_TYPE_LABELS } from '../../constants'
 import { useAssetDocuments, useAssetNotes, useAssetRules } from '../../panel-queries'
 import type { AssetItem } from '../../types'
 import { AssetIconDisc } from '../asset-icon-disc'
+import { countsUnits } from './amount-fields'
 import { AutopilotTab } from './autopilot-tab'
 import { DocumentsTab } from './documents-tab'
 import { HistoryTab } from './history-tab'
@@ -21,8 +22,8 @@ import { ReportingTab } from './reporting-tab'
 export type AssetPanelTab = 'history' | 'autopilot' | 'reporting' | 'note' | 'documents'
 
 /**
- * Right-hand detail panel for one asset: properties (type, ticker, currency, value, allocation, ownership, folder),
- * then History, Auto-Pilot, Reporting, Note and Documents. Render with key={asset.id} so the tab resets per asset.
+ * Right-hand detail panel for one asset: properties (type, ticker, currency, value, allocation, ownership, folder —
+ * ticker and allocation for ticker assets only), then History, Auto-Pilot, Reporting, Note and Documents. Render with key={asset.id} so the tab resets per asset.
  */
 export function AssetPanel({
   asset,
@@ -86,21 +87,23 @@ export function AssetPanel({
             </span>
           </Property>
           <Property label="Current Value">{value}</Property>
-          <Property label="Allocation">
-            <span className="flex items-center gap-2">
-              {Number(allocation.toFixed(allocation < 1 && allocation > 0 ? 1 : 0))}%
-              <span
-                role="meter"
-                aria-label="Share of the portfolio"
-                aria-valuenow={Math.round(allocation)}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                className="h-0.75 w-14 overflow-hidden rounded-full bg-primary-subtle"
-              >
-                <span className="block h-full min-w-0.75 rounded-full bg-primary-dark" style={{ width: `${allocation}%` }} />
+          {countsUnits(asset) && (
+            <Property label="Allocation">
+              <span className="flex items-center gap-2">
+                {Number(allocation.toFixed(allocation < 1 && allocation > 0 ? 1 : 0))}%
+                <span
+                  role="meter"
+                  aria-label="Share of the portfolio"
+                  aria-valuenow={Math.round(allocation)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-0.75 w-14 overflow-hidden rounded-full bg-primary-subtle"
+                >
+                  <span className="block h-full min-w-0.75 rounded-full bg-primary-dark" style={{ width: `${allocation}%` }} />
+                </span>
               </span>
-            </span>
-          </Property>
+            </Property>
+          )}
           <Property label="Ownership">
             <Tooltip
               side="top"

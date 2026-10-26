@@ -43,11 +43,14 @@ export function AssetAmountInput({
   const crypto = asset.asset_type.startsWith('crypto')
   if (!countsUnits(asset))
     return (
+      // The asset's own currency only: the chip opens on it alone.
       <MoneyInput
         id={id}
         value={value}
         onChange={onChange}
         currency={asset.converted_currency}
+        currencies={[asset.converted_currency]}
+        onCurrencyChange={() => {}}
         invalid={invalid}
         placeholder={placeholder}
       />

@@ -18,10 +18,11 @@ import {
   saveAssetRule,
   toggleAssetRule,
   updateAsset,
+  updateAssetPrice,
   uploadAssetDocument,
 } from './panel-api'
 import { assetKeys } from './queries'
-import type { AddAssetHistoryInput, AssetNoteInput, AssetRuleInput, Investability } from './types'
+import type { AddAssetHistoryInput, AssetNoteInput, AssetRuleInput, Investability, UpdateAssetPriceInput } from './types'
 
 // The detail panel's queries. Every key sits under the portfolio's asset key, and every change refetches all of
 // them: history moves the table, the header total and the panel together.
@@ -51,6 +52,13 @@ export const useAssetChart = (portfolioId: string, assetId: string, period: Char
 export const useAddAssetHistory = (portfolioId: string, assetId: string) =>
   useMutation({
     mutationFn: (input: AddAssetHistoryInput) => addAssetHistory(portfolioId, assetId, input),
+    onSuccess: useRefetchAssets(portfolioId),
+  })
+
+/** A new price for an asset valued in money. */
+export const useUpdateAssetPrice = (portfolioId: string, assetId: string) =>
+  useMutation({
+    mutationFn: (input: UpdateAssetPriceInput) => updateAssetPrice(portfolioId, assetId, input),
     onSuccess: useRefetchAssets(portfolioId),
   })
 

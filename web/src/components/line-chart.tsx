@@ -68,11 +68,13 @@ export function LineChart({
   const last = points.length - 1
   const values = points.map((p) => p.value)
   const min = Math.min(...values)
-  const range = Math.max(...values) - min || 1
+  const range = Math.max(...values) - min
   const up = values[last] >= values[0]
   const cw = Math.max(width - PAD.l - PAD.r, 0)
   const ch = Math.max(height - PAD.t - PAD.b, 0)
-  const xy = points.map((p, i): [number, number] => [PAD.l + (i / last) * cw, PAD.t + ch - ((p.value - min) / range) * ch])
+  // A flat line sits mid-height, with the fill below it.
+  const y = (value: number) => (range ? PAD.t + ch - ((value - min) / range) * ch : PAD.t + ch / 2)
+  const xy = points.map((p, i): [number, number] => [PAD.l + (i / last) * cw, y(p.value)])
   const line = smoothPath(xy)
   const area = `${line} L${xy[last][0].toFixed(1)},${height} L${xy[0][0].toFixed(1)},${height} Z`
   const money = (value: number) => formatMoney(value, currency, { decimals: valueDecimals })
