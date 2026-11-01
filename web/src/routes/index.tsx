@@ -1,9 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { portfoliosQuery } from '@/features/portfolios'
+import { requireUser } from '@/routes/-guards'
 import { AppShellSkeleton } from './portfolio/$portfolioId/-components/app-shell-skeleton'
 
 /** `/` → the first portfolio's dashboard, or onboarding when there are none. */
 export const Route = createFileRoute('/')({
+  beforeLoad: ({ context: { queryClient } }) => requireUser(queryClient, { onboarded: true }),
   pendingComponent: AppShellSkeleton,
   loader: async ({ context: { queryClient } }) => {
     const [first] = await queryClient.query({ ...portfoliosQuery, staleTime: 'static' })

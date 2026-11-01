@@ -4,10 +4,12 @@ import { SubscriptionBanner } from '@/features/billing'
 import { portfoliosQuery } from '@/features/portfolios'
 import { MainPanel } from '@/routes/-components/main-panel'
 import { SidebarMenuButton } from '@/routes/-components/sidebar-frame'
+import { requireUser } from '@/routes/-guards'
 import { SettingsSidebar } from './-components/settings-sidebar'
 
 /** Account settings shell: settings sidebar | page. Pages render a <SettingsPage> and scroll inside the panel. */
 export const Route = createFileRoute('/settings')({
+  beforeLoad: ({ context: { queryClient } }) => requireUser(queryClient, { onboarded: true }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([queryClient.query({ ...portfoliosQuery, staleTime: 'static' }), queryClient.query({ ...meQuery, staleTime: 'static' })]),
   component: SettingsLayout,

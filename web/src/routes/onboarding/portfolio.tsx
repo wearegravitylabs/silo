@@ -15,7 +15,8 @@ function PortfolioPage() {
       onCreated={(portfolio) =>
         next
           ? navigate({ to: STEP_PATH[next], search: (prev) => ({ ...prev, portfolio: portfolio.id }) })
-          : navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: portfolio.id }, search: { welcome: true } })
+          : // TODO: back to portfolio.id once portfolios use the API; mock portfolios vanish on reload, the demo one doesn't.
+            navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: 'demo' }, search: { welcome: true } })
       }
     />
   )

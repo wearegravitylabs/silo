@@ -3,6 +3,8 @@ import { Logo } from '@/components/logo'
 import { ProgressDots } from '@/components/progress-dots'
 import { Button } from '@/components/ui/button'
 import { FLOWS, flowFor, stepPosition, type OnboardingFlow } from '@/features/onboarding'
+import { signOut } from '@/lib/session'
+import { requireUser } from '@/routes/-guards'
 import { stepFromPath } from './-steps'
 
 interface OnboardingSearch {
@@ -16,6 +18,8 @@ export const Route = createFileRoute('/onboarding')({
     ...(typeof search.invite === 'string' && { invite: search.invite }),
     ...(typeof search.portfolio === 'string' && { portfolio: search.portfolio }),
   }),
+  // Signed in is enough: onboarded users come back here to add a portfolio.
+  beforeLoad: ({ context: { queryClient } }) => requireUser(queryClient, { onboarded: false }),
   component: OnboardingLayout,
 })
 
@@ -33,7 +37,9 @@ function OnboardingLayout() {
       <header className="flex h-18 shrink-0 items-center justify-between px-4 md:px-10">
         <Logo />
         <Button variant="secondary" size="sm" asChild className="shadow-elevated">
-          <Link to="/login">Log out</Link>
+          <Link to="/login" onClick={signOut}>
+            Log out
+          </Link>
         </Button>
       </header>
 

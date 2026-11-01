@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { formatCompactMoney, formatMoney } from '@/lib/format'
+import { signOut } from '@/lib/session'
 import { cn } from '@/lib/utils'
 import { useSiloAiPanel } from '@/stores/silo-ai-store'
 import { useSidebarStore } from '@/stores/sidebar-store'
@@ -158,7 +159,7 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
           Portfolio settings
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="gap-2.5">
-          <Link to="/login">
+          <Link to="/login" onClick={signOut}>
             <LogOutIcon className="size-4" />
             Log out
           </Link>
@@ -168,7 +169,10 @@ function PortfolioSwitcher({ portfolioId, collapsed }: { portfolioId: string; co
   )
 }
 
-/** Bottom card: the trial countdown while the user is on a free trial, otherwise what's new. */
+// TODO: placeholder until the API sends trial_days_left.
+const FALLBACK_TRIAL_DAYS = 14
+
+/** Bottom card: the trial countdown while the user is on the free plan, what's new once they've upgraded. */
 function SidebarCard({ portfolioId }: { portfolioId: string }) {
   const { data: me } = useMe()
   const portfolio = usePortfolio(portfolioId)
@@ -176,8 +180,9 @@ function SidebarCard({ portfolioId }: { portfolioId: string }) {
   const upgrade = useUpgradePlan()
   const card = 'mx-2 flex flex-col rounded-xl bg-background p-3 shadow-panel'
 
-  if (me?.trial_days_left != null) {
-    const days = me.trial_days_left
+  // null = paid plan. The API doesn't send trial_days_left yet, so absent counts as the free plan.
+  if (me?.trial_days_left !== null) {
+    const days = me?.trial_days_left ?? FALLBACK_TRIAL_DAYS
     return (
       <div className={cn(card, 'gap-1')}>
         <span className="flex items-center gap-2 font-medium text-foreground">

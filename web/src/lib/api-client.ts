@@ -1,3 +1,5 @@
+import { expireSession, getAccessToken, hasSession, refreshAccessToken } from './session'
+
 const BASE_URL = '/api/v1'
 
 /** Error payload the API puts in `error` on every failure response. */
@@ -63,6 +65,8 @@ async function send(path: string, options: RequestOptions) {
   const isForm = body instanceof FormData
   const headers: Record<string, string> = {}
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
+  const token = getAccessToken()
+  if (token) headers.Authorization = `Bearer ${token}`
 
   return fetch(buildUrl(path, params), {
     method,
@@ -74,7 +78,15 @@ async function send(path: string, options: RequestOptions) {
 
 /** Calls the Silo API and returns the unwrapped `data` payload. Throws ApiError on failure. */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const res = await send(path, options)
+  const isAuthCall = path.startsWith('/auth/')
+  // After a reload only the refresh token is left: get an access token before the first call rather than after its 401.
+  if (!isAuthCall && !getAccessToken() && hasSession()) await refreshAccessToken()
+
+  let res = await send(path, options)
+  if (res.status === 401 && !isAuthCall && hasSession()) {
+    if (await refreshAccessToken()) res = await send(path, options)
+    else expireSession()
+  }
   const json = (await res.json().catch(() => null)) as Envelope<T> | null
   if (!res.ok || json?.error) throw new ApiError(res.status, json?.error)
   return json?.data as T

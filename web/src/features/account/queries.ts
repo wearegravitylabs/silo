@@ -21,10 +21,13 @@ export const meQuery = queryOptions({ queryKey: ['me'], queryFn: getMe, staleTim
 
 export const useMe = () => useQuery(meQuery)
 
-/** A mutation that returns the updated user and writes it to the cache, so every avatar/name updates at once. */
-const useUserMutation = <TInput>(mutationFn: (input: TInput) => Promise<User>) => {
+/** A mutation that returns the changed user fields and merges them into the cache, so every avatar/name updates at once. */
+const useUserMutation = <TInput, TResult extends Partial<User>>(mutationFn: (input: TInput) => Promise<TResult>) => {
   const qc = useQueryClient()
-  return useMutation({ mutationFn, onSuccess: (user) => qc.setQueryData(meQuery.queryKey, user) })
+  return useMutation({
+    mutationFn,
+    onSuccess: (changes) => qc.setQueryData(meQuery.queryKey, (user) => user && { ...user, ...changes }),
+  })
 }
 
 export const useOnboard = () => useUserMutation(onboard)

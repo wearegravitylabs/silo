@@ -3,6 +3,7 @@ import { meQuery, useMe } from '@/features/account'
 import { portfoliosQuery } from '@/features/portfolios'
 import { SiloAiPanel } from '@/features/silo-ai'
 import { MainPanel } from '@/routes/-components/main-panel'
+import { requireUser } from '@/routes/-guards'
 import { AppShellSkeleton } from './-components/app-shell-skeleton'
 import { Sidebar } from './-components/sidebar'
 import { Topbar } from './-components/topbar'
@@ -12,6 +13,7 @@ import { Topbar } from './-components/topbar'
  * sidebar | [topbar / (page + Silo AI panel)]. Pages render only their own content and scroll inside it.
  */
 export const Route = createFileRoute('/portfolio/$portfolioId')({
+  beforeLoad: ({ context: { queryClient } }) => requireUser(queryClient, { onboarded: true }),
   loader: async ({ context: { queryClient }, params }) => {
     const [portfolios] = await Promise.all([
       queryClient.query({ ...portfoliosQuery, staleTime: 'static' }),

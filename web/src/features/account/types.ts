@@ -9,8 +9,8 @@ export interface User {
   is_email_verified: boolean
   is_onboarded: boolean
   portfolio_count: number
-  /** Days left on the free trial; null when not on a trial (paid, or trial not started). */
-  trial_days_left: number | null
+  /** Days left on the free trial; null/absent when not on a trial (paid, or trial not started). Not sent by the API yet. */
+  trial_days_left?: number | null
   created_at: string
   updated_at: string
 }

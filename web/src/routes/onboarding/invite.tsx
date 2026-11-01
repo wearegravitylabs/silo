@@ -22,7 +22,8 @@ function InvitePage() {
   return (
     <InviteStep
       portfolioId={portfolioId}
-      onDone={() => navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId }, search: { welcome: true } })}
+      // TODO: back to portfolioId once portfolios use the API; mock portfolios vanish on reload, the demo one doesn't.
+      onDone={() => navigate({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: 'demo' }, search: { welcome: true } })}
     />
   )
 }
