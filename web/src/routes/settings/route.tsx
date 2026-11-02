@@ -1,4 +1,5 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { ConnectionBanner } from '@/components/connection-banner'
 import { meQuery } from '@/features/account'
 import { SubscriptionBanner } from '@/features/billing'
 import { portfoliosQuery } from '@/features/portfolios'
@@ -27,6 +28,7 @@ function SettingsLayout() {
             <SidebarMenuButton />
             <span className="font-medium text-foreground">Settings</span>
           </header>
+          <ConnectionBanner className="pb-3 lg:pt-6" />
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <Outlet />
           </div>

@@ -7,9 +7,12 @@ export interface AuthTokens {
   refresh_token: string
 }
 
+/** `invalid`: the server refused the refresh token, so the session is over. `network`: no answer, so it may still be good. */
+export type RefreshResult = 'ok' | 'invalid' | 'network'
+
 // The access token lives only in memory; the refresh token survives reloads.
 let accessToken: string | null = null
-let refreshing: Promise<boolean> | null = null
+let refreshing: Promise<RefreshResult> | null = null
 let expiredListener: (() => void) | null = null
 
 function readRefreshToken() {
@@ -61,21 +64,24 @@ export function expireSession() {
 }
 
 /** Swaps the refresh token for a new access token. Concurrent callers share one request. */
-export function refreshAccessToken(): Promise<boolean> {
+export function refreshAccessToken(): Promise<RefreshResult> {
   const refreshToken = readRefreshToken()
-  if (!refreshToken) return Promise.resolve(false)
+  if (!refreshToken) return Promise.resolve('invalid')
   refreshing ??= fetch('/api/v1/auth/refresh-token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
-    .then(async (res) => {
+    .then(async (res): Promise<RefreshResult> => {
+      // The API (or the proxy in front of it) is down: not the token's fault.
+      if (res.status >= 500) return 'network'
       const json = (await res.json().catch(() => null)) as { data?: { access_token?: string } } | null
       const token = res.ok ? json?.data?.access_token : undefined
-      if (token) accessToken = token
-      return !!token
+      if (!token) return 'invalid'
+      accessToken = token
+      return 'ok'
     })
-    .catch(() => false)
+    .catch((): RefreshResult => 'network')
     .finally(() => {
       refreshing = null
     })

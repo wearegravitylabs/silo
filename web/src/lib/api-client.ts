@@ -34,9 +34,24 @@ export class ApiError extends Error {
   }
 }
 
-/** The server's client-safe message for an error, or `fallback` (network errors, non-API failures). */
+/** The server's client-safe message for an error (or the connection message), or `fallback` for non-API failures. */
 export function getErrorMessage(error: unknown, fallback: string): string {
   return (error instanceof ApiError && error.serverMessage) || fallback
+}
+
+// `code`s of the ApiError thrown when no answer came back: the device is offline, or the API is down or unreachable.
+const OFFLINE = 'OFFLINE'
+const UNREACHABLE = 'UNREACHABLE'
+
+function connectionError() {
+  return navigator.onLine
+    ? new ApiError(0, { code: UNREACHABLE, message: 'Can’t reach Silo right now. Try again in a moment.' })
+    : new ApiError(0, { code: OFFLINE, message: 'You’re offline. Check your connection and try again.' })
+}
+
+/** True when a request failed for want of a connection (offline, or the API is down), so retrying later can fix it. */
+export function isConnectionError(error: unknown) {
+  return error instanceof ApiError && (error.code === OFFLINE || error.code === UNREACHABLE)
 }
 
 type Params = Record<string, string | number | boolean | null | undefined>
@@ -68,12 +83,17 @@ async function send(path: string, options: RequestOptions) {
   const token = getAccessToken()
   if (token) headers.Authorization = `Bearer ${token}`
 
-  return fetch(buildUrl(path, params), {
-    method,
-    headers,
-    signal,
-    body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
-  })
+  try {
+    return await fetch(buildUrl(path, params), {
+      method,
+      headers,
+      signal,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+    })
+  } catch (err) {
+    if (signal?.aborted) throw err
+    throw connectionError()
+  }
 }
 
 /** Calls the Silo API and returns the unwrapped `data` payload. Throws ApiError on failure. */
@@ -84,10 +104,15 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   let res = await send(path, options)
   if (res.status === 401 && !isAuthCall && hasSession()) {
-    if (await refreshAccessToken()) res = await send(path, options)
+    const refreshed = await refreshAccessToken()
+    if (refreshed === 'ok') res = await send(path, options)
+    // A refresh that got no answer says nothing about the session: keep it and report the connection instead.
+    else if (refreshed === 'network') throw connectionError()
     else expireSession()
   }
   const json = (await res.json().catch(() => null)) as Envelope<T> | null
+  // A 5xx without the API's envelope comes from the proxy in front of it: the API itself is down.
+  if (!json && res.status >= 500) throw connectionError()
   if (!res.ok || json?.error) throw new ApiError(res.status, json?.error)
   return json?.data as T
 }

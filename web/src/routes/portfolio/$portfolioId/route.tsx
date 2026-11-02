@@ -1,10 +1,11 @@
 import { createFileRoute, notFound, Outlet } from '@tanstack/react-router'
+import { ConnectionBanner } from '@/components/connection-banner'
 import { meQuery, useMe } from '@/features/account'
 import { portfoliosQuery } from '@/features/portfolios'
 import { SiloAiPanel } from '@/features/silo-ai'
 import { MainPanel } from '@/routes/-components/main-panel'
 import { requireUser } from '@/routes/-guards'
-import { AppShellSkeleton } from './-components/app-shell-skeleton'
+import { AppShellError, AppShellSkeleton } from './-components/app-shell-skeleton'
 import { Sidebar } from './-components/sidebar'
 import { Topbar } from './-components/topbar'
 
@@ -22,6 +23,7 @@ export const Route = createFileRoute('/portfolio/$portfolioId')({
     if (!portfolios.some((p) => p.id === params.portfolioId)) throw notFound()
   },
   pendingComponent: AppShellSkeleton,
+  errorComponent: AppShellError,
   component: PortfolioLayout,
 })
 
@@ -33,6 +35,7 @@ function PortfolioLayout() {
       <Sidebar portfolioId={portfolioId} />
       <MainPanel>
         <Topbar portfolioId={portfolioId} />
+        <ConnectionBanner className="pb-3" />
         <div className="flex min-h-0 flex-1">
           <div className="relative flex min-w-0 flex-1 flex-col">
             <Outlet />

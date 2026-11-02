@@ -12,16 +12,19 @@ const VARIANTS = {
 /**
  * Notice card: icon, title, optional supporting text ("Payoff Calculation"). `info` is grey, `error` pink with red
  * text, `notice` light blue with blue text ("Current Balance: $ 10,500.00"). A title-only callout centres its icon.
+ * `action` (e.g. a Retry button) sits at the right end.
  */
 export function Callout({
   variant = 'info',
   title,
   children,
+  action,
   className,
 }: {
   variant?: keyof typeof VARIANTS
   title: ReactNode
   children?: ReactNode
+  action?: ReactNode
   className?: string
 }) {
   const v = VARIANTS[variant]
@@ -39,6 +42,7 @@ export function Callout({
         <p className={cn('font-medium', v.title)}>{title}</p>
         {children && <div className={cn('text-xs leading-5', v.body)}>{children}</div>}
       </div>
+      {action && <div className="ml-auto shrink-0 self-center">{action}</div>}
     </div>
   )
 }
