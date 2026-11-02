@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { portfoliosQuery } from '@/features/portfolios'
+import { isDemoPortfolio, portfoliosQuery } from '@/features/portfolios'
 import { requireUser } from '@/routes/-guards'
 import { AppShellError, AppShellSkeleton } from './portfolio/$portfolioId/-components/app-shell-skeleton'
 
@@ -9,7 +9,8 @@ export const Route = createFileRoute('/')({
   pendingComponent: AppShellSkeleton,
   errorComponent: AppShellError,
   loader: async ({ context: { queryClient } }) => {
-    const [first] = await queryClient.query({ ...portfoliosQuery, staleTime: 'static' })
+    // Skip the dev-only demo portfolios: someone with no portfolio of their own still goes to create one.
+    const first = (await queryClient.query({ ...portfoliosQuery, staleTime: 'static' })).find((p) => !isDemoPortfolio(p.id))
     if (!first) throw redirect({ to: '/onboarding/portfolio' })
     throw redirect({ to: '/portfolio/$portfolioId/dashboard', params: { portfolioId: first.id } })
   },
