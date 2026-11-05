@@ -10,12 +10,23 @@ import { AssetIconDisc } from '../asset-icon-disc'
 export const countsUnits = (asset: AssetItem) => asset.total_quantity != null && !!asset.ticker
 
 /** Add | Remove segmented control (Add History, Auto-Pilot rules). */
-export function AddRemoveToggle({ value, onChange }: { value: 'add' | 'remove'; onChange: (value: 'add' | 'remove') => void }) {
+export function AddRemoveToggle({
+  value,
+  onChange,
+  removeDisabled,
+}: {
+  value: 'add' | 'remove'
+  onChange: (value: 'add' | 'remove') => void
+  /** Why Remove can't be picked, shown on hover; it's enabled when unset */
+  removeDisabled?: string
+}) {
   return (
     <SegmentedTabs value={value} onValueChange={(v) => onChange(v as 'add' | 'remove')}>
       <SegmentedTabsList aria-label="Add or remove">
         <SegmentedTabsTrigger value="add">Add</SegmentedTabsTrigger>
-        <SegmentedTabsTrigger value="remove">Remove</SegmentedTabsTrigger>
+        <SegmentedTabsTrigger value="remove" disabled={!!removeDisabled} title={removeDisabled} className="disabled:opacity-50">
+          Remove
+        </SegmentedTabsTrigger>
       </SegmentedTabsList>
     </SegmentedTabs>
   )

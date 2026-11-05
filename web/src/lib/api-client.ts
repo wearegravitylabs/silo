@@ -96,6 +96,39 @@ async function send(path: string, options: RequestOptions) {
   }
 }
 
+/**
+ * Uploads `file` (multipart field "file") and returns the unwrapped `data`, reporting progress 0–1 as it goes, which
+ * fetch can't. Abort with `signal` (rejects with an AbortError). Throws ApiError on failure, like `api`.
+ */
+export function uploadWithProgress<T>(path: string, file: File, onProgress: (progress: number) => void, signal?: AbortSignal) {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', BASE_URL + path)
+    const token = getAccessToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total)
+    }
+    xhr.onload = () => {
+      let json: Envelope<T> | null = null
+      try {
+        json = JSON.parse(xhr.responseText) as Envelope<T>
+      } catch {
+        // No envelope: handled below.
+      }
+      if (!json && xhr.status >= 500) reject(connectionError())
+      else if (xhr.status < 200 || xhr.status >= 300 || json?.error) reject(new ApiError(xhr.status, json?.error))
+      else resolve(json?.data as T)
+    }
+    xhr.onerror = () => reject(connectionError())
+    xhr.onabort = () => reject(new DOMException('Upload cancelled', 'AbortError'))
+    signal?.addEventListener('abort', () => xhr.abort())
+    const form = new FormData()
+    form.append('file', file)
+    xhr.send(form)
+  })
+}
+
 /** Calls the Silo API and returns the unwrapped `data` payload. Throws ApiError on failure. */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const isAuthCall = path.startsWith('/auth/')

@@ -1,7 +1,8 @@
 import type { Frequency } from '@/lib/schedule'
 
-// TODO: the real asset list (GET /portfolios/:id/assets) lacks change_pct_1m, needs_attention, detail and status;
-// those are UI-only until the backend adds them. Other fields keep the API's names.
+// TODO: the API's asset list (GET /portfolios/:id/assets) lacks change_pct_1m and needs_attention: they're null/false
+// until the backend adds them. detail, status, color and pictures are kept in the asset's metadata. Other fields keep
+// the API's names.
 
 export type Investability = 'investable' | 'non_investable'
 
@@ -66,6 +67,8 @@ export interface TickerResult {
   /** Change over the last day, in `currency` and % */
   change: number
   change_pct: number
+  /** Stock market it's listed on (the API prices stocks per market) */
+  country?: 'US' | 'NG'
 }
 
 /** One purchase of a stock: how many, and when. */
@@ -87,6 +90,8 @@ export interface CreateAssetInput {
   /** Manual: the price per unit you entered. Listed: today's price (each purchase is priced on its date). */
   price: number
   lots: AssetLotInput[]
+  /** Listed stocks: the market (see TickerResult) */
+  country?: 'US' | 'NG'
 }
 
 /** An asset valued by you rather than by the market: real estate, a domain, a physical valuable. */

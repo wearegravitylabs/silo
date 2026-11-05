@@ -1,10 +1,10 @@
 import { api } from '@/lib/api-client'
+import { isDemoPortfolio } from '@/lib/demo'
 import type { CreatePortfolioInput, Currency, Invitation, Portfolio, UpdatePortfolioInput } from './types'
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// Sample portfolios kept for reference: the rest of the app's mock data (assets, debts, …) is keyed to `demo`. Listed in
-// dev builds only, after the user's real portfolios.
+// The sample portfolios (see lib/demo), listed in dev builds only, after the user's real ones.
 const DEMO_PORTFOLIOS: Portfolio[] = [
   {
     id: 'demo',
@@ -30,9 +30,6 @@ const DEMO_PORTFOLIOS: Portfolio[] = [
     updated_at: '2026-02-01T00:00:00Z',
   },
 ]
-
-/** True for the sample portfolios (dev only), which live in memory rather than in the API. */
-export const isDemoPortfolio = (id: string) => DEMO_PORTFOLIOS.some((p) => p.id === id)
 
 export const listPortfolios = async () => {
   const page = await api<{ items: Portfolio[] | null }>('/portfolios', { params: { size: 100 } })

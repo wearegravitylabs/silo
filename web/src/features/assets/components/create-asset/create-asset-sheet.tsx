@@ -120,6 +120,7 @@ function TickerFlow({
         logo_url: ticker.logo_url,
         currency: ticker.currency,
         price: ticker.price,
+        country: ticker.country,
         lots: lots.toLots(),
       },
       done,
