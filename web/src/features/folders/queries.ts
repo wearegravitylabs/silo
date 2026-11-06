@@ -33,7 +33,7 @@ export const useFolderMutations = (portfolioId: string, type: FolderType) => {
       onSuccess: refetch,
     }),
     remove: useMutation({
-      mutationFn: ({ id, moveTo }: { id: string; moveTo: string }) => deleteFolder(portfolioId, id, moveTo),
+      mutationFn: ({ id, moveTo }: { id: string; moveTo: string | null }) => deleteFolder(portfolioId, id, moveTo, type),
       onSuccess: refetch,
     }),
     reorder: useMutation({

@@ -109,8 +109,7 @@ const investedIn = (entries: AssetHistoryEntry[]) => {
 }
 
 /** Newest first, as the History tab lists them. */
-const mockHistory = (portfolioId: string, assetId: string) =>
-  later([...historyOf(find(portfolioId, assetId))].sort((a, b) => byDate(b, a)))
+const mockHistory = (portfolioId: string, assetId: string) => later([...historyOf(find(portfolioId, assetId))].sort((a, b) => byDate(b, a)))
 
 const mockStats = (portfolioId: string, assetId: string): Promise<AssetStats> => {
   const asset = find(portfolioId, assetId)
@@ -369,7 +368,12 @@ async function apiHistory(portfolioId: string, assetId: string) {
       asset: a,
       entries: lots.map((l) => {
         const price = l.acquisition_price ?? a.current_price
-        return entry(l.id, l.acquisition_date, l.created_at, { kind: 'add', quantity: l.quantity, amount: owned(l.quantity * price), price: owned(price) })
+        return entry(l.id, l.acquisition_date, l.created_at, {
+          kind: 'add',
+          quantity: l.quantity,
+          amount: owned(l.quantity * price),
+          price: owned(price),
+        })
       }),
     }
   }
@@ -377,8 +381,12 @@ async function apiHistory(portfolioId: string, assetId: string) {
   const points = (await api<ApiValuePoint[] | null>(`${base(portfolioId, assetId)}/value-history`, { params: { from } })) ?? []
   const first = lots[0]
   const prices = [
-    ...(first ? [entry(first.id, first.acquisition_date, first.created_at, { amount: owned(first.quantity * (first.acquisition_price ?? 0)) })] : []),
-    ...[...points].sort((x, y) => x.recorded_at.localeCompare(y.recorded_at)).map((p) => entry(p.id, p.recorded_at, p.recorded_at, { amount: owned(p.value) })),
+    ...(first
+      ? [entry(first.id, first.acquisition_date, first.created_at, { amount: owned(first.quantity * (first.acquisition_price ?? 0)) })]
+      : []),
+    ...[...points]
+      .sort((x, y) => x.recorded_at.localeCompare(y.recorded_at))
+      .map((p) => entry(p.id, p.recorded_at, p.recorded_at, { amount: owned(p.value) })),
   ]
   return { asset: a, entries: prices.map((e, i) => (i ? { ...e, previous: prices[i - 1].amount } : e)) }
 }

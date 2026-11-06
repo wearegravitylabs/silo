@@ -76,7 +76,8 @@ export const useAssetRuleMutations = (portfolioId: string) => {
   const onSuccess = useRefetchAssets(portfolioId)
   return {
     save: useMutation({
-      mutationFn: ({ assetId, ...input }: AssetRuleInput & { assetId: string; ruleId?: string }) => saveAssetRule(portfolioId, assetId, input),
+      mutationFn: ({ assetId, ...input }: AssetRuleInput & { assetId: string; ruleId?: string }) =>
+        saveAssetRule(portfolioId, assetId, input),
       onSuccess,
     }),
     toggle: useMutation({ mutationFn: (ruleId: string) => toggleAssetRule(portfolioId, ruleId), onSuccess }),
@@ -90,7 +91,10 @@ export const useAssetNotes = (portfolioId: string, assetId: string) =>
 export const useAssetNoteMutations = (portfolioId: string, assetId: string) => {
   const onSuccess = useRefetchAssets(portfolioId)
   return {
-    save: useMutation({ mutationFn: (input: AssetNoteInput & { noteId?: string }) => saveAssetNote(portfolioId, assetId, input), onSuccess }),
+    save: useMutation({
+      mutationFn: (input: AssetNoteInput & { noteId?: string }) => saveAssetNote(portfolioId, assetId, input),
+      onSuccess,
+    }),
     remove: useMutation({ mutationFn: (noteId: string) => deleteAssetNote(portfolioId, assetId, noteId), onSuccess }),
   }
 }

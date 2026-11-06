@@ -1,6 +1,6 @@
 import { api, ApiError } from '@/lib/api-client'
 import { isDemoPortfolio } from '@/lib/demo'
-import { defaultFolderId, fromApiFolderId, findUnfiledFolderId, toApiFolderId } from '@/lib/folders'
+import { defaultFolderId, fromApiFolderId } from '@/lib/folders'
 import { mockDelay } from '@/lib/mock'
 import { CURRENCY, MOCK_ADDRESSES, MOCK_ASSETS, MOCK_CRYPTO, POPULAR, USD_RATES } from './mock-data'
 import type {
@@ -89,6 +89,12 @@ async function uploaded(url: string | null | undefined) {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+/** A real asset is always created in a folder (the page asks for one first). */
+const folderFor = (folderId: string | null) => {
+  if (!folderId || folderId === defaultFolderId('asset')) throw new Error('Create a folder for this asset first')
+  return folderId
+}
+
 // ─── Assets page ──────────────────────────────────────────────────────────────
 
 /** Total owned, and its change over the last 30 days. */
@@ -100,7 +106,11 @@ export const getAssetsOverview = async (portfolioId: string): Promise<AssetsOver
     )
     // Mocked values are in USD (CURRENCY).
     const extra = mocked.reduce((sum, a) => sum + a.owned_value_converted, 0) * (USD_RATES[o.currency] ?? 1)
-    return { currency: o.currency, total: o.total_assets.value + extra, change: { amount: o.growth_30d.amount, pct: o.growth_30d.percentage } }
+    return {
+      currency: o.currency,
+      total: o.total_assets.value + extra,
+      change: { amount: o.growth_30d.amount, pct: o.growth_30d.percentage },
+    }
   }
   // Mock: the 1M change worked back from each asset's own change.
   const total = mocked.reduce((sum, a) => sum + a.owned_value_converted, 0)
@@ -112,24 +122,22 @@ export const getAssetsOverview = async (portfolioId: string): Promise<AssetsOver
   return later({ currency: CURRENCY, total, change: { amount, pct: before > 0 ? (amount / before) * 100 : 0 } })
 }
 
-/** The default folder ("All Assets") lists everything; any other folder only what's filed in it. */
+/** A folder's assets; no folder (or the demo's "All Assets") lists every asset in the portfolio. */
 export const listAssets = async (portfolioId: string, folderId?: string): Promise<AssetItem[]> => {
   const all = !folderId || folderId === defaultFolderId('asset')
   const mocked = assetsOf(portfolioId)
     .filter((a) => all || a.folder_id === folderId)
     .map((a) => ({ ...a }))
   if (isDemoPortfolio(portfolioId)) return later(mocked)
-  // Known before mapping, so assets in the hidden General folder read as unfiled.
-  await findUnfiledFolderId(portfolioId, 'asset')
   const list = await api<ApiAsset[] | null>(`/portfolios/${portfolioId}/assets`, { params: { folder_id: all ? undefined : folderId } })
   return [...(list ?? []).map(toAssetItem), ...mocked]
 }
 
-/** File an asset in a folder; the default folder unfiles it. */
+/** File an asset in another folder (the demo's default folder unfiles it). */
 export const moveAsset = async (portfolioId: string, assetId: string, folderId: string) => {
   if (!isMockedAsset(portfolioId, assetId)) {
-    const folder_id = await toApiFolderId(portfolioId, 'asset', folderId)
-    return toAssetItem(await api<ApiAsset>(`/portfolios/${portfolioId}/assets/${assetId}`, { method: 'PATCH', body: { folder_id } }))
+    const body = { folder_id: folderFor(folderId) }
+    return toAssetItem(await api<ApiAsset>(`/portfolios/${portfolioId}/assets/${assetId}`, { method: 'PATCH', body }))
   }
   const target = assetsOf(portfolioId).find((a) => a.id === assetId)
   if (!target) return Promise.reject(new Error('This asset no longer exists'))
@@ -138,10 +146,10 @@ export const moveAsset = async (portfolioId: string, assetId: string, folderId: 
 }
 
 /**
- * Files a deleted folder's assets in `to` (the default folder unfiles them). Mock only: the API already left them in
- * no folder, which reads as unfiled.
+ * Files a deleted folder's mocked assets in `to` (the default folder unfiles them). The API's are moved before the
+ * folder is deleted (see the folders feature).
  */
-export const refileFolder = (portfolioId: string, from: string, to: string) => {
+export const refileFolder = (portfolioId: string, from: string, to: string | null) => {
   const folderId = to === defaultFolderId('asset') ? null : to
   for (const asset of assetsOf(portfolioId)) if (asset.folder_id === from) asset.folder_id = folderId
   return later(null)
@@ -177,18 +185,16 @@ async function searchStocks(q: string): Promise<TickerResult[]> {
   const results = await Promise.allSettled(
     MARKETS.map((country) =>
       api<{ items: ApiStock[] | null }>('/stocks', { params: { country, search: q || undefined, limit: 10 } }).then((page) =>
-        (page?.items ?? []).map(
-          (s): TickerResult => ({
-            ticker: s.symbol,
-            name: s.name,
-            logo_url: s.logo_url || null,
-            price: s.price,
-            currency: s.currency,
-            change: s.price - s.prev_close,
-            change_pct: s.change_pct,
-            country,
-          }),
-        ),
+        (page?.items ?? []).map((s): TickerResult => ({
+          ticker: s.symbol,
+          name: s.name,
+          logo_url: s.logo_url || null,
+          price: s.price,
+          currency: s.currency,
+          change: s.price - s.prev_close,
+          change_pct: s.change_pct,
+          country,
+        })),
       ),
     ),
   )
@@ -244,7 +250,7 @@ export const createAsset = async (portfolioId: string, input: CreateAssetInput):
   if (!isDemoPortfolio(portfolioId) && input.asset_type !== 'crypto_ticker') {
     const manual = input.asset_type.endsWith('_manual')
     const body = {
-      folder_id: await toApiFolderId(portfolioId, 'asset', input.folder_id),
+      folder_id: folderFor(input.folder_id),
       asset_type: input.asset_type,
       ticker: input.ticker,
       name: input.name,
@@ -314,7 +320,7 @@ export const createValuedAsset = async (portfolioId: string, input: CreateValued
     )
     const bought = input.acquisition
     return createInApi(portfolioId, {
-      folder_id: await toApiFolderId(portfolioId, 'asset', input.folder_id),
+      folder_id: folderFor(input.folder_id),
       asset_type: toApiType(input.asset_type),
       name: input.name,
       image_url: await uploaded(input.logo_url),

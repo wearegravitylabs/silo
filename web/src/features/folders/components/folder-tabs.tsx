@@ -20,8 +20,8 @@ const cell = 'flex h-full shrink-0 items-center border-r border-border'
 /**
  * Folder card: a grey tab bar (select, drag to reorder, ⋯ to edit or delete, + to create a folder or organize them)
  * over `children` — the selected folder's overview. Each tab shows its folder's colour. Create and Edit open the folder
- * dialog; Delete asks which folder takes its items. The default folder ("All Assets") comes first, stays put and has
- * no menu. The bar scrolls sideways when the tabs don't fit.
+ * dialog; Delete asks which folder takes its items. A default folder ("All Debts") comes first, stays put and has no
+ * menu. With no folders yet, the bar is a single Create Folder button. The bar scrolls sideways when the tabs don't fit.
  */
 export function FolderTabs({
   folders,
@@ -42,13 +42,10 @@ export function FolderTabs({
   folderType: FolderType
   /** Shows "Organize … into Folders" in the + menu (e.g. asks Silo AI) */
   onOrganize?: () => void
-  /** Items per folder, for Delete Folder's list (the default folder counts everything) */
+  /** Items per folder, for Delete Folder's list (a default folder counts everything) */
   counts?: Record<string, number>
-  /**
-   * After a folder is deleted, with the folder its items went to. TODO: the backend refiles them itself; this lets the
-   * page refile them in its mock.
-   */
-  onDeleted?: (id: string, moveTo: string) => void
+  /** After a folder is deleted, with the folder its items went to (null: it had none), so the page can refile its mocks. */
+  onDeleted?: (id: string, moveTo: string | null) => void
   className?: string
   /** Shown under the tab bar (e.g. the folder's stats) */
   children?: ReactNode
@@ -113,7 +110,7 @@ export function FolderTabs({
       })
   }
 
-  const confirmDelete = (moveTo: string) => {
+  const confirmDelete = (moveTo: string | null) => {
     if (!deleting) return
     const { id } = deleting.folder
     remove.mutate(
@@ -123,7 +120,7 @@ export function FolderTabs({
           onDeleted?.(id, moveTo)
           setDeleting((d) => d && { ...d, open: false })
           toastDone('Folder has been deleted successfully!')
-          if (id === selectedId) onSelect(moveTo)
+          if (id === selectedId && moveTo) onSelect(moveTo)
         },
         onError: () => toast.error('Couldn’t delete this folder. Try again.'),
       },
@@ -199,29 +196,43 @@ export function FolderTabs({
           })}
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            aria-label="Add folder"
+        {folders.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => setForm({ folder: null, open: true })}
             className={cn(
               cell,
-              'w-11.5 justify-center text-muted-foreground outline-none hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset aria-expanded:bg-accent/50',
+              'gap-2 px-4 font-medium whitespace-nowrap text-foreground outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset',
             )}
           >
-            <CirclePlusIcon className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-65">
-            <DropdownMenuItem onSelect={() => setForm({ folder: null, open: true })}>
+            <CirclePlusIcon className="size-4 text-muted-foreground" />
+            Create Folder
+          </button>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Add folder"
+              className={cn(
+                cell,
+                'w-11.5 justify-center text-muted-foreground outline-none hover:bg-accent/50 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset aria-expanded:bg-accent/50',
+              )}
+            >
               <CirclePlusIcon className="size-4" />
-              Create Folder
-            </DropdownMenuItem>
-            {onOrganize && (
-              <DropdownMenuItem onSelect={onOrganize}>
-                <AiSparkleIcon />
-                Organize {noun.toLowerCase()}s into Folders
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-65">
+              <DropdownMenuItem onSelect={() => setForm({ folder: null, open: true })}>
+                <CirclePlusIcon className="size-4" />
+                Create Folder
               </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              {onOrganize && (
+                <DropdownMenuItem onSelect={onOrganize}>
+                  <AiSparkleIcon />
+                  Organize {noun.toLowerCase()}s into Folders
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {children}
@@ -237,6 +248,7 @@ export function FolderTabs({
         folder={deleting?.folder ?? null}
         folders={folders.filter((f) => f.id !== deleting?.folder.id).map((f) => ({ ...f, color: colorOf(f) }))}
         defaultId={defaultId}
+        count={deleting ? counts?.[deleting.folder.id] : undefined}
         counts={counts}
         noun={noun}
         open={!!deleting?.open}

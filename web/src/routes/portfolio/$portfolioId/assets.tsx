@@ -30,7 +30,7 @@ import { AssetsSkeleton } from './-components/assets-skeleton'
 interface AssetsSearch {
   /** Selected folder tab; defaults to the first folder */
   folder?: string
-  /** Open the Create Asset sheet (e.g. from the dashboard's quick actions) */
+  /** Open the Create Asset sheet (e.g. from the dashboard's quick actions); with no folder yet, Create Folder first */
   create?: boolean
 }
 
@@ -63,7 +63,10 @@ function AssetsShell({ children }: { children: React.ReactNode }) {
   return <div className="relative flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
 }
 
-/** Folder tabs (folders feature) drive which assets (assets feature) are shown and summarised. */
+/**
+ * Folder tabs (folders feature) drive which assets (assets feature) are shown and summarised. Every asset is in a
+ * folder, so with none yet, Create Asset asks for one first and then adds the asset to it.
+ */
 function AssetsPage() {
   const { portfolioId } = Route.useParams()
   const search = Route.useSearch()
@@ -105,6 +108,16 @@ function AssetsPage() {
         onError: () => toast.error('Couldn’t move this asset. Try again.'),
       },
     )
+
+  // Create Asset with no folder yet: the new folder is selected, which opens the sheet on it.
+  const addFirstFolder = (values: { name: string; color: string }) =>
+    createFolder.mutate(values, {
+      onSuccess: (folder) => {
+        setFolder(folder.id)
+        toast.success('Folder has been created successfully!')
+      },
+      onError: () => toast.error('Couldn’t create the folder. Try again.'),
+    })
 
   const addFolder = (values: { name: string; color: string }) =>
     createFolder.mutate(values, {
@@ -148,6 +161,7 @@ function AssetsPage() {
         assets={assets}
         loading={isPending}
         dimmed={isPlaceholderData}
+        noneMessage={folderId ? undefined : { title: 'No Folders Yet', body: 'Create a folder, then add your assets to it' }}
         className="min-h-120"
         onView={(asset) => setPanel((p) => ({ id: asset.id, open: true, n: (p?.n ?? 0) + 1 }))}
         onMove={(asset) => setMoving({ asset, open: true })}
@@ -189,11 +203,18 @@ function AssetsPage() {
       />
       {/* Add Folder from the Move dialog opens over it */}
       <FolderFormDialog open={addingFolder} onOpenChange={setAddingFolder} onSave={addFolder} saving={createFolder.isPending} />
+      <FolderFormDialog
+        hint="Assets are kept in folders. Create one for this asset first."
+        open={!!search.create && !folderId}
+        onOpenChange={setCreating}
+        onSave={addFirstFolder}
+        saving={createFolder.isPending}
+      />
       <CreateAssetSheet
         portfolioId={portfolioId}
         folderId={folderId}
         defaultCurrency={portfolio.base_currency}
-        open={!!search.create}
+        open={!!search.create && !!folderId}
         onOpenChange={setCreating}
         onCreated={() => toast.success('Asset has been created successfully!')}
       />

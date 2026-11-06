@@ -95,7 +95,8 @@ function DebtsPage() {
         folderType="debt"
         onOrganize={() => ask('Organize my debts into folders')}
         counts={counts}
-        onDeleted={(from, to) => refile.mutate({ from, to })}
+        // "All Debts" is always there to move them to
+        onDeleted={(from, to) => to && refile.mutate({ from, to })}
       />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
       <DebtTable
