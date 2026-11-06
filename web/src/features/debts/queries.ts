@@ -3,7 +3,6 @@ import { defaultFolderId } from '@/lib/folders'
 import type { ChartPeriod } from '@/lib/periods'
 import {
   addDebtRepayment,
-  addDebtRule,
   adjustDebtBalance,
   createDebt,
   deleteDebt,
@@ -19,7 +18,8 @@ import {
   listDebts,
   refileDebtFolder,
   saveDebtNote,
-  updateDebtRule,
+  saveDebtRule,
+  toggleDebtRule,
   uploadDebtDocument,
 } from './api'
 import type { CreateDebtInput, DebtNoteInput, DebtRule, DebtRuleInput } from './types'
@@ -102,32 +102,32 @@ const useInvalidateDebts = (portfolioId: string) => {
 }
 
 export const useDebtHistory = (portfolioId: string, debtId: string) =>
-  useQuery({ queryKey: debtKeys.history(portfolioId, debtId), queryFn: () => listDebtHistory(debtId), staleTime: 60_000 })
+  useQuery({ queryKey: debtKeys.history(portfolioId, debtId), queryFn: () => listDebtHistory(portfolioId, debtId), staleTime: 60_000 })
 
 /** Balance over a period; keeps the previous period's line while the next loads. */
 export const useDebtChart = (portfolioId: string, debtId: string, period: ChartPeriod) =>
   useQuery({
     queryKey: debtKeys.chart(portfolioId, debtId, period),
-    queryFn: () => getDebtChart(debtId, period),
+    queryFn: () => getDebtChart(portfolioId, debtId, period),
     staleTime: 60_000,
     placeholderData: keepPreviousData,
   })
 
 export const useDebtRules = (portfolioId: string, debtId: string) =>
-  useQuery({ queryKey: debtKeys.rules(portfolioId, debtId), queryFn: () => listDebtRules(debtId), staleTime: 60_000 })
+  useQuery({ queryKey: debtKeys.rules(portfolioId, debtId), queryFn: () => listDebtRules(portfolioId, debtId), staleTime: 60_000 })
 
 export const useDebtNotes = (portfolioId: string, debtId: string) =>
-  useQuery({ queryKey: debtKeys.notes(portfolioId, debtId), queryFn: () => listDebtNotes(debtId), staleTime: 60_000 })
+  useQuery({ queryKey: debtKeys.notes(portfolioId, debtId), queryFn: () => listDebtNotes(portfolioId, debtId), staleTime: 60_000 })
 
 export const useDebtDocuments = (portfolioId: string, debtId: string) =>
-  useQuery({ queryKey: debtKeys.documents(portfolioId, debtId), queryFn: () => listDebtDocuments(debtId), staleTime: 60_000 })
+  useQuery({ queryKey: debtKeys.documents(portfolioId, debtId), queryFn: () => listDebtDocuments(portfolioId, debtId), staleTime: 60_000 })
 
 /** Repayment (lowers the balance) or adjustment (sets it). */
 export const useDebtBalanceMutation = (portfolioId: string, debtId: string, mode: 'repayment' | 'adjust') => {
   const onSuccess = useInvalidateDebts(portfolioId)
   return useMutation({
     mutationFn: (input: { amount: number; date: string }) =>
-      mode === 'repayment' ? addDebtRepayment(debtId, input) : adjustDebtBalance(debtId, input),
+      mode === 'repayment' ? addDebtRepayment(portfolioId, debtId, input) : adjustDebtBalance(portfolioId, debtId, input),
     onSuccess,
   })
 }
@@ -136,27 +136,26 @@ export const useDebtRuleMutations = (portfolioId: string, debtId: string) => {
   const onSuccess = useInvalidateDebts(portfolioId)
   return {
     save: useMutation({
-      mutationFn: ({ ruleId, ...input }: DebtRuleInput & { ruleId?: string }) =>
-        ruleId ? updateDebtRule(ruleId, input) : addDebtRule(debtId, input),
+      mutationFn: (input: DebtRuleInput & { ruleId?: string }) => saveDebtRule(portfolioId, debtId, input),
       onSuccess,
     }),
-    toggle: useMutation({ mutationFn: (rule: DebtRule) => updateDebtRule(rule.id, { is_active: !rule.is_active }), onSuccess }),
-    remove: useMutation({ mutationFn: deleteDebtRule, onSuccess }),
+    toggle: useMutation({ mutationFn: (rule: DebtRule) => toggleDebtRule(portfolioId, rule.id), onSuccess }),
+    remove: useMutation({ mutationFn: (ruleId: string) => deleteDebtRule(portfolioId, ruleId), onSuccess }),
   }
 }
 
 export const useDebtNoteMutations = (portfolioId: string, debtId: string) => {
   const onSuccess = useInvalidateDebts(portfolioId)
   return {
-    save: useMutation({ mutationFn: (input: DebtNoteInput & { noteId?: string }) => saveDebtNote(debtId, input), onSuccess }),
-    remove: useMutation({ mutationFn: deleteDebtNote, onSuccess }),
+    save: useMutation({ mutationFn: (input: DebtNoteInput & { noteId?: string }) => saveDebtNote(portfolioId, debtId, input), onSuccess }),
+    remove: useMutation({ mutationFn: (noteId: string) => deleteDebtNote(portfolioId, debtId, noteId), onSuccess }),
   }
 }
 
 export const useDebtDocumentMutations = (portfolioId: string, debtId: string) => {
   const onSuccess = useInvalidateDebts(portfolioId)
   return {
-    upload: useMutation({ mutationFn: (file: File) => uploadDebtDocument(debtId, file), onSuccess }),
-    remove: useMutation({ mutationFn: deleteDebtDocument, onSuccess }),
+    upload: useMutation({ mutationFn: (file: File) => uploadDebtDocument(portfolioId, debtId, file), onSuccess }),
+    remove: useMutation({ mutationFn: (docId: string) => deleteDebtDocument(portfolioId, debtId, docId), onSuccess }),
   }
 }

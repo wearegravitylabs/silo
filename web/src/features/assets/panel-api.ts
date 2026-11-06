@@ -1,4 +1,16 @@
 import { api, ApiError, uploadWithProgress } from '@/lib/api-client'
+import {
+  createRule,
+  deleteRule,
+  listRules,
+  noteBody,
+  noteTags,
+  ruleDays,
+  toggleRule,
+  type ApiDocument,
+  type ApiNote,
+  type ApiRule,
+} from '@/lib/item-api'
 import { daysFromToday, isoDay } from '@/lib/dates'
 import { mockDelay } from '@/lib/mock'
 import { periodDays, type ChartPeriod } from '@/lib/periods'
@@ -312,8 +324,7 @@ const mockDeleteDocument = (docId: string) => {
 // ─── API ──────────────────────────────────────────────────────────────────────
 // The panel shows money in the portfolio's currency, owned share only, like the table. The API keeps an asset's
 // prices in its own currency for the whole asset, so values are converted on the way in and out.
-// TODO: the API can't yet remove units, date a price change, edit an Auto-Pilot rule (deleted and remade instead) or
-// store note tags as a list (kept as { list: [...] }).
+// TODO: the API can't yet remove units or date a price change. (Rules, notes and documents: see lib/item-api.)
 
 interface ApiLot {
   quantity: number
@@ -420,62 +431,28 @@ const setOwnedValue = (portfolioId: string, a: ApiAssetDetail, value: number) =>
     body: { current_price: value / ((a.exchange_rate || 1) * (a.ownership_pct / 100) * (a.quantity || 1)) },
   })
 
-interface ApiRule {
-  id: string
-  target_id: string
-  target_type: 'asset' | 'debt'
-  action: 'add' | 'remove'
-  amount: number
-  units?: number | null
-  frequency: AssetRule['frequency']
-  start_date: string
-  end_date?: string | null
-  is_active: boolean
-  created_at: string
-}
-
-const rulesPath = (portfolioId: string) => `/portfolios/${portfolioId}/autopilot/rules`
 const toRule = (r: ApiRule): AssetRule => ({
   id: r.id,
   asset_id: r.target_id,
   action: r.action,
   amount: r.units ?? r.amount,
   frequency: r.frequency,
-  start_date: r.start_date.slice(0, 10),
-  end_date: r.end_date ? r.end_date.slice(0, 10) : null,
+  ...ruleDays(r),
   is_active: r.is_active,
   created_at: r.created_at,
 })
 const isMockRule = (ruleId: string) => rules.some((r) => r.id === ruleId)
-const rfc3339 = (day: string | null) => (day ? `${day}T00:00:00Z` : null)
 
-interface ApiNote {
-  id: string
-  asset_id: string
-  title: string
-  content: string
-  tags?: { list?: string[] } | null
-  created_at: string
-}
-
-const toNote = (n: ApiNote): AssetNote => ({
+const toNote = (n: ApiNote & { asset_id: string }): AssetNote => ({
   id: n.id,
   asset_id: n.asset_id,
   title: n.title,
   content: n.content,
-  tags: Array.isArray(n.tags?.list) ? n.tags.list : [],
+  tags: noteTags(n),
   created_at: n.created_at,
 })
 
-interface ApiDocument {
-  id: string
-  asset_id: string
-  file_name: string
-  file_size: number
-  uploaded_at: string
-}
-
-const toDocument = ({ id, asset_id, file_name, file_size, uploaded_at }: ApiDocument): AssetDocument => ({
+const toDocument = ({ id, asset_id, file_name, file_size, uploaded_at }: ApiDocument & { asset_id: string }): AssetDocument => ({
   id,
   asset_id,
   file_name,
@@ -551,51 +528,46 @@ export const updateAsset = async (
 
 export const listAssetRules = async (portfolioId: string, assetId: string) => {
   if (isMockedAsset(portfolioId, assetId)) return mockRules(assetId)
-  const all = (await api<ApiRule[] | null>(rulesPath(portfolioId))) ?? []
-  return all.filter((r) => r.target_type === 'asset' && r.target_id === assetId).map(toRule)
+  return (await listRules(portfolioId, 'asset', assetId)).map(toRule)
 }
 
 /** Adds a rule, or updates one (`ruleId`: remade, since the API can't edit one). A new rule starts active. */
 export const saveAssetRule = async (portfolioId: string, assetId: string, { ruleId, ...input }: AssetRuleInput & { ruleId?: string }) => {
   if (isMockedAsset(portfolioId, assetId)) return mockSaveRule(assetId, { ruleId, ...input })
   const units = heldInUnits(await getDetail(portfolioId, assetId))
-  await api(rulesPath(portfolioId), {
-    method: 'POST',
-    body: {
-      target_id: assetId,
-      target_type: 'asset',
-      action: input.action,
-      ...(units ? { units: input.amount } : { amount: input.amount }),
-      frequency: input.frequency,
-      start_date: rfc3339(input.start_date),
-      end_date: rfc3339(input.end_date),
-    },
+  await createRule(portfolioId, {
+    target_id: assetId,
+    target_type: 'asset',
+    action: input.action,
+    ...(units ? { units: input.amount } : { amount: input.amount }),
+    frequency: input.frequency,
+    start_date: input.start_date,
+    end_date: input.end_date,
   })
-  if (ruleId) await api(`${rulesPath(portfolioId)}/${ruleId}`, { method: 'DELETE' })
+  if (ruleId) await deleteRule(portfolioId, ruleId)
   return null
 }
 
 export const toggleAssetRule = async (portfolioId: string, ruleId: string) => {
   if (isMockRule(ruleId)) return mockToggleRule(ruleId)
-  const rule = await api<ApiRule>(`${rulesPath(portfolioId)}/${ruleId}`)
-  await api(`${rulesPath(portfolioId)}/${ruleId}/${rule.is_active ? 'pause' : 'resume'}`, { method: 'POST' })
+  await toggleRule(portfolioId, ruleId)
   return null
 }
 
 export const deleteAssetRule = async (portfolioId: string, ruleId: string) => {
   if (isMockRule(ruleId)) return mockDeleteRule(ruleId)
-  await api(`${rulesPath(portfolioId)}/${ruleId}`, { method: 'DELETE' })
+  await deleteRule(portfolioId, ruleId)
   return null
 }
 
 export const listAssetNotes = async (portfolioId: string, assetId: string) => {
   if (isMockedAsset(portfolioId, assetId)) return mockNotes(assetId)
-  return ((await api<ApiNote[] | null>(`${base(portfolioId, assetId)}/notes`)) ?? []).map(toNote)
+  return ((await api<Array<ApiNote & { asset_id: string }> | null>(`${base(portfolioId, assetId)}/notes`)) ?? []).map(toNote)
 }
 
 export const saveAssetNote = async (portfolioId: string, assetId: string, { noteId, ...input }: AssetNoteInput & { noteId?: string }) => {
   if (isMockedAsset(portfolioId, assetId)) return mockSaveNote(assetId, { noteId, ...input })
-  const body = { title: input.title, content: input.content, tags: { list: input.tags } }
+  const body = noteBody(input)
   await api(`${base(portfolioId, assetId)}/notes${noteId ? `/${noteId}` : ''}`, { method: noteId ? 'PATCH' : 'POST', body })
   return null
 }
@@ -608,7 +580,7 @@ export const deleteAssetNote = async (portfolioId: string, assetId: string, note
 
 export const listAssetDocuments = async (portfolioId: string, assetId: string) => {
   if (isMockedAsset(portfolioId, assetId)) return mockDocuments(assetId)
-  return ((await api<ApiDocument[] | null>(`${base(portfolioId, assetId)}/documents`)) ?? []).map(toDocument)
+  return ((await api<Array<ApiDocument & { asset_id: string }> | null>(`${base(portfolioId, assetId)}/documents`)) ?? []).map(toDocument)
 }
 
 /** Uploads, reporting each step (0–1); abort with `signal`. */
@@ -620,7 +592,8 @@ export const uploadAssetDocument = async (
   signal?: AbortSignal,
 ) => {
   if (isMockedAsset(portfolioId, assetId)) return mockUpload(assetId, file, onProgress, signal)
-  return toDocument(await uploadWithProgress<ApiDocument>(`${base(portfolioId, assetId)}/documents`, file, onProgress, signal))
+  const path = `${base(portfolioId, assetId)}/documents`
+  return toDocument(await uploadWithProgress<ApiDocument & { asset_id: string }>(path, file, onProgress, signal))
 }
 
 /** A link to open the file: a short-lived signed URL from the API, or the mock's local copy. */

@@ -1,6 +1,6 @@
 import type { Frequency } from '@/lib/schedule'
 
-// Mirrors api/model/debt.go. Fields marked "not in the API yet" come from the mock until the backend adds them.
+// Mirrors api/model/debt.go. Fields marked "not in the API yet" are filled in by api.ts until the backend adds them.
 
 export type DebtType = 'mortgage' | 'student_loan' | 'car_loan' | 'personal' | 'credit_card' | 'manual'
 
@@ -50,14 +50,14 @@ export interface CreateDebtInput {
   icon: string | null
 }
 
-/** Portfolio-wide debt total and its change over the last month, in the base currency. Not in the API yet. */
+/** Portfolio-wide debt total and its change over the last month, in the base currency. Added up in api.ts (no endpoint yet). */
 export interface DebtsOverview {
   currency: string
   total: number
   change: { amount: number; pct: number } | null
 }
 
-// ─── Detail panel (none of this is in the API yet) ───────────────────────────
+// ─── Detail panel (the API has rules, notes and documents; history is worked out in api.ts) ─
 
 /** One balance change: the starting balance, a manual adjustment, or a repayment. */
 export interface DebtHistoryEntry {

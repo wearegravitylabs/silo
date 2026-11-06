@@ -130,7 +130,7 @@ export interface ConnectInput {
 }
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────
-// TODO: no backend endpoints for an asset's history, rules, notes or documents yet; the shapes follow the debt ones.
+// The UI's shapes; panel-api maps the API's lots, value history, rules, notes and documents onto them.
 
 /**
  * One change to the asset: units added or removed (ticker assets), or a new price for the rest — the first is its
