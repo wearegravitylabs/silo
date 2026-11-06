@@ -33,16 +33,22 @@ export function DebtTable({
   debts,
   loading,
   dimmed,
+  noneMessage = { title: 'No Debts Yet', body: 'Once you create a debt, it will appear here' },
   onView,
   onAddRule,
+  onDelete,
 }: {
   debts: Debt[]
   loading?: boolean
   dimmed?: boolean
+  /** Shown when there are no debts at all */
+  noneMessage?: { title: string; body: string }
   /** Row menu → View details */
   onView?: (debt: Debt) => void
   /** Row menu → Add Auto-pilot */
   onAddRule?: (debt: Debt) => void
+  /** Row menu → Delete Debt */
+  onDelete?: (debt: Debt) => void
 }) {
   const [types, setTypes] = useState<string[]>([])
   const [schedules, setSchedules] = useState<string[]>([])
@@ -85,13 +91,7 @@ export function DebtTable({
       skeleton={Array.from({ length: 4 }, (_, i) => (
         <SkeletonRow key={i} />
       ))}
-      empty={
-        !empty
-          ? null
-          : none
-            ? { title: 'No Debts Yet', body: 'Once you create a debt, it will appear here' }
-            : { title: 'No result found', body: 'We couldn’t find any result based on the filter' }
-      }
+      empty={!empty ? null : none ? noneMessage : { title: 'No result found', body: 'We couldn’t find any result based on the filter' }}
       footer={!loading && !none}
       toolbarEnd={<TableSearch value={search} onChange={view.firstPage(setSearch)} label="Search debts" />}
       toolbarStart={
@@ -114,6 +114,7 @@ export function DebtTable({
           onSelect={(on) => view.toggle(debt.id, on)}
           onView={onView && (() => onView(debt))}
           onAddRule={onAddRule && (() => onAddRule(debt))}
+          onDelete={onDelete && (() => onDelete(debt))}
         />
       ))}
     </DataTable>

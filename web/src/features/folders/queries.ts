@@ -41,7 +41,6 @@ export const useFolderMutations = (portfolioId: string, type: FolderType) => {
         reorderFolders(
           portfolioId,
           ordered.map((f, i) => ({ id: f.id, position: i })),
-          type,
         ),
       // Show the new order immediately; the refetch reconciles with the server.
       onMutate: (ordered) => qc.setQueryData(queryKey, ordered),

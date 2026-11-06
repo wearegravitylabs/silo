@@ -20,7 +20,7 @@ const cell = 'flex h-full shrink-0 items-center border-r border-border'
 /**
  * Folder card: a grey tab bar (select, drag to reorder, ⋯ to edit or delete, + to create a folder or organize them)
  * over `children` — the selected folder's overview. Each tab shows its folder's colour. Create and Edit open the folder
- * dialog; Delete asks which folder takes its items. A default folder ("All Debts") comes first, stays put and has no
+ * dialog; Delete asks which folder takes its items. A default folder (the demo's "All Assets") comes first, stays put and has no
  * menu. With no folders yet, the bar is a single Create Folder button. The bar scrolls sideways when the tabs don't fit.
  */
 export function FolderTabs({

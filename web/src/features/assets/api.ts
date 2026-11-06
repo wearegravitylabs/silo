@@ -59,7 +59,7 @@ const HELD_IN_UNITS = ['stock_ticker', 'stock_manual', 'crypto_ticker', 'crypto_
 export const toAssetItem = (a: ApiAsset): AssetItem => ({
   id: a.id,
   portfolio_id: a.portfolio_id,
-  folder_id: fromApiFolderId(a.portfolio_id, 'asset', a.folder_id),
+  folder_id: fromApiFolderId(a.folder_id),
   asset_type: fromApiType(a.asset_type),
   name: a.name,
   ticker: a.ticker || null,

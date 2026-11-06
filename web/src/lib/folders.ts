@@ -4,13 +4,13 @@ import { api } from './api-client'
 type FolderType = 'asset' | 'debt'
 
 /**
- * The default folder ("All Assets", "All Debts") lists everything of its kind, comes first, and can't be renamed or
- * deleted. Debts (still mocked) and the demo portfolios have one. A real portfolio's assets don't: every asset is in
- * one of the API's folders, so a folder must exist before an asset can be added.
+ * The demo portfolios' default folder ("All Assets", "All Debts"): it lists everything of its kind, comes first, and
+ * can't be renamed or deleted. A real portfolio has none: every asset and debt is in one of the API's folders, so a
+ * folder must exist before one can be added.
  */
 export const defaultFolderId = (type: FolderType) => (type === 'asset' ? 'all-assets' : 'all-debts')
 
-/** A folder as the API returns it (no colour yet). */
+/** A folder as the API returns it (no colour field yet: the folders feature keeps it in `icon`). */
 export interface ApiFolder {
   id: string
   portfolio_id: string
@@ -23,30 +23,16 @@ export interface ApiFolder {
   updated_at: string
 }
 
-// The API makes a "General" folder of each kind with every portfolio. For debts, "All Debts" lists everything instead,
-// so General stays hidden and holds whatever isn't filed elsewhere. For assets it's an ordinary folder.
-const UNFILED = 'General'
-const NO_FOLDER = '00000000-0000-0000-0000-000000000000'
-const unfiledIds = new Map<string, string>()
-const key = (portfolioId: string, type: FolderType) => `${portfolioId}:${type}`
-
-/** A portfolio's folders of one kind, in order, split into the hidden General folder (debts only) and the rest. */
+/** A portfolio's folders of one kind, in order (the "General" one the API makes with every portfolio included). */
 export async function fetchFolders(portfolioId: string, type: FolderType) {
   const list = (await api<ApiFolder[] | null>(`/portfolios/${portfolioId}/folders`, { params: { type } })) ?? []
-  const sorted = [...list].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
-  const unfiled = type === 'debt' ? sorted.find((f) => f.name === UNFILED) : undefined
-  if (unfiled) unfiledIds.set(key(portfolioId, type), unfiled.id)
-  return { unfiled, folders: sorted.filter((f) => f !== unfiled) }
+  return [...list].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at))
 }
 
-/** The hidden folder's id, if the portfolio has one. */
-export async function findUnfiledFolderId(portfolioId: string, type: FolderType) {
-  return unfiledIds.get(key(portfolioId, type)) ?? (await fetchFolders(portfolioId, type)).unfiled?.id
-}
+const NO_FOLDER = '00000000-0000-0000-0000-000000000000'
 
-/** An API folder id as the UI sees it: null (unfiled) for the hidden folder, and for none (its folder was deleted). */
-export const fromApiFolderId = (portfolioId: string, type: FolderType, folderId: string | null | undefined) =>
-  !folderId || folderId === NO_FOLDER || folderId === unfiledIds.get(key(portfolioId, type)) ? null : folderId
+/** An API folder id as the UI sees it: null for none (e.g. its folder was deleted). */
+export const fromApiFolderId = (folderId: string | null | undefined) => (!folderId || folderId === NO_FOLDER ? null : folderId)
 
 /** Folder colours, in the Create/Edit Folder swatch order (blue, lime, red, orange, green, magenta, purple). */
 export const FOLDER_COLORS = [

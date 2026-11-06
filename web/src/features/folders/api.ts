@@ -1,14 +1,12 @@
 import { api } from '@/lib/api-client'
 import { isDemoPortfolio } from '@/lib/demo'
 import { mockDelay } from '@/lib/mock'
-import { defaultFolderId, fetchFolders, findUnfiledFolderId, FOLDER_COLORS, type ApiFolder } from '@/lib/folders'
+import { defaultFolderId, fetchFolders, FOLDER_COLORS, type ApiFolder } from '@/lib/folders'
 import type { Folder, FolderType } from './types'
 
-// A real portfolio's asset folders are the API's, as they are: every asset is in one, so there's no "All Assets".
-// Debts (still mocked) keep a default folder ("All Debts") that lists everything and can't be renamed or deleted; it
-// isn't an API folder, and the API's "General" debt folder stays hidden behind it (see lib/folders). The demo
-// portfolios stay in memory, with the design's folders.
-// TODO: API folders have no colour yet, so one is picked by position and the colour chosen in the dialog is dropped.
+// A real portfolio's folders are the API's, as they are: every asset and debt is in one, so there's no "All Assets"
+// or "All Debts". The demo portfolios stay in memory, with the design's folders and a default folder per type.
+// TODO: API folders have no colour field yet, so the colour is kept in `icon` as "color:folder-N" (see fromApi).
 const later = mockDelay(300)
 const CREATED = '2026-01-01T00:00:00Z'
 
@@ -96,54 +94,66 @@ const mockReorder = (portfolioId: string, folders: Array<{ id: string; position:
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-const fromApi = (f: ApiFolder, position: number): Folder => ({ ...f, color: null, position })
+// Prefixed, so it can't pass for an emoji icon and is easy to move once folders get a colour field.
+const ICON_PREFIX = 'color:folder-'
+/** The `icon` that stores a FOLDER_COLORS colour; undefined (left as it is) for any other. */
+const colorIcon = (color?: string | null) => {
+  const i = FOLDER_COLORS.findIndex((c) => c === color)
+  return i === -1 ? undefined : `${ICON_PREFIX}${i + 1}`
+}
+/** The colour stored in `icon`; null (picked by position) when it holds none. */
+const iconColor = (icon: string | null) =>
+  icon?.startsWith(ICON_PREFIX) ? (FOLDER_COLORS[Number(icon.slice(ICON_PREFIX.length)) - 1] ?? null) : null
+
+const fromApi = (f: ApiFolder, position: number): Folder => ({ ...f, icon: null, color: iconColor(f.icon), position })
 
 export async function listFolders(portfolioId: string, type: FolderType) {
   if (isDemoPortfolio(portfolioId)) return mockList(portfolioId, type)
-  const { folders } = await fetchFolders(portfolioId, type)
-  if (type === 'asset') return folders.map(fromApi)
-  return [folder(portfolioId, type, defaultFolderId(type), DEFAULT_NAME[type], 0, null), ...folders.map((f, i) => fromApi(f, i + 1))]
+  return (await fetchFolders(portfolioId, type)).map(fromApi)
 }
 
 export async function createFolder(portfolioId: string, data: { name: string; folder_type: FolderType; color?: string | null }) {
   if (isDemoPortfolio(portfolioId)) return mockCreate(portfolioId, data)
   const created = await api<ApiFolder>(`/portfolios/${portfolioId}/folders`, {
     method: 'POST',
-    body: { name: data.name, folder_type: data.folder_type },
+    body: { name: data.name, folder_type: data.folder_type, icon: colorIcon(data.color) },
   })
   return fromApi(created, created.position)
 }
 
 export async function updateFolder(portfolioId: string, folderId: string, data: { name?: string; color?: string | null }) {
   if (isDemoPortfolio(portfolioId)) return mockUpdate(portfolioId, folderId, data)
-  const updated = await api<ApiFolder>(`/portfolios/${portfolioId}/folders/${folderId}`, { method: 'PATCH', body: { name: data.name } })
+  const updated = await api<ApiFolder>(`/portfolios/${portfolioId}/folders/${folderId}`, {
+    method: 'PATCH',
+    body: { name: data.name, icon: colorIcon(data.color) },
+  })
   return fromApi(updated, updated.position)
 }
 
 /**
- * Deletes the folder, its assets moved to `moveTo` first: the API would leave them in no folder, where no tab shows
- * them. (Null when it has none to move.) Debts are mocked, and the mocks refile their items through the page (see
- * FolderTabs' onDeleted).
+ * Deletes the folder, its assets or debts moved to `moveTo` first: the API would leave them in no folder, where no tab
+ * shows them. (Null when it has none to move.) The demo's mocks refile their items through the page (see FolderTabs'
+ * onDeleted).
  */
 export async function deleteFolder(portfolioId: string, folderId: string, moveTo: string | null, type: FolderType) {
   if (isDemoPortfolio(portfolioId)) return mockDelete(portfolioId, folderId)
-  if (type === 'asset' && moveTo) {
-    const inFolder =
-      (await api<Array<{ id: string }> | null>(`/portfolios/${portfolioId}/assets`, { params: { folder_id: folderId } })) ?? []
-    for (const { id } of inFolder) await api(`/portfolios/${portfolioId}/assets/${id}`, { method: 'PATCH', body: { folder_id: moveTo } })
+  if (moveTo) {
+    const items = `/portfolios/${portfolioId}/${type === 'asset' ? 'assets' : 'debts'}`
+    // Every item, filtered here: the API rejects ?folder_id= on debts. TODO: backend fix.
+    const all = (await api<Array<{ id: string; folder_id?: string | null }> | null>(items)) ?? []
+    for (const { id } of all.filter((i) => i.folder_id === folderId))
+      await api(`${items}/${id}`, { method: 'PATCH', body: { folder_id: moveTo } })
   }
   await api(`/portfolios/${portfolioId}/folders/${folderId}`, { method: 'DELETE' })
   return null
 }
 
-/** `folders` in their new order, any default folder included; the API gets every folder of the type (debts: General first). */
-export async function reorderFolders(portfolioId: string, folders: Array<{ id: string; position: number }>, type: FolderType) {
+/** `folders` in their new order: every folder of the type. */
+export async function reorderFolders(portfolioId: string, folders: Array<{ id: string; position: number }>) {
   if (isDemoPortfolio(portfolioId)) return mockReorder(portfolioId, folders)
-  const unfiled = await findUnfiledFolderId(portfolioId, type)
-  const ids = [...(unfiled ? [unfiled] : []), ...folders.filter((f) => f.id !== defaultFolderId(type)).map((f) => f.id)]
   await api(`/portfolios/${portfolioId}/folders/reorder`, {
     method: 'PUT',
-    body: { folders: ids.map((id, position) => ({ id, position })) },
+    body: { folders: folders.map(({ id }, position) => ({ id, position })) },
   })
   return null
 }

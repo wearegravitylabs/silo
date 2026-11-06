@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { toast } from 'sonner'
 import { ExportDialog } from '@/components/export-dialog'
+import { toastDone } from '@/components/ui/sonner'
 import {
   AddDebtSheet,
   DebtPanel,
@@ -8,11 +10,14 @@ import {
   debtsQuery,
   DebtsSummaryHeader,
   DebtTable,
+  DeleteDebtDialog,
   useDebtFolderCounts,
   useDebts,
+  useDeleteDebt,
   useRefileDebtFolder,
+  type Debt,
 } from '@/features/debts'
-import { foldersQuery, FolderTabs, useFolders } from '@/features/folders'
+import { FolderFormDialog, foldersQuery, FolderTabs, useFolderMutations, useFolders } from '@/features/folders'
 import { useAskSiloAi } from '@/features/silo-ai'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import { DebtsSkeleton } from './-components/debts-skeleton'
@@ -20,7 +25,7 @@ import { DebtsSkeleton } from './-components/debts-skeleton'
 interface DebtsSearch {
   /** Selected folder tab; defaults to the first folder */
   folder?: string
-  /** Open the Add Debt sheet */
+  /** Open the Add Debt sheet; with no folder yet, Create Folder first */
   create?: boolean
 }
 
@@ -57,7 +62,10 @@ function DebtsShell({ children }: { children: React.ReactNode }) {
   return <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
 }
 
-/** Folder tabs (folders feature) drive which debts (debts feature) are shown. */
+/**
+ * Folder tabs (folders feature) drive which debts (debts feature) are shown. Every debt is in a folder, so with none
+ * yet, Add Debt asks for one first and then adds the debt to it.
+ */
 function DebtsPage() {
   const { portfolioId } = Route.useParams()
   const search = Route.useSearch()
@@ -66,18 +74,43 @@ function DebtsPage() {
   const folders = useFolders(portfolioId, 'debt')
   const counts = useDebtFolderCounts(portfolioId)
   const refile = useRefileDebtFolder(portfolioId)
+  const remove = useDeleteDebt(portfolioId)
+  const { create: createFolder } = useFolderMutations(portfolioId, 'debt')
   const ask = useAskSiloAi()
   const [exporting, setExporting] = useState(false)
   // The opened debt outlives `open` so the panel can animate closed; `n` gives each opening a fresh panel.
   const [panel, setPanel] = useState<{ id: string; addingRule: boolean; open: boolean; n: number } | null>(null)
   const openPanel = (id: string, addingRule: boolean) => setPanel((p) => ({ id, addingRule, open: true, n: (p?.n ?? 0) + 1 }))
+  // Kept while the dialog closes.
+  const [deleting, setDeleting] = useState<{ debt: Debt; open: boolean } | null>(null)
 
-  const folderId = search.folder ?? folders[0]?.id ?? null
+  const folderId = (folders.find((f) => f.id === search.folder) ?? folders[0])?.id ?? null
   const { data: debts = [], isPending, isPlaceholderData } = useDebts(portfolioId, folderId)
   const setSearch = (patch: Partial<DebtsSearch>) => navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
   const setFolder = (folder: string) => setSearch({ folder })
   const setCreating = (create: boolean) => setSearch({ create: create || undefined })
   const opened = panel && debts.find((d) => d.id === panel.id)
+
+  // Add Debt with no folder yet: the new folder is selected, which opens the sheet on it.
+  const addFirstFolder = (values: { name: string; color: string }) =>
+    createFolder.mutate(values, {
+      onSuccess: (folder) => {
+        setFolder(folder.id)
+        toast.success('Folder has been created successfully!')
+      },
+      onError: () => toast.error('Couldn’t create the folder. Try again.'),
+    })
+
+  const confirmDelete = () =>
+    deleting &&
+    remove.mutate(deleting.debt.id, {
+      onSuccess: () => {
+        setDeleting((d) => d && { ...d, open: false })
+        setPanel((p) => (p && p.id === deleting.debt.id ? { ...p, open: false } : p))
+        toastDone('Debt has been deleted successfully!')
+      },
+      onError: () => toast.error('Couldn’t delete this debt. Try again.'),
+    })
 
   return (
     <DebtsShell>
@@ -95,7 +128,6 @@ function DebtsPage() {
         folderType="debt"
         onOrganize={() => ask('Organize my debts into folders')}
         counts={counts}
-        // "All Debts" is always there to move them to
         onDeleted={(from, to) => to && refile.mutate({ from, to })}
       />
       {/* Keyed by folder so filters, search and selection start fresh in each folder. */}
@@ -104,8 +136,10 @@ function DebtsPage() {
         debts={debts}
         loading={isPending}
         dimmed={isPlaceholderData}
+        noneMessage={folderId ? undefined : { title: 'No Folders Yet', body: 'Create a folder, then add your debts to it' }}
         onView={(debt) => openPanel(debt.id, false)}
         onAddRule={(debt) => openPanel(debt.id, true)}
+        onDelete={(debt) => setDeleting({ debt, open: true })}
       />
       {panel && opened && (
         <DebtPanel
@@ -116,9 +150,31 @@ function DebtsPage() {
           open={panel.open}
           onOpenChange={(open) => setPanel((p) => p && { ...p, open })}
           addingRule={panel.addingRule}
+          onDelete={() => setDeleting({ debt: opened, open: true })}
         />
       )}
-      <AddDebtSheet portfolioId={portfolioId} folderId={folderId} open={!!search.create} onOpenChange={setCreating} />
+      <DeleteDebtDialog
+        open={!!deleting?.open}
+        onOpenChange={(open) => setDeleting((d) => d && { ...d, open })}
+        debtName={deleting?.debt.name ?? ''}
+        pending={remove.isPending}
+        onConfirm={confirmDelete}
+      />
+      <FolderFormDialog
+        hint="Debts are kept in folders. Create one for this debt first."
+        open={!!search.create && !folderId}
+        onOpenChange={setCreating}
+        onSave={addFirstFolder}
+        saving={createFolder.isPending}
+      />
+      <AddDebtSheet
+        portfolioId={portfolioId}
+        folderId={folderId}
+        defaultCurrency={portfolio.base_currency}
+        open={!!search.create && !!folderId}
+        onOpenChange={setCreating}
+        onAdded={() => toast.success('Debt has been added successfully!')}
+      />
       {/* TODO: generate the file once there's an export endpoint; UI only for now. */}
       <ExportDialog title="Export Debt" open={exporting} onOpenChange={setExporting} />
     </DebtsShell>

@@ -1,6 +1,8 @@
+import { api } from '@/lib/api-client'
+import { isDemoPortfolio } from '@/lib/demo'
+import { defaultFolderId, fromApiFolderId } from '@/lib/folders'
 import { mockDelay } from '@/lib/mock'
 import { periodDays, type ChartPeriod } from '@/lib/periods'
-import { defaultFolderId } from '@/lib/folders'
 import { emptyOverview, MOCK_DEBTS, MOCK_DOCUMENTS, MOCK_HISTORY, MOCK_NOTES, MOCK_OVERVIEW, MOCK_RULES } from './mock-data'
 import type {
   CreateDebtInput,
@@ -14,11 +16,9 @@ import type {
   DebtsOverview,
 } from './types'
 
-// TODO: replace with the real endpoints once the backend has every field the page needs:
-//   GET  /portfolios/:id/debts?folder_id=…  (exists; lacks change_pct_1m, needs_attention, icon)
-//   POST /portfolios/:id/debts               (exists; CreateDebtRequest)
-//   a debts overview (total + 1M change) — doesn't exist yet
-// Mock: the demo portfolio starts with the design's debts, every other portfolio empty; added debts live in memory.
+// Real portfolios use the API; the demo portfolios (see lib/demo) stay in memory, starting with the design's debts.
+// TODO: the API's debts lack change_pct_1m, needs_attention and an icon (null/false here: the type's icon shows), and
+// there's no debts overview: the total is added up here, without its 1M change.
 const later = mockDelay(600)
 
 const store = new Map<string, Debt[]>()
@@ -29,22 +29,65 @@ const debtsOf = (portfolioId: string) => {
 /** Balances added in this session, on top of the demo's fixed design total. */
 const added = new Map<string, number>()
 
-export const getDebtsOverview = (portfolioId: string, currency: string): Promise<DebtsOverview> => {
+// ─── API shapes ───────────────────────────────────────────────────────────────
+
+type ApiDebt = Omit<Debt, 'folder_id' | 'change_pct_1m' | 'needs_attention' | 'icon' | 'start_date' | 'payoff_date'> & {
+  folder_id?: string | null
+  start_date?: string | null
+  payoff_date?: string | null
+}
+
+const toDebt = (d: ApiDebt): Debt => ({
+  ...d,
+  folder_id: fromApiFolderId(d.folder_id),
+  frequency: d.frequency ?? '',
+  start_date: d.start_date ?? null,
+  payoff_date: d.payoff_date ?? null,
+  change_pct_1m: null,
+  needs_attention: false,
+  icon: null,
+})
+
+const debtsPath = (portfolioId: string) => `/portfolios/${portfolioId}/debts`
+
+/** Units of each currency per US dollar, the API's cached FX table; just USD if it can't be had. */
+async function usdRates() {
+  const rows = await api<Array<{ currency: string; rate: number }> | null>('/exchange-rates').catch(() => null)
+  return new Map([['USD', 1], ...(rows ?? []).map((r) => [r.currency.toUpperCase(), r.rate] as [string, number])])
+}
+
+// ─── Debts page ───────────────────────────────────────────────────────────────
+
+/** The portfolio's debt total (owned share) in its base currency, and the 1M change (demo only, for now). */
+export const getDebtsOverview = async (portfolioId: string, currency: string): Promise<DebtsOverview> => {
+  if (!isDemoPortfolio(portfolioId)) {
+    const [debts, rates] = await Promise.all([api<ApiDebt[] | null>(debtsPath(portfolioId)), usdRates()])
+    const to = rates.get(currency.toUpperCase()) ?? 1
+    // A currency without a rate is counted as is.
+    const total = (debts ?? []).reduce((sum, d) => sum + (d.owned_balance * to) / (rates.get(d.currency.toUpperCase()) ?? to), 0)
+    return { currency, total, change: null }
+  }
   const extra = added.get(portfolioId) ?? 0
   if (portfolioId === 'demo') return later({ ...MOCK_OVERVIEW, total: MOCK_OVERVIEW.total + extra })
   // A new portfolio's debt all arrived this month: the change is the whole total (+100%).
   return later(extra > 0 ? { currency, total: extra, change: { amount: extra, pct: 100 } } : emptyOverview(currency))
 }
 
-/** The default folder ("All Debts") lists every debt; any other folder only its own. */
-export const listDebts = (portfolioId: string, folderId?: string): Promise<Debt[]> => {
-  const all = debtsOf(portfolioId)
-  return later(!folderId || folderId === defaultFolderId('debt') ? [...all] : all.filter((d) => d.folder_id === folderId))
+/** A folder's debts; no folder (or the demo's "All Debts") lists every debt in the portfolio. */
+export const listDebts = async (portfolioId: string, folderId?: string): Promise<Debt[]> => {
+  const all = !folderId || folderId === defaultFolderId('debt')
+  if (!isDemoPortfolio(portfolioId)) {
+    // Filtered here: the API rejects ?folder_id= on debts (its query binder can't parse the UUID). TODO: backend fix.
+    const list = ((await api<ApiDebt[] | null>(debtsPath(portfolioId))) ?? []).map(toDebt)
+    return all ? list : list.filter((d) => d.folder_id === folderId)
+  }
+  const debts = debtsOf(portfolioId)
+  return later(all ? [...debts] : debts.filter((d) => d.folder_id === folderId))
 }
 
 /**
- * Files a deleted folder's debts in `to` (the default folder unfiles them). TODO: mock only — the backend does this
- * when the folder is deleted (DELETE …/folders/:id?move_to=…).
+ * Files a deleted folder's debts in `to` (the default folder unfiles them). Demo only: the API's are moved before the
+ * folder is deleted (see the folders feature).
  */
 export const refileDebtFolder = (portfolioId: string, from: string, to: string) => {
   const folderId = to === defaultFolderId('debt') ? null : to
@@ -53,7 +96,14 @@ export const refileDebtFolder = (portfolioId: string, from: string, to: string) 
   return later(null)
 }
 
-export const createDebt = (portfolioId: string, input: CreateDebtInput): Promise<Debt> => {
+/** Adds a debt at its balance (what's owed now is also what was borrowed). A real one goes in a folder. */
+export const createDebt = async (portfolioId: string, input: CreateDebtInput): Promise<Debt> => {
+  if (!isDemoPortfolio(portfolioId)) {
+    if (!input.folder_id) throw new Error('Create a folder for this debt first')
+    const { icon: _icon, frequency, ...rest } = input
+    const body = { ...rest, principal: input.balance, frequency: frequency || undefined }
+    return toDebt(await api<ApiDebt>(debtsPath(portfolioId), { method: 'POST', body }))
+  }
   const now = new Date().toISOString()
   const debt: Debt = {
     id: crypto.randomUUID(),
@@ -68,10 +118,25 @@ export const createDebt = (portfolioId: string, input: CreateDebtInput): Promise
     change_pct_1m: null,
     needs_attention: false,
     ...input,
+    folder_id: input.folder_id === defaultFolderId('debt') ? null : input.folder_id,
   }
   debtsOf(portfolioId).push(debt)
   added.set(portfolioId, (added.get(portfolioId) ?? 0) + input.balance)
   return later(debt)
+}
+
+export const deleteDebt = async (portfolioId: string, debtId: string) => {
+  if (!isDemoPortfolio(portfolioId)) {
+    await api(`${debtsPath(portfolioId)}/${debtId}`, { method: 'DELETE' })
+    return null
+  }
+  const list = debtsOf(portfolioId)
+  const i = list.findIndex((d) => d.id === debtId)
+  if (i !== -1) {
+    added.set(portfolioId, (added.get(portfolioId) ?? 0) - list[i].owned_balance)
+    list.splice(i, 1)
+  }
+  return later(null)
 }
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────

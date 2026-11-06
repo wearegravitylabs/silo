@@ -16,12 +16,14 @@ export function DebtRow({
   onSelect,
   onView,
   onAddRule,
+  onDelete,
 }: {
   debt: Debt
   selected: boolean
   onSelect: (selected: boolean) => void
   onView?: () => void
   onAddRule?: () => void
+  onDelete?: () => void
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const schedule = debt.has_schedule && debt.frequency ? FREQUENCY_LABELS[debt.frequency] : '--'
@@ -54,7 +56,7 @@ export function DebtRow({
         </div>
       </td>
       <td className="pr-3 text-right md:pr-4">
-        <DebtRowMenu name={debt.name} onOpenChange={setMenuOpen} onView={onView} onAddRule={onAddRule} />
+        <DebtRowMenu name={debt.name} onOpenChange={setMenuOpen} onView={onView} onAddRule={onAddRule} onDelete={onDelete} />
       </td>
     </tr>
   )

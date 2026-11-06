@@ -6,6 +6,7 @@ import {
   addDebtRule,
   adjustDebtBalance,
   createDebt,
+  deleteDebt,
   deleteDebtDocument,
   deleteDebtNote,
   deleteDebtRule,
@@ -66,7 +67,16 @@ export const useCreateDebt = (portfolioId: string) => {
   })
 }
 
-/** How many debts each folder holds (by folder id); the default folder lists them all. */
+/** Deletes a debt; refetches every debt query for the portfolio (list, total). */
+export const useDeleteDebt = (portfolioId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (debtId: string) => deleteDebt(portfolioId, debtId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: debtKeys.all(portfolioId) }),
+  })
+}
+
+/** How many debts each folder holds (by folder id); the demo's default folder lists them all. */
 export const useDebtFolderCounts = (portfolioId: string) => {
   const { data: debts = [] } = useQuery(debtsQuery(portfolioId, null))
   const counts: Record<string, number> = { [defaultFolderId('debt')]: debts.length }
@@ -74,7 +84,7 @@ export const useDebtFolderCounts = (portfolioId: string) => {
   return counts
 }
 
-/** A deleted folder's debts go to another folder. */
+/** A deleted folder's debts go to another folder (demo only; see refileDebtFolder). */
 export const useRefileDebtFolder = (portfolioId: string) => {
   const qc = useQueryClient()
   return useMutation({
