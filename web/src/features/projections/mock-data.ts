@@ -1,7 +1,7 @@
 import type { RuleTemplateId } from './templates'
 import type { Balances, Category, ProjectionRule, Scenario } from './types'
 
-/** Starting balances (net worth 100,000). TODO: today's real asset and debt totals by category. */
+/** The demo's starting balances (net worth 100,000); a real portfolio's come from its assets and debts. */
 export const MOCK_BASELINE: Balances = {
   investable_assets: 40_000,
   stocks: 35_000,

@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { ExportDialog } from '@/components/export-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetIconDisc, useAssets } from '@/features/assets'
-import { DEBT_TYPE_LABELS, DebtIconDisc, useDebts } from '@/features/debts'
+import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetIconDisc, assetsQuery, useAssets } from '@/features/assets'
+import { DEBT_TYPE_LABELS, DebtIconDisc, debtsOverviewQuery, useDebts, useDebtsOverview } from '@/features/debts'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import {
   AddRuleSheet,
+  baselineOf,
   DEFAULT_HORIZON,
   monthsUntil,
   newRule,
@@ -49,10 +50,15 @@ export const Route = createFileRoute('/portfolio/$portfolioId/projections')({
     ...(Number(search.to) > THIS_YEAR && { to: Number(search.to) }),
   }),
   loader: async ({ context: { queryClient }, params: { portfolioId } }) => {
-    // Portfolios are already cached by the parent route; the mock needs the base currency.
+    // Portfolios are already cached by the parent route; the totals need the base currency.
     const portfolios = await queryClient.query({ ...portfoliosQuery, staleTime: 'static' })
     const currency = portfolios.find((p) => p.id === portfolioId)?.base_currency ?? 'USD'
-    await queryClient.query({ ...projectionsQuery(portfolioId, currency), staleTime: 'static' })
+    // The scenarios, and today's assets and debts the projection starts from.
+    await Promise.all([
+      queryClient.query({ ...projectionsQuery(portfolioId, currency), staleTime: 'static' }),
+      queryClient.query(assetsQuery(portfolioId, null)),
+      queryClient.query(debtsOverviewQuery(portfolioId, currency)),
+    ])
   },
   pendingComponent: ProjectionsSkeleton,
   component: ProjectionsPage,
@@ -72,6 +78,8 @@ function ProjectionsPage() {
   // Blanks that name an asset or a debt pick from the portfolio's own.
   const { data: assets = [] } = useAssets(portfolioId, null)
   const { data: debts = [] } = useDebts(portfolioId, null)
+  const debtTotal = useDebtsOverview(portfolioId, currency).total
+  const baseline = useMemo(() => state.baseline ?? baselineOf(assets, debtTotal), [state.baseline, assets, debtTotal])
   const options = useMemo(
     () =>
       ruleOptions({
@@ -109,14 +117,14 @@ function ProjectionsPage() {
         state.scenarios.map((s) => [
           s.id,
           project(
-            state.baseline,
+            baseline,
             state.rules.filter((r) => r.scenario_id === s.id),
             Math.max(months, LONGEST_TIMESTAMP),
             metric,
           ),
         ]),
       ),
-    [state, months, metric],
+    [state, baseline, months, metric],
   )
   const at = (id: string) => projections[id][months].value
   const visible = state.scenarios.filter((s) => (shown ?? state.scenarios.map((x) => x.id)).includes(s.id))

@@ -37,5 +37,26 @@ export function project(baseline: Balances, rules: ProjectionRule[], months: num
   return points
 }
 
+/**
+ * Today's balances per category from the portfolio's assets (owned value, in the base currency) and its debt total:
+ * stocks apart, then investable (cash included) and non-investable assets.
+ */
+export function baselineOf(
+  assets: { asset_type: string; investability: 'investable' | 'non_investable'; owned_value_converted: number }[],
+  debts: number,
+): Balances {
+  const sum = (pick: (a: (typeof assets)[number]) => boolean) =>
+    assets.filter(pick).reduce((total, a) => total + a.owned_value_converted, 0)
+  const isStock = (a: (typeof assets)[number]) => STOCK_TYPES.includes(a.asset_type)
+  return {
+    investable_assets: sum((a) => !isStock(a) && a.investability === 'investable'),
+    stocks: sum(isStock),
+    non_investable_assets: sum((a) => !isStock(a) && a.investability === 'non_investable'),
+    debts,
+  }
+}
+
+const STOCK_TYPES = ['stock_ticker', 'stock_manual']
+
 /** Months from now to `year`'s current month ("To Oct 2036"). */
 export const monthsUntil = (year: number) => (year - new Date().getFullYear()) * 12

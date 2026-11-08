@@ -27,7 +27,8 @@ export type Balances = Record<Category, number>
 
 export interface ProjectionState {
   currency: string
-  baseline: Balances
+  /** The demo's starting balances; null for a real portfolio, whose page works them out (see baselineOf). */
+  baseline: Balances | null
   scenarios: Scenario[]
   rules: ProjectionRule[]
   intro_seen: boolean
