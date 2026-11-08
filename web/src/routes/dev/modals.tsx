@@ -309,21 +309,9 @@ const STATES: { group: string; id: string; label: string; render: () => ReactNod
   },
   {
     group: 'Profile',
-    id: 'delete-empty',
-    label: 'Delete Account — empty',
-    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} />,
-  },
-  {
-    group: 'Profile',
-    id: 'delete-code',
-    label: 'Delete Account — code entered',
-    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" />,
-  },
-  {
-    group: 'Profile',
-    id: 'delete-ready',
-    label: 'Delete Account — ready',
-    render: () => <DeleteAccountDialog open onOpenChange={noop} email={MY_EMAIL} defaultCode="123456" defaultAcknowledged />,
+    id: 'delete-account',
+    label: 'Delete Account',
+    render: () => <DeleteAccountDialog open onOpenChange={noop} />,
   },
 
   {

@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { signOut } from '@/lib/session'
 import {
   checkEmail,
   deleteAccount,
@@ -7,7 +8,6 @@ import {
   getViewerInviteAccess,
   onboard,
   removeAvatar,
-  requestDeletionCode,
   requestEmailChange,
   updateNotificationChannels,
   updateProfile,
@@ -41,13 +41,9 @@ export const useRemoveAvatar = () => useUserMutation(removeAvatar)
 
 export const useCheckEmail = () => useMutation({ mutationFn: checkEmail })
 export const useRequestEmailChange = () => useMutation({ mutationFn: requestEmailChange })
-export const useRequestDeletionCode = () => useMutation({ mutationFn: requestDeletionCode })
 
-/** Deletes the account and drops every cached query — nothing of it should outlive the account. */
-export const useDeleteAccount = () => {
-  const qc = useQueryClient()
-  return useMutation({ mutationFn: deleteAccount, onSuccess: () => qc.clear() })
-}
+/** Deletes the account and signs out, dropping every cached query: nothing of it should outlive the account. */
+export const useDeleteAccount = () => useMutation({ mutationFn: deleteAccount, onSuccess: signOut })
 
 export const notificationChannelsQuery = queryOptions({ queryKey: ['me', 'notification-channels'], queryFn: getNotificationChannels })
 

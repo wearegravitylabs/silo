@@ -1,53 +1,36 @@
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { DeletionCodeDialog } from '@/components/deletion-code-dialog'
-import { DELETE_ACCOUNT_WARNING, DELETION_CODE_LENGTH } from '../constants'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { getErrorMessage } from '@/lib/api-client'
+import { DELETE_ACCOUNT_WARNING } from '../constants'
 import { useDeleteAccount } from '../queries'
 
 /**
- * Final step of account deletion: the code emailed to `email` plus an acknowledgement unlock Delete Account.
- * Success signs out to /login. Reopens empty.
+ * Last step of account deletion: a warning and Delete Account. Success signs out to /login.
+ * TODO: the design asks for a code emailed to the user (DeletionCodeDialog); bring it back once the API sends one.
  */
-export function DeleteAccountDialog({
-  open,
-  onOpenChange,
-  email,
-  defaultCode,
-  defaultAcknowledged,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  email: string
-  /** Dev gallery: open with a code typed / the box ticked. */
-  defaultCode?: string
-  defaultAcknowledged?: boolean
-}) {
+export function DeleteAccountDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const remove = useDeleteAccount()
   const navigate = useNavigate()
 
   return (
-    <DeletionCodeDialog
+    <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Verify Account Deletion"
-      warning={DELETE_ACCOUNT_WARNING}
-      email={email}
-      acknowledgement="I acknowledge that all of my account data will be deleted and want to proceed."
+      title="Delete Account?"
       confirmLabel="Delete Account"
-      codeLength={DELETION_CODE_LENGTH}
       pending={remove.isPending}
-      invalid={remove.isError}
-      onReset={remove.reset}
-      onConfirm={(code) =>
-        remove.mutate(code, {
+      onConfirm={() =>
+        remove.mutate(undefined, {
           onSuccess: () => {
             toast.success('Your account has been deleted')
             navigate({ to: '/login' })
           },
+          onError: (error) => toast.error(getErrorMessage(error, 'Couldn’t delete your account. Try again.')),
         })
       }
-      defaultCode={defaultCode}
-      defaultAcknowledged={defaultAcknowledged}
-    />
+    >
+      {DELETE_ACCOUNT_WARNING}
+    </ConfirmDialog>
   )
 }

@@ -1,11 +1,14 @@
 import { api } from '@/lib/api-client'
 import type { NotificationChannels, OnboardInput, UpdateProfileInput, User, ViewerInviteAccess } from './types'
 
-export const getMe = () => api<User>('/users/me')
+// The API ignores a null avatar_url, so a removed photo is saved as "" (read back here as none).
+const toUser = (u: User): User => ({ ...u, avatar_url: u.avatar_url || null })
 
-export const onboard = (data: OnboardInput) => api<User>('/users/me/onboard', { method: 'PATCH', body: data })
+export const getMe = async () => toUser(await api<User>('/users/me'))
 
-export const updateProfile = (data: UpdateProfileInput) => api<User>('/users/me', { method: 'PATCH', body: data })
+export const onboard = async (data: OnboardInput) => toUser(await api<User>('/users/me/onboard', { method: 'PATCH', body: data }))
+
+export const updateProfile = async (data: UpdateProfileInput) => toUser(await api<User>('/users/me', { method: 'PATCH', body: data }))
 
 const delay = (ms = 800) => new Promise((r) => setTimeout(r, ms))
 
@@ -18,17 +21,16 @@ export const upgradePlan = async (): Promise<Partial<User>> => {
   return { trial_days_left: null }
 }
 
-// TODO: mocked. Real call: upload the file (POST /upload), then PATCH /users/me { avatar_url }.
-export const uploadAvatar = async (file: File): Promise<Partial<User>> => {
-  await delay()
-  return { avatar_url: URL.createObjectURL(file) }
+/** Uploads the photo to public storage, then points the profile at its URL. */
+export const uploadAvatar = async (file: File) => {
+  const form = new FormData()
+  form.append('file', file)
+  const { url } = await api<{ url: string }>('/upload', { method: 'POST', body: form })
+  return updateProfile({ avatar_url: url })
 }
 
-// TODO: mocked. Real call: api<User>('/users/me', { method: 'PATCH', body: { avatar_url: null } })
-export const removeAvatar = async (): Promise<Partial<User>> => {
-  await delay(400)
-  return { avatar_url: null }
-}
+// The file stays in storage: the API has no way to delete an upload yet.
+export const removeAvatar = () => updateProfile({ avatar_url: '' })
 
 /** Mock accounts that already exist, so Change Email can hit both outcomes. */
 const EXISTING_EMAILS = new Set(['osonuga.daniel@gmail.com', 'taiwo.odetola@gmail.com', 'jane.doe@gmail.com'])
@@ -46,16 +48,8 @@ export const requestEmailChange = async (_email: string): Promise<void> => {
   await delay()
 }
 
-// TODO: mocked. Real call: api('/users/me/deletion-code', { method: 'POST' })
-/** Emails a one-time code that confirms account deletion. */
-export const requestDeletionCode = async (): Promise<void> => {
-  await delay(400)
-}
-
-// TODO: mocked. Real call: api('/users/me', { method: 'DELETE', body: { code } })
-export const deleteAccount = async (_code: string): Promise<void> => {
-  await delay(1000)
-}
+// TODO: the design confirms with a code emailed to the user; the API has no code step yet, so it deletes straight away.
+export const deleteAccount = () => api('/users/me', { method: 'DELETE' })
 
 const MOCK_CHANNELS: NotificationChannels = { email: true, in_app: true }
 
