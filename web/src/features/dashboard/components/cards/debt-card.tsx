@@ -23,7 +23,8 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
   const scheduled = items.filter((d) => d.scheduled)
   const unscheduled = items.filter((d) => !d.scheduled)
   const hasDebts = items.length > 0
-  const money = (value: number, opts?: Parameters<typeof formatMoney>[2]) => formatMoney(value, summary.currency, opts)
+  // A total the API doesn't give yet shows as a dash.
+  const money = (value: number | null, sign = '') => (value == null ? '—' : sign + formatMoney(value, summary.currency))
 
   return (
     <Card>
@@ -47,11 +48,11 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
 
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 px-4 pt-3">
         <span className="font-heading text-[1.75rem] leading-9 font-bold tracking-[-0.0125rem] text-foreground">
-          -{money(summary.total)}
+          {money(summary.total, '-')}
         </span>
         <div className="flex flex-col items-end gap-1.5">
           <span className="text-xs leading-4 text-muted-foreground">Interest Paid YTD</span>
-          <span className="font-medium text-foreground">+{money(summary.interest_paid_ytd)}</span>
+          <span className="font-medium text-foreground">{money(summary.interest_paid_ytd, '+')}</span>
         </div>
       </div>
 
@@ -60,7 +61,7 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
           edge="solid"
           stats={
             <div className="grid grid-cols-2 gap-4">
-              <Stat label="Scheduled Debt" value={`-${money(summary.scheduled_total)}`} />
+              <Stat label="Scheduled Debt" value={money(summary.scheduled_total, '-')} />
               <Stat label="Monthly Payments" value={money(summary.monthly_payments)} />
             </div>
           }
@@ -70,7 +71,7 @@ export function DebtCard({ portfolioId, debts }: { portfolioId: string; debts: D
             : Array.from({ length: 3 }, (_, i) => <PlaceholderRow key={i} />)}
         </DebtColumn>
 
-        <DebtColumn edge="hatched" stats={<Stat label="Unscheduled Debt" value={`-${money(summary.unscheduled_total)}`} />}>
+        <DebtColumn edge="hatched" stats={<Stat label="Unscheduled Debt" value={money(summary.unscheduled_total, '-')} />}>
           {unscheduled.length > 0 ? unscheduled.map((d) => <DebtRow key={d.debt_id} debt={d} />) : <PlaceholderRow />}
         </DebtColumn>
       </div>
