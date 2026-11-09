@@ -31,7 +31,7 @@ import type {
 
 // Real portfolios use the API; the demo portfolios (see lib/demo) stay in memory, starting with the design's debts.
 // TODO: the API's debts lack change_pct_1m, needs_attention and an icon (null/false here: the type's icon shows), and
-// there's no debts overview: the total is added up here, without its 1M change.
+// there's no debts overview, so a real portfolio's total shows as a dash.
 const later = mockDelay(600)
 
 const store = new Map<string, Debt[]>()
@@ -260,8 +260,8 @@ const mockDeleteDocument = (docId: string) => {
 
 // ─── Detail panel: API ────────────────────────────────────────────────────────
 // The panel shows the debt's own currency, owned share, like the table; the API keeps the whole debt's balance.
-// TODO: the API has no balance history, so a debt's history is worked out from it: what was borrowed (principal), then
-// its balance now if it has changed. A repayment or adjustment just sets the balance, as of now (the date is dropped).
+// TODO: the API has no balance history, so the History tab and chart stay empty. A repayment or adjustment just sets
+// the balance, as of now (the date is dropped).
 
 const debtPath = (portfolioId: string, debtId: string) => `${debtsPath(portfolioId)}/${debtId}`
 const getDebt = async (portfolioId: string, debtId: string) => toDebt(await api<ApiDebt>(debtPath(portfolioId, debtId)))

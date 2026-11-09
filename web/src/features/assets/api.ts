@@ -14,13 +14,13 @@ import type {
   TickerResult,
 } from './types'
 
-// Real portfolios use the API. Still mocked, in memory: the demo portfolio (see lib/demo), listed crypto (TODO: the API
-// needs a price on every coin purchase but has no coin prices to offer), connected accounts and address search. A
-// real portfolio's list mixes in the mocked assets made this session, so they show until reload.
+// Real portfolios use the API. Still mocked, in memory: the demo portfolio (see lib/demo) and address search. Listed
+// crypto (TODO: the API needs a price on every coin purchase but has no coin prices to offer) and connected accounts
+// are demo only; a real portfolio shows them as "Coming soon".
 const later = mockDelay(500)
 
 const store = new Map<string, AssetItem[]>()
-/** The mock store (shared with panel-api): the demo portfolio's assets, or a real one's mocked additions. */
+/** The mock store (shared with panel-api): the demo portfolios' assets. */
 export const assetsOf = (portfolioId: string) => {
   if (!store.has(portfolioId)) store.set(portfolioId, portfolioId === 'demo' ? MOCK_ASSETS.map((a) => ({ ...a })) : [])
   return store.get(portfolioId)!

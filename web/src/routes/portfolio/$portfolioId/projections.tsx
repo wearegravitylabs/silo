@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { Callout } from '@/components/callout'
 import { ExportDialog } from '@/components/export-dialog'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetIconDisc, useAssets } from '@/features/assets'
 import { DEBT_TYPE_LABELS, DebtIconDisc, useDebts } from '@/features/debts'
@@ -130,18 +128,16 @@ function ProjectionsPage() {
 
         <div className="px-4 pt-4.5 md:px-10">
           {search.view === 'timestamp' ? (
-            milestones.data ? (
-              <TimestampGrid start={milestones.data.start} at={milestones.data.at} currency={currency} />
-            ) : milestones.isError ? (
-              <ProjectionError onRetry={() => milestones.refetch()} />
+            milestones.data || milestones.isError ? (
+              // A failed load leaves the cards with dashes.
+              <TimestampGrid start={milestones.data?.start} at={milestones.data?.at} currency={currency} />
             ) : (
               <Skeleton className="h-77.5 rounded-2xl" />
             )
-          ) : activePoints ? (
+          ) : activePoints || activeChart?.isError ? (
+            // A scenario whose projection didn't load has no line, just its outline and a dash.
             <ProjectionChart
-              series={(visible.length ? visible : [active])
-                .filter((s) => pointsOf[s.id])
-                .map((s) => ({ scenario: s, points: pointsOf[s.id]! }))}
+              series={(visible.length ? visible : [active]).map((s) => ({ scenario: s, points: pointsOf[s.id] ?? [] }))}
               scenarios={state.scenarios}
               visible={visible.map((s) => s.id)}
               onVisibleChange={setShown}
@@ -149,8 +145,6 @@ function ProjectionsPage() {
               onMetricChange={setMetric}
               currency={currency}
             />
-          ) : activeChart?.isError ? (
-            <ProjectionError onRetry={() => activeChart.refetch()} />
           ) : (
             <Skeleton className="h-77.5 rounded-2xl" />
           )}
@@ -196,21 +190,6 @@ function ProjectionsPage() {
         <ExportDialog title="Export Projection" formats={EXPORT_FORMATS} open={exporting} onOpenChange={setExporting} />
       </div>
     </div>
-  )
-}
-
-/** The projection didn't load: the API's message and Retry. */
-function ProjectionError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <Callout
-      variant="error"
-      title="Couldn’t load the projection"
-      action={
-        <Button variant="secondary" size="xs" onClick={onRetry}>
-          Retry
-        </Button>
-      }
-    />
   )
 }
 
