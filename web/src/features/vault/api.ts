@@ -1,12 +1,14 @@
+import { api } from '@/lib/api-client'
+import { isDemoPortfolio } from '@/lib/demo'
 import { mockDelay } from '@/lib/mock'
 import { MOCK_VAULT_DOCUMENTS } from './mock-data'
 import type { VaultDocument, VaultStatus } from './types'
 
-// TODO: the document endpoints exist — GET/POST /portfolios/:id/vault/documents, GET …/:docId/download-url, DELETE …/:docId.
-// Files must be encrypted in the browser before upload (the server only stores ciphertext), with a key derived from the
-// vault password; that isn't built yet. There are no vault-password endpoints yet either.
-// Mock: the demo portfolio has a password set (any password unlocks it) and the design's four documents; other portfolios
-// start with no password and no documents. Everything lives in memory, so the vault locks again on reload.
+// A real portfolio's documents are the API's (each member sees only their own). The vault password is still mocked:
+// the API has no password endpoints, so any portfolio but the demo starts with none, and it locks again on reload.
+// TODO: the API expects files encrypted in the browser (it stores ciphertext), with a key from the vault password; that
+// isn't built yet, so files are uploaded as they are.
+// Mock: the demo portfolio has a password set (any password unlocks it) and the design's four documents.
 const DELAY = 600
 const later = mockDelay(DELAY)
 
@@ -41,9 +43,28 @@ export const unlockVault = (portfolioId: string, password: string): Promise<Vaul
   return later({ has_password: true, unlocked: true })
 }
 
-export const listVaultDocuments = (portfolioId: string): Promise<VaultDocument[]> => later([...docsOf(portfolioId)])
+const documentsPath = (portfolioId: string) => `/portfolios/${portfolioId}/vault/documents`
 
-export const uploadVaultDocument = (portfolioId: string, file: File): Promise<VaultDocument> => {
+/** The document fields the UI uses, from the API's. */
+const toDocument = ({ id, portfolio_id, file_name, file_size, uploaded_at }: VaultDocument): VaultDocument => ({
+  id,
+  portfolio_id,
+  file_name,
+  file_size,
+  uploaded_at,
+})
+
+export const listVaultDocuments = async (portfolioId: string): Promise<VaultDocument[]> => {
+  if (!isDemoPortfolio(portfolioId)) return ((await api<VaultDocument[] | null>(documentsPath(portfolioId))) ?? []).map(toDocument)
+  return later([...docsOf(portfolioId)])
+}
+
+export const uploadVaultDocument = async (portfolioId: string, file: File): Promise<VaultDocument> => {
+  if (!isDemoPortfolio(portfolioId)) {
+    const form = new FormData()
+    form.append('file', file)
+    return toDocument(await api<VaultDocument>(documentsPath(portfolioId), { method: 'POST', body: form }))
+  }
   const doc: VaultDocument = {
     id: crypto.randomUUID(),
     portfolio_id: portfolioId,
@@ -56,11 +77,18 @@ export const uploadVaultDocument = (portfolioId: string, file: File): Promise<Va
   return later(doc)
 }
 
-/** A short-lived URL for the file (a blob URL in the mock; revoke it after use). */
-export const getVaultDocumentUrl = (doc: VaultDocument) =>
-  Promise.resolve(URL.createObjectURL(files.get(doc.id) ?? new Blob([`${doc.file_name} (sample document)`], { type: 'text/plain' })))
+/** A short-lived URL for the file: a signed link from the API, or a blob URL in the mock (revoke it after use). */
+export const getVaultDocumentUrl = async (doc: VaultDocument) => {
+  if (!isDemoPortfolio(doc.portfolio_id))
+    return (await api<{ url: string }>(`${documentsPath(doc.portfolio_id)}/${doc.id}/download-url`)).url
+  return URL.createObjectURL(files.get(doc.id) ?? new Blob([`${doc.file_name} (sample document)`], { type: 'text/plain' }))
+}
 
-export const deleteVaultDocument = (portfolioId: string, docId: string) => {
+export const deleteVaultDocument = async (portfolioId: string, docId: string) => {
+  if (!isDemoPortfolio(portfolioId)) {
+    await api(`${documentsPath(portfolioId)}/${docId}`, { method: 'DELETE' })
+    return null
+  }
   const docs = docsOf(portfolioId)
   const i = docs.findIndex((d) => d.id === docId)
   if (i !== -1) docs.splice(i, 1)
