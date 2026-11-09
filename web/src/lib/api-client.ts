@@ -1,6 +1,7 @@
+import { API_BASE_URL } from './api'
 import { expireSession, getAccessToken, hasSession, refreshAccessToken } from './session'
 
-const BASE_URL = '/api/v1'
+const BASE_URL = API_BASE_URL
 
 /** Error payload the API puts in `error` on every failure response. */
 interface ApiErrorBody {

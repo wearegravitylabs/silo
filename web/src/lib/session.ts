@@ -1,3 +1,4 @@
+import { API_BASE_URL } from './api'
 import { queryClient } from './query-client'
 
 const REFRESH_KEY = 'silo-refresh-token'
@@ -67,7 +68,7 @@ export function expireSession() {
 export function refreshAccessToken(): Promise<RefreshResult> {
   const refreshToken = readRefreshToken()
   if (!refreshToken) return Promise.resolve('invalid')
-  refreshing ??= fetch('/api/v1/auth/refresh-token', {
+  refreshing ??= fetch(`${API_BASE_URL}/auth/refresh-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
