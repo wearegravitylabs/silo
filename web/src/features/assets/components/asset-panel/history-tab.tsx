@@ -4,13 +4,12 @@ import { ChangeText } from '@/components/change-text'
 import { EntryCard } from '@/components/entry-card'
 import { PlusCircleIcon } from '@/components/icons'
 import { LineChart } from '@/components/line-chart'
-import { TabBody, TabCta, TabListSkeleton } from '@/components/panel-layout'
+import { Stat, StatList, TabBody, TabCta, TabListSkeleton } from '@/components/panel-layout'
 import { PeriodTabs } from '@/components/period-tabs'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { currencySymbol, formatDay, formatMoney } from '@/lib/format'
 import type { ChartPeriod } from '@/lib/periods'
-import { cn } from '@/lib/utils'
 import { useAssetChart, useAssetHistory, useAssetStats } from '../../panel-queries'
 import type { AssetHistoryEntry, AssetItem } from '../../types'
 import { AddHistoryDialog } from './add-history-dialog'
@@ -26,7 +25,7 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
   const [editing, setEditing] = useState(false)
   const { data: entries, isPending } = useAssetHistory(portfolioId, asset.id)
   const { data: stats } = useAssetStats(portfolioId, asset.id)
-  const { data: points = [] } = useAssetChart(portfolioId, asset.id, period)
+  const { data: chart } = useAssetChart(portfolioId, asset.id, period)
   const currency = asset.converted_currency
   const units = countsUnits(asset)
   // A priced asset marks only where it started.
@@ -37,9 +36,9 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
   return (
     <div className="flex flex-1 flex-col">
       <TabBody className="overflow-y-visible">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <StatList>
           <Stat label={units ? 'Total Invested' : 'Acquisition Price'}>
-            {stats ? formatMoney(stats.invested, currency) : <Skeleton className="h-4 w-20" />}
+            {stats ? formatMoney(stats.invested, currency) : stats === null ? '—' : <Skeleton className="h-4 w-20" />}
           </Stat>
           {units && (
             <Stat label="Total Quantity">
@@ -55,15 +54,17 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
                 compact={false}
                 className="text-sm leading-5.5"
               />
+            ) : stats === null ? (
+              '—'
             ) : (
               <Skeleton className="h-4 w-24" />
             )}
           </Stat>
-        </dl>
+        </StatList>
 
         <LineChart
-          points={points}
-          currency={currency}
+          points={chart?.points ?? []}
+          currency={chart?.currency ?? currency}
           tone="brand"
           fill="area"
           guides="x"
@@ -80,9 +81,9 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
           ) : (
             entries?.map((entry) =>
               entry.kind === 'price' ? (
-                <PriceCard key={entry.id} entry={entry} currency={currency} />
+                <PriceCard key={entry.id} entry={entry} currency={entry.currency ?? currency} />
               ) : (
-                <HistoryCard key={entry.id} entry={entry} currency={currency} ticker={asset.ticker} />
+                <HistoryCard key={entry.id} entry={entry} currency={entry.currency ?? currency} ticker={asset.ticker} />
               ),
             )
           )}
@@ -105,18 +106,9 @@ export function HistoryTab({ asset, portfolioId }: { asset: AssetItem; portfolio
   )
 }
 
-function Stat({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <dt className="text-xs leading-4 text-muted-foreground">{label}</dt>
-      <dd className={cn('truncate text-foreground', className)}>{children}</dd>
-    </div>
-  )
-}
-
-/** "$300" for whole amounts, "$10,500.25" otherwise. */
-const money = (value: number, currency: string) =>
-  formatMoney(value, currency, { spaced: false, decimals: Number.isInteger(value) ? 0 : 2 })
+/** "$300" for whole amounts, "$10,500.25" otherwise; a dash when there's none. */
+const money = (value: number | null, currency: string) =>
+  value == null ? '—' : formatMoney(value, currency, { spaced: false, decimals: Number.isInteger(value) ? 0 : 2 })
 
 /** One change: added or removed and its value; the units (or money) moved and the price per unit then. */
 function HistoryCard({ entry, currency, ticker }: { entry: AssetHistoryEntry; currency: string; ticker: string | null }) {
@@ -142,21 +134,19 @@ function HistoryCard({ entry, currency, ticker }: { entry: AssetHistoryEntry; cu
   )
 }
 
-/** A price change: the first is the estimate ("$ -", "Prev $ 0"); later ones show the move (green up, red down). */
+/**
+ * A price change: the new price and the one before ("Prev $ 0" for the first). TODO: the move between them (green up,
+ * red down) once the API gives it; it isn't worked out here.
+ */
 function PriceCard({ entry, currency }: { entry: AssetHistoryEntry; currency: string }) {
-  const delta = entry.previous === null ? null : entry.amount - entry.previous
   return (
     <EntryCard label={formatDay(entry.date)}>
       <div className="flex items-center justify-between gap-4">
         <span className="font-medium text-foreground">{entry.previous === null ? 'Estimated Price' : 'Price Adjusted'}</span>
-        <span className="text-foreground">{formatMoney(entry.amount, currency)}</span>
+        <span className="text-foreground">{money(entry.amount, currency)}</span>
       </div>
       <div className="flex items-center justify-between gap-4 text-xs leading-5">
-        <span className={cn(!delta ? 'text-subtle' : delta > 0 ? 'text-success' : 'text-destructive')}>
-          {delta === null
-            ? `${currencySymbol(currency)} -`
-            : `${delta > 0 ? '+' : delta < 0 ? '-' : ''}${formatMoney(Math.abs(delta), currency, { spaced: false })}`}
-        </span>
+        <span className="text-subtle">{`${currencySymbol(currency)} -`}</span>
         <span className="text-subtle">
           Prev {entry.previous ? formatMoney(entry.previous, currency) : formatMoney(0, currency, { decimals: 0 })}
         </span>

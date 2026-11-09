@@ -96,6 +96,9 @@ export interface CreatableAssetType {
 }
 
 /** Create Asset → Choose an Asset Type, in the design's order (two columns, read across). */
+/** Kinds the API can't add yet (crypto tickers, bank and exchange connections): only the demo has them, as mocks. */
+export const DEMO_ONLY_ASSET_TYPES = ['crypto_ticker', 'bank', 'crypto_wallet']
+
 export const CREATABLE_ASSET_TYPES: CreatableAssetType[] = [
   { id: 'stock_ticker', label: 'Stocks Tickers', Icon: AppleIcon, enabled: true },
   { id: 'crypto_ticker', label: 'Crypto Tickers', Icon: DatabaseIcon, enabled: true },

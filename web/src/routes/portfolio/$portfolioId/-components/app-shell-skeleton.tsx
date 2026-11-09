@@ -1,16 +1,28 @@
-import { useLocation } from '@tanstack/react-router'
+import { useLocation, type ErrorComponentProps } from '@tanstack/react-router'
 import { DashboardSkeleton } from '@/features/dashboard'
+import { ConnectionBanner } from '@/components/connection-banner'
+import { RouteError } from '@/components/route-error'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSidebarStore } from '@/stores/sidebar-store'
+import { isConnectionError } from '@/lib/api-client'
 import { cn } from '@/lib/utils'
 import { MainPanel } from '@/routes/-components/main-panel'
 import { AssetsSkeleton } from './assets-skeleton'
 
 /**
- * Whole-app placeholder for a cold load, before the portfolio (and so the real sidebar
- * and top bar) is known. Picks the page skeleton matching the URL.
+ * Error state for routes that load behind the shell skeleton: a lost connection keeps the skeleton, with the
+ * connection banner under the top bar saying why; anything else is the usual route error.
  */
-export function AppShellSkeleton() {
+export function AppShellError(props: ErrorComponentProps) {
+  return isConnectionError(props.error) ? <AppShellSkeleton error={props.error} /> : <RouteError {...props} />
+}
+
+/**
+ * Whole-app placeholder for a cold load, before the portfolio (and so the real sidebar
+ * and top bar) is known. Picks the page skeleton matching the URL. `error`: the load failed for want of a
+ * connection, shown in the banner under the top bar.
+ */
+export function AppShellSkeleton({ error }: { error?: unknown }) {
   const collapsed = useSidebarStore((s) => s.collapsed)
   const { pathname } = useLocation()
 
@@ -49,6 +61,7 @@ export function AppShellSkeleton() {
             </div>
           </div>
         </div>
+        {error !== undefined && <ConnectionBanner error={error} className="pb-3" />}
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {pathname.endsWith('/assets') ? <AssetsSkeleton /> : <DashboardSkeleton />}
         </div>

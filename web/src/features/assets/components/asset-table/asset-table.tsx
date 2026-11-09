@@ -36,6 +36,7 @@ export function AssetTable({
   assets,
   loading,
   dimmed,
+  noneMessage = { title: 'No Assets Yet', body: 'Once you create an asset, it will appear here' },
   className,
   onView,
   onMove,
@@ -45,6 +46,8 @@ export function AssetTable({
   assets: AssetItem[]
   loading?: boolean
   dimmed?: boolean
+  /** Shown when there are no assets at all */
+  noneMessage?: { title: string; body: string }
   className?: string
   onView?: (asset: AssetItem) => void
   /** Move Folders (the page opens its folder picker) */
@@ -86,13 +89,7 @@ export function AssetTable({
       skeleton={Array.from({ length: 4 }, (_, i) => (
         <SkeletonRow key={i} />
       ))}
-      empty={
-        !empty
-          ? null
-          : none
-            ? { title: 'No Assets Yet', body: 'Once you create an asset, it will appear here' }
-            : { title: 'No result found', body: 'We couldn’t find any result based on the filter' }
-      }
+      empty={!empty ? null : none ? noneMessage : { title: 'No result found', body: 'We couldn’t find any result based on the filter' }}
       footer={!loading && !none}
       toolbarEnd={<TableSearch value={search} onChange={view.firstPage(setSearch)} label="Search assets" />}
       toolbarStart={

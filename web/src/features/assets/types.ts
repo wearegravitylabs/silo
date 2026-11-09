@@ -1,7 +1,8 @@
 import type { Frequency } from '@/lib/schedule'
 
-// TODO: the real asset list (GET /portfolios/:id/assets) lacks change_pct_1m, needs_attention, detail and status;
-// those are UI-only until the backend adds them. Other fields keep the API's names.
+// TODO: the API's asset list (GET /portfolios/:id/assets) lacks change_pct_1m and needs_attention: they're null/false
+// until the backend adds them. detail, status, color and pictures are kept in the asset's metadata. Other fields keep
+// the API's names.
 
 export type Investability = 'investable' | 'non_investable'
 
@@ -66,6 +67,8 @@ export interface TickerResult {
   /** Change over the last day, in `currency` and % */
   change: number
   change_pct: number
+  /** Stock market it's listed on (the API prices stocks per market) */
+  country?: 'US' | 'NG'
 }
 
 /** One purchase of a stock: how many, and when. */
@@ -87,6 +90,8 @@ export interface CreateAssetInput {
   /** Manual: the price per unit you entered. Listed: today's price (each purchase is priced on its date). */
   price: number
   lots: AssetLotInput[]
+  /** Listed stocks: the market (see TickerResult) */
+  country?: 'US' | 'NG'
 }
 
 /** An asset valued by you rather than by the market: real estate, a domain, a physical valuable. */
@@ -125,7 +130,7 @@ export interface ConnectInput {
 }
 
 // ─── Detail panel ─────────────────────────────────────────────────────────────
-// TODO: no backend endpoints for an asset's history, rules, notes or documents yet; the shapes follow the debt ones.
+// The UI's shapes; panel-api maps the API's lots, value history, rules, notes and documents onto them.
 
 /**
  * One change to the asset: units added or removed (ticker assets), or a new price for the rest — the first is its
@@ -139,12 +144,14 @@ export interface AssetHistoryEntry {
   kind: 'add' | 'remove' | 'price'
   /** Units, for ticker assets */
   quantity: number | null
-  /** Value added or removed, or the new price, in the asset's currency */
-  amount: number
+  /** Value added or removed, or the new price; null when the API doesn't give it (a purchase's total) */
+  amount: number | null
   /** Price per unit at the time, for ticker assets */
   price: number | null
   /** The price before (price changes after the first) */
   previous: number | null
+  /** What the amounts are in, when not the asset's portfolio currency (the API's history is in the asset's own) */
+  currency?: string
   created_at: string
 }
 
@@ -163,6 +170,7 @@ export interface AddAssetHistoryInput {
 }
 
 /** An asset's totals for the History tab. */
+/** What's invested and the gain (null for a real asset: the API doesn't work them out yet). */
 export interface AssetStats {
   /** What went in, less what came out (ticker assets); the first price (the rest) */
   invested: number

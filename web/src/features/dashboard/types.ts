@@ -1,4 +1,5 @@
-export type DashboardDataStatus = 'empty' | 'ready'
+/** `insufficient_history`: there are assets, but no history for the period yet (no chart or changes). */
+export type DashboardDataStatus = 'empty' | 'insufficient_history' | 'ready'
 
 export interface DashboardNetWorth {
   total: number
@@ -64,12 +65,13 @@ export interface DashboardDebt {
   interest_rate: number | null
 }
 
+/** The debt totals; null where the API doesn't give one yet (it isn't worked out here). */
 export interface DashboardDebtSummary {
   total: number
-  scheduled_total: number
-  unscheduled_total: number
-  monthly_payments: number
-  interest_paid_ytd: number
+  scheduled_total: number | null
+  unscheduled_total: number | null
+  monthly_payments: number | null
+  interest_paid_ytd: number | null
   currency: string
   /** When scheduled debts are paid off at the current plan; null when there are none. */
   debt_free_date: string | null
@@ -97,7 +99,7 @@ export interface DashboardResponse {
 }
 
 /** Chart periods are shared app-wide (src/lib/periods). */
-/** Which mock the dashboard serves until the API exists: `busy` (full demo data) or `empty` (a new portfolio). */
+/** Which mock the dashboard serves (the demo, or the dev gallery): `busy` (full demo data) or `empty` (a new portfolio). */
 export type DashboardMock = 'busy' | 'empty'
 
 export { CHART_PERIODS as PERIODS } from '@/lib/periods'

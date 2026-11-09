@@ -1,5 +1,20 @@
+import { api, ApiError, uploadWithProgress } from '@/lib/api-client'
+import {
+  createRule,
+  deleteRule,
+  listRules,
+  noteBody,
+  noteTags,
+  ruleDays,
+  toggleRule,
+  type ApiDocument,
+  type ApiNote,
+  type ApiRule,
+} from '@/lib/item-api'
+import { daysFromToday, isoDay } from '@/lib/dates'
+import { mockDelay } from '@/lib/mock'
 import { periodDays, type ChartPeriod } from '@/lib/periods'
-import { assetsOf } from './api'
+import { assetsOf, isMockedAsset, toAssetItem, type ApiAsset } from './api'
 import type {
   AddAssetHistoryInput,
   AssetDocument,
@@ -14,20 +29,12 @@ import type {
   UpdateAssetPriceInput,
 } from './types'
 
-// TODO: mocked — the backend has no endpoints for an asset's history, Auto-Pilot rules, notes or documents yet, and
-// PATCH /portfolios/:id/assets/:assetId doesn't take investability or ownership. Changes live in memory; history
-// moves the asset's units and value, so the table and header follow.
-const DELAY = 400
-const later = <T>(value: T) => new Promise<T>((resolve) => setTimeout(() => resolve(value), DELAY))
+// Real assets use the API (see the API section at the end); the demo portfolio's and other mocked assets stay in memory,
+// where history moves the asset's units and value so the table and header follow.
+const later = mockDelay(400)
 const CHART_POINTS = 40
 
-const isoDay = (date: Date) =>
-  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-const daysAgo = (n: number) => {
-  const d = new Date()
-  d.setDate(d.getDate() - n)
-  return isoDay(d)
-}
+const daysAgo = (n: number) => daysFromToday(-n)
 
 const find = (portfolioId: string, assetId: string) => {
   const asset = assetsOf(portfolioId).find((a) => a.id === assetId)
@@ -109,15 +116,14 @@ const byDate = (a: AssetHistoryEntry, b: AssetHistoryEntry) => a.date.localeComp
 /** Ticker assets: what went in less what came out. The rest: the first price. */
 const investedIn = (entries: AssetHistoryEntry[]) => {
   const prices = entries.filter((e) => e.kind === 'price').sort(byDate)
-  if (prices.length) return prices[0].amount
-  return entries.reduce((sum, e) => sum + (e.kind === 'add' ? e.amount : -e.amount), 0)
+  if (prices.length) return prices[0].amount ?? 0
+  return entries.reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.amount ?? 0), 0)
 }
 
 /** Newest first, as the History tab lists them. */
-export const listAssetHistory = (portfolioId: string, assetId: string) =>
-  later([...historyOf(find(portfolioId, assetId))].sort((a, b) => byDate(b, a)))
+const mockHistory = (portfolioId: string, assetId: string) => later([...historyOf(find(portfolioId, assetId))].sort((a, b) => byDate(b, a)))
 
-export const getAssetStats = (portfolioId: string, assetId: string): Promise<AssetStats> => {
+const mockStats = (portfolioId: string, assetId: string): Promise<AssetStats> => {
   const asset = find(portfolioId, assetId)
   const invested = investedIn(historyOf(asset))
   const gain = asset.owned_value_converted - invested
@@ -128,7 +134,7 @@ export const getAssetStats = (portfolioId: string, assetId: string): Promise<Ass
  * Adds or removes units (ticker assets, at today's price per unit) or an amount of money, and moves the asset's
  * units and value with it. Removing more than you hold is refused.
  */
-export const addAssetHistory = (portfolioId: string, assetId: string, input: AddAssetHistoryInput) => {
+const mockAddHistory = (portfolioId: string, assetId: string, input: AddAssetHistoryInput) => {
   const asset = find(portfolioId, assetId)
   const ticker = isTicker(asset)
   const price = ticker ? unitPrice(asset) : null
@@ -151,7 +157,7 @@ export const addAssetHistory = (portfolioId: string, assetId: string, input: Add
 }
 
 /** Sets the value of an asset priced in money (real estate, a domain, …), noting the price before. */
-export const updateAssetPrice = (portfolioId: string, assetId: string, input: UpdateAssetPriceInput) => {
+const mockUpdatePrice = (portfolioId: string, assetId: string, input: UpdateAssetPriceInput) => {
   const asset = find(portfolioId, assetId)
   const created = {
     ...entry(asset, input.date, 'price', null, input.value, null, asset.owned_value_converted),
@@ -167,7 +173,7 @@ export const updateAssetPrice = (portfolioId: string, assetId: string, input: Up
  * as far as the asset has gained or lost overall, so one bought at today's price draws flat. The rest: the latest
  * price on each day.
  */
-export const getAssetChart = (portfolioId: string, assetId: string, period: ChartPeriod) => {
+const mockChart = (portfolioId: string, assetId: string, period: ChartPeriod) => {
   const asset = find(portfolioId, assetId)
   const entries = historyOf(asset)
   const price = unitPrice(asset)
@@ -182,19 +188,19 @@ export const getAssetChart = (portfolioId: string, assetId: string, period: Char
     const day = isoDay(at)
     const held = prices.length
       ? (prices.findLast((e) => e.date <= day)?.amount ?? 0)
-      : entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount), 0)
+      : entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount ?? 0), 0)
     const left = CHART_POINTS - 1 - i // 0 at today, so the line ends on the current value
     const wobble = left === 0 ? 1 : 1 + swing * (0.06 * Math.sin((i + seed) * 0.45) + 0.03 * Math.sin((i + seed) * 1.3))
     const value = isTicker(asset) ? held * price * wobble : held
     return { date: period === '1D' ? at.toISOString() : day, value: Math.max(0, Number(value.toFixed(2))) }
   })
-  return later(points)
+  return later({ currency: asset.converted_currency, points })
 }
 
 // ─── Reporting ────────────────────────────────────────────────────────────────
 
 /** Investable or not, and the share you own (the value scales with it). */
-export const updateAsset = (portfolioId: string, assetId: string, patch: { investability?: Investability; ownership_pct?: number }) => {
+const mockUpdate = (portfolioId: string, assetId: string, patch: { investability?: Investability; ownership_pct?: number }) => {
   const asset = find(portfolioId, assetId)
   if (patch.ownership_pct != null && patch.ownership_pct !== asset.ownership_pct) {
     const whole = asset.ownership_pct > 0 ? asset.owned_value_converted / (asset.ownership_pct / 100) : asset.owned_value_converted
@@ -228,21 +234,21 @@ let rules: AssetRule[] = [
   rule('a1', 'add', 'daily', 20, 40),
 ]
 
-export const listAssetRules = (assetId: string) => later(rules.filter((r) => r.asset_id === assetId))
+const mockRules = (assetId: string) => later(rules.filter((r) => r.asset_id === assetId))
 
 /** Adds a rule, or updates one (`ruleId`); a new rule starts active. */
-export const saveAssetRule = (assetId: string, { ruleId, ...input }: AssetRuleInput & { ruleId?: string }) => {
+const mockSaveRule = (assetId: string, { ruleId, ...input }: AssetRuleInput & { ruleId?: string }) => {
   if (ruleId) rules = rules.map((r) => (r.id === ruleId ? { ...r, ...input } : r))
   else rules = [{ id: crypto.randomUUID(), asset_id: assetId, is_active: true, created_at: new Date().toISOString(), ...input }, ...rules]
   return later(null)
 }
 
-export const toggleAssetRule = (ruleId: string) => {
+const mockToggleRule = (ruleId: string) => {
   rules = rules.map((r) => (r.id === ruleId ? { ...r, is_active: !r.is_active } : r))
   return later(null)
 }
 
-export const deleteAssetRule = (ruleId: string) => {
+const mockDeleteRule = (ruleId: string) => {
   rules = rules.filter((r) => r.id !== ruleId)
   return later(null)
 }
@@ -260,15 +266,15 @@ const note = (title: string, tags: string[]): AssetNote => ({
 })
 let notes: AssetNote[] = [note('Why I bought this?', ['Strategy', 'Long-Term']), note('', ['Strategy', 'Long-Term']), note('', [])]
 
-export const listAssetNotes = (assetId: string) => later(notes.filter((n) => n.asset_id === assetId))
+const mockNotes = (assetId: string) => later(notes.filter((n) => n.asset_id === assetId))
 
-export const saveAssetNote = (assetId: string, { noteId, ...input }: AssetNoteInput & { noteId?: string }) => {
+const mockSaveNote = (assetId: string, { noteId, ...input }: AssetNoteInput & { noteId?: string }) => {
   if (noteId) notes = notes.map((n) => (n.id === noteId ? { ...n, ...input } : n))
   else notes = [{ id: crypto.randomUUID(), asset_id: assetId, created_at: new Date().toISOString(), ...input }, ...notes]
   return later(null)
 }
 
-export const deleteAssetNote = (noteId: string) => {
+const mockDeleteNote = (noteId: string) => {
   notes = notes.filter((n) => n.id !== noteId)
   return later(null)
 }
@@ -278,10 +284,10 @@ export const deleteAssetNote = (noteId: string) => {
 let documents: AssetDocument[] = []
 const files = new Map<string, Blob>()
 
-export const listAssetDocuments = (assetId: string) => later(documents.filter((d) => d.asset_id === assetId))
+const mockDocuments = (assetId: string) => later(documents.filter((d) => d.asset_id === assetId))
 
 /** Uploads in steps, reporting each (0–1); abort with `signal`. */
-export const uploadAssetDocument = (assetId: string, file: File, onProgress: (progress: number) => void, signal?: AbortSignal) =>
+const mockUpload = (assetId: string, file: File, onProgress: (progress: number) => void, signal?: AbortSignal) =>
   new Promise<AssetDocument>((resolve, reject) => {
     let progress = 0
     const timer = setInterval(() => {
@@ -306,11 +312,258 @@ export const uploadAssetDocument = (assetId: string, file: File, onProgress: (pr
     })
   })
 
-export const getAssetDocumentUrl = (doc: Pick<AssetDocument, 'id' | 'file_name'>) =>
+const mockDocumentUrl = (doc: Pick<AssetDocument, 'id' | 'file_name'>) =>
   Promise.resolve(URL.createObjectURL(files.get(doc.id) ?? new Blob([`${doc.file_name} (sample document)`], { type: 'text/plain' })))
 
-export const deleteAssetDocument = (docId: string) => {
+const mockDeleteDocument = (docId: string) => {
   documents = documents.filter((d) => d.id !== docId)
   files.delete(docId)
   return later(null)
+}
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+// The panel shows money in the portfolio's currency, owned share only, like the table. The API keeps an asset's
+// prices in its own currency for the whole asset, so values are converted on the way in and out.
+// TODO: the API can't yet remove units or date a price change. (Rules, notes and documents: see lib/item-api.)
+
+interface ApiLot {
+  quantity: number
+  acquisition_price: number | null
+  acquisition_date: string
+  created_at: string
+  id: string
+}
+
+interface ApiAssetDetail extends ApiAsset {
+  currency: string
+  current_price: number
+  exchange_rate: number
+  lots?: ApiLot[]
+}
+
+interface ApiValuePoint {
+  id: string
+  value: number
+  recorded_at: string
+}
+
+const base = (portfolioId: string, assetId: string) => `/portfolios/${portfolioId}/assets/${assetId}`
+const getDetail = (portfolioId: string, assetId: string) => api<ApiAssetDetail>(base(portfolioId, assetId))
+
+const heldInUnits = (a: ApiAssetDetail) => toAssetItem(a).total_quantity != null
+
+/** The API's value records since `from`, oldest first, as it gives them (the asset's own currency, whole asset). */
+const valueHistory = async (portfolioId: string, assetId: string, from: Date) =>
+  [
+    ...((await api<ApiValuePoint[] | null>(`${base(portfolioId, assetId)}/value-history`, { params: { from: from.toISOString() } })) ?? []),
+  ].sort((x, y) => x.recorded_at.localeCompare(y.recorded_at))
+
+/**
+ * What the API records, as it gives it: each purchase (ticker assets: units and the price paid) or each recorded
+ * value (the rest). Oldest first, in the asset's own currency.
+ */
+async function apiHistory(portfolioId: string, assetId: string): Promise<AssetHistoryEntry[]> {
+  const a = await getDetail(portfolioId, assetId)
+  const entry = (id: string, date: string, created_at: string, rest: Partial<AssetHistoryEntry>): AssetHistoryEntry => ({
+    id,
+    asset_id: assetId,
+    date: date.slice(0, 10),
+    kind: 'price',
+    quantity: null,
+    amount: null,
+    price: null,
+    previous: null,
+    currency: a.currency,
+    created_at,
+    ...rest,
+  })
+  if (heldInUnits(a))
+    return [...(a.lots ?? [])]
+      .sort((x, y) => x.acquisition_date.localeCompare(y.acquisition_date))
+      .map((l) => entry(l.id, l.acquisition_date, l.created_at, { kind: 'add', quantity: l.quantity, price: l.acquisition_price }))
+  const points = await valueHistory(portfolioId, assetId, new Date(0))
+  return points.map((p, i) => entry(p.id, p.recorded_at, p.recorded_at, { amount: p.value, previous: i ? points[i - 1].value : null }))
+}
+
+/** Sets the whole asset's unit price so its owned value becomes `value` (in the portfolio's currency). */
+const setOwnedValue = (portfolioId: string, a: ApiAssetDetail, value: number) =>
+  api<ApiAsset>(base(portfolioId, a.id), {
+    method: 'PATCH',
+    body: { current_price: value / ((a.exchange_rate || 1) * (a.ownership_pct / 100) * (a.quantity || 1)) },
+  })
+
+const toRule = (r: ApiRule): AssetRule => ({
+  id: r.id,
+  asset_id: r.target_id,
+  action: r.action,
+  amount: r.units ?? r.amount,
+  frequency: r.frequency,
+  ...ruleDays(r),
+  is_active: r.is_active,
+  created_at: r.created_at,
+})
+const isMockRule = (ruleId: string) => rules.some((r) => r.id === ruleId)
+
+const toNote = (n: ApiNote & { asset_id: string }): AssetNote => ({
+  id: n.id,
+  asset_id: n.asset_id,
+  title: n.title,
+  content: n.content,
+  tags: noteTags(n),
+  created_at: n.created_at,
+})
+
+const toDocument = ({ id, asset_id, file_name, file_size, uploaded_at }: ApiDocument & { asset_id: string }): AssetDocument => ({
+  id,
+  asset_id,
+  file_name,
+  file_size,
+  uploaded_at,
+})
+
+// ─── Exports: the API for real assets, the mocks for the rest ─────────────────
+
+/** Whether units can be taken off a ticker asset: only mocked ones, until the API can remove units. */
+export const canRemoveUnits = (portfolioId: string, assetId: string) => isMockedAsset(portfolioId, assetId)
+
+/** Newest first, as the History tab lists them. */
+export const listAssetHistory = async (portfolioId: string, assetId: string) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockHistory(portfolioId, assetId)
+  return (await apiHistory(portfolioId, assetId)).reverse()
+}
+
+/** What's invested and the gain; null for a real asset, since the API doesn't work them out yet. TODO: backend. */
+export const getAssetStats = async (portfolioId: string, assetId: string): Promise<AssetStats | null> => {
+  if (isMockedAsset(portfolioId, assetId)) return mockStats(portfolioId, assetId)
+  return null
+}
+
+/**
+ * Adds units (ticker assets, as a purchase on that date) or adds/removes an amount of money (the rest, as a new
+ * price). Removing units isn't in the API yet.
+ */
+export const addAssetHistory = async (portfolioId: string, assetId: string, input: AddAssetHistoryInput) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockAddHistory(portfolioId, assetId, input)
+  const a = await getDetail(portfolioId, assetId)
+  if (!heldInUnits(a)) {
+    const value = toAssetItem(a).owned_value_converted
+    if (input.kind === 'remove' && input.value > value) throw new Error('You can’t remove more than you hold')
+    return setOwnedValue(portfolioId, a, value + (input.kind === 'add' ? input.value : -input.value))
+  }
+  if (input.kind === 'remove') throw new Error('Removing units isn’t available yet. Add a purchase or update the price instead.')
+  // A listed stock is priced on the date by the API; otherwise (or if it can't) at today's price.
+  const lot = (price?: number) => ({ quantity: input.value, acquisition_date: input.date, acquisition_price: price })
+  const add = (price?: number) => api(`${base(portfolioId, assetId)}/lots`, { method: 'POST', body: lot(price) })
+  if (a.asset_type !== 'stock_ticker') return add(a.current_price)
+  try {
+    return await add()
+  } catch (err) {
+    if (!(err instanceof ApiError && err.code === 'ACQUISITION_PRICE_REQUIRED')) throw err
+    return add(a.current_price)
+  }
+}
+
+/** Sets the value of an asset priced in money (real estate, a domain, …). The API records it as of today. */
+export const updateAssetPrice = async (portfolioId: string, assetId: string, input: UpdateAssetPriceInput) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockUpdatePrice(portfolioId, assetId, input)
+  return setOwnedValue(portfolioId, await getDetail(portfolioId, assetId), input.value)
+}
+
+export const getAssetChart = async (portfolioId: string, assetId: string, period: ChartPeriod) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockChart(portfolioId, assetId, period)
+  const a = await getDetail(portfolioId, assetId)
+  const points = await valueHistory(portfolioId, assetId, new Date(Date.now() - periodDays(period) * 86_400_000))
+  return { currency: a.currency, points: points.map((p) => ({ date: p.recorded_at, value: p.value })) }
+}
+
+/** Investable or not, and the share you own (the value scales with it). */
+export const updateAsset = async (
+  portfolioId: string,
+  assetId: string,
+  patch: { investability?: Investability; ownership_pct?: number },
+) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockUpdate(portfolioId, assetId, patch)
+  return toAssetItem(await api<ApiAsset>(base(portfolioId, assetId), { method: 'PATCH', body: patch }))
+}
+
+export const listAssetRules = async (portfolioId: string, assetId: string) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockRules(assetId)
+  return (await listRules(portfolioId, 'asset', assetId)).map(toRule)
+}
+
+/** Adds a rule, or updates one (`ruleId`: remade, since the API can't edit one). A new rule starts active. */
+export const saveAssetRule = async (portfolioId: string, assetId: string, { ruleId, ...input }: AssetRuleInput & { ruleId?: string }) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockSaveRule(assetId, { ruleId, ...input })
+  const units = heldInUnits(await getDetail(portfolioId, assetId))
+  await createRule(portfolioId, {
+    target_id: assetId,
+    target_type: 'asset',
+    action: input.action,
+    ...(units ? { units: input.amount } : { amount: input.amount }),
+    frequency: input.frequency,
+    start_date: input.start_date,
+    end_date: input.end_date,
+  })
+  if (ruleId) await deleteRule(portfolioId, ruleId)
+  return null
+}
+
+export const toggleAssetRule = async (portfolioId: string, ruleId: string) => {
+  if (isMockRule(ruleId)) return mockToggleRule(ruleId)
+  await toggleRule(portfolioId, ruleId)
+  return null
+}
+
+export const deleteAssetRule = async (portfolioId: string, ruleId: string) => {
+  if (isMockRule(ruleId)) return mockDeleteRule(ruleId)
+  await deleteRule(portfolioId, ruleId)
+  return null
+}
+
+export const listAssetNotes = async (portfolioId: string, assetId: string) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockNotes(assetId)
+  return ((await api<Array<ApiNote & { asset_id: string }> | null>(`${base(portfolioId, assetId)}/notes`)) ?? []).map(toNote)
+}
+
+export const saveAssetNote = async (portfolioId: string, assetId: string, { noteId, ...input }: AssetNoteInput & { noteId?: string }) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockSaveNote(assetId, { noteId, ...input })
+  const body = noteBody(input)
+  await api(`${base(portfolioId, assetId)}/notes${noteId ? `/${noteId}` : ''}`, { method: noteId ? 'PATCH' : 'POST', body })
+  return null
+}
+
+export const deleteAssetNote = async (portfolioId: string, assetId: string, noteId: string) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockDeleteNote(noteId)
+  await api(`${base(portfolioId, assetId)}/notes/${noteId}`, { method: 'DELETE' })
+  return null
+}
+
+export const listAssetDocuments = async (portfolioId: string, assetId: string) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockDocuments(assetId)
+  return ((await api<Array<ApiDocument & { asset_id: string }> | null>(`${base(portfolioId, assetId)}/documents`)) ?? []).map(toDocument)
+}
+
+/** Uploads, reporting each step (0–1); abort with `signal`. */
+export const uploadAssetDocument = async (
+  portfolioId: string,
+  assetId: string,
+  file: File,
+  onProgress: (progress: number) => void,
+  signal?: AbortSignal,
+) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockUpload(assetId, file, onProgress, signal)
+  const path = `${base(portfolioId, assetId)}/documents`
+  return toDocument(await uploadWithProgress<ApiDocument & { asset_id: string }>(path, file, onProgress, signal))
+}
+
+/** A link to open the file: a short-lived signed URL from the API, or the mock's local copy. */
+export const getAssetDocumentUrl = async (portfolioId: string, assetId: string, doc: Pick<AssetDocument, 'id' | 'file_name'>) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockDocumentUrl(doc)
+  return (await api<{ url: string }>(`${base(portfolioId, assetId)}/documents/${doc.id}/download-url`)).url
+}
+
+export const deleteAssetDocument = async (portfolioId: string, assetId: string, docId: string) => {
+  if (isMockedAsset(portfolioId, assetId)) return mockDeleteDocument(docId)
+  await api(`${base(portfolioId, assetId)}/documents/${docId}`, { method: 'DELETE' })
+  return null
 }

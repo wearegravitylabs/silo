@@ -9,7 +9,10 @@ import type { ProjectionView } from '../types'
 const MONTH = new Date().toLocaleDateString('en-US', { month: 'short' })
 const FIRST_YEAR = new Date().getFullYear() + 1
 
-/** "Projections": the active scenario's value at the horizon and its change from today; horizon picker and view switch. */
+/**
+ * "Projections": the active scenario's value at the horizon and its change from today (a dash until there is one);
+ * horizon picker and view switch.
+ */
 export function ProjectionsHeader({
   value,
   start,
@@ -19,15 +22,15 @@ export function ProjectionsHeader({
   view,
   onViewChange,
 }: {
-  value: number
-  start: number
+  value: number | null
+  start: number | null
   currency: string
   horizon: number
   onHorizonChange: (year: number) => void
   view: ProjectionView
   onViewChange: (view: ProjectionView) => void
 }) {
-  const change = projectionChange(value, start, currency)
+  const change = value != null && start != null ? projectionChange(value, start, currency) : null
 
   return (
     <PageHeader
@@ -35,8 +38,8 @@ export function ProjectionsHeader({
       className="items-center px-4 pt-5 md:px-10"
       title={
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h1 className="text-xl leading-7">{formatMoney(value, currency)}</h1>
-          <TrendLine delta={change.delta} amount={change.amount} pct={change.pct} />
+          <h1 className="text-xl leading-7">{value != null ? formatMoney(value, currency) : '—'}</h1>
+          {change && <TrendLine delta={change.delta} amount={change.amount} pct={change.pct} />}
         </div>
       }
       actions={

@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { signOut } from '@/lib/session'
 import {
   checkEmail,
   deleteAccount,
@@ -7,7 +8,6 @@ import {
   getViewerInviteAccess,
   onboard,
   removeAvatar,
-  requestDeletionCode,
   requestEmailChange,
   updateNotificationChannels,
   updateProfile,
@@ -21,10 +21,13 @@ export const meQuery = queryOptions({ queryKey: ['me'], queryFn: getMe, staleTim
 
 export const useMe = () => useQuery(meQuery)
 
-/** A mutation that returns the updated user and writes it to the cache, so every avatar/name updates at once. */
-const useUserMutation = <TInput>(mutationFn: (input: TInput) => Promise<User>) => {
+/** A mutation that returns the changed user fields and merges them into the cache, so every avatar/name updates at once. */
+const useUserMutation = <TInput, TResult extends Partial<User>>(mutationFn: (input: TInput) => Promise<TResult>) => {
   const qc = useQueryClient()
-  return useMutation({ mutationFn, onSuccess: (user) => qc.setQueryData(meQuery.queryKey, user) })
+  return useMutation({
+    mutationFn,
+    onSuccess: (changes) => qc.setQueryData(meQuery.queryKey, (user) => user && { ...user, ...changes }),
+  })
 }
 
 export const useOnboard = () => useUserMutation(onboard)
@@ -38,13 +41,9 @@ export const useRemoveAvatar = () => useUserMutation(removeAvatar)
 
 export const useCheckEmail = () => useMutation({ mutationFn: checkEmail })
 export const useRequestEmailChange = () => useMutation({ mutationFn: requestEmailChange })
-export const useRequestDeletionCode = () => useMutation({ mutationFn: requestDeletionCode })
 
-/** Deletes the account and drops every cached query — nothing of it should outlive the account. */
-export const useDeleteAccount = () => {
-  const qc = useQueryClient()
-  return useMutation({ mutationFn: deleteAccount, onSuccess: () => qc.clear() })
-}
+/** Deletes the account and signs out, dropping every cached query: nothing of it should outlive the account. */
+export const useDeleteAccount = () => useMutation({ mutationFn: deleteAccount, onSuccess: signOut })
 
 export const notificationChannelsQuery = queryOptions({ queryKey: ['me', 'notification-channels'], queryFn: getNotificationChannels })
 

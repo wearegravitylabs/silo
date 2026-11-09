@@ -27,7 +27,6 @@ export type Balances = Record<Category, number>
 
 export interface ProjectionState {
   currency: string
-  baseline: Balances
   scenarios: Scenario[]
   rules: ProjectionRule[]
   intro_seen: boolean

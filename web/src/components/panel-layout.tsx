@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
-// Building blocks for slide-in detail panels (asset, debt): properties, tab bar, tab body, pinned CTA, empty state.
+// Building blocks for slide-in detail panels (asset, debt): properties, tab bar, tab body, stats, pinned CTA, empty state.
 
 /** Label/value rows under a panel title ("Debt Type  Mortgage"). */
 export function PropertyList({ className, children }: { className?: string; children: ReactNode }) {
@@ -13,6 +13,20 @@ export function Property({ label, children }: { label: string; children: ReactNo
     <div className="flex items-center gap-4 leading-5.5">
       <dt className="w-28 shrink-0 text-muted-foreground sm:w-35">{label}</dt>
       <dd className="min-w-0 truncate text-foreground">{children}</dd>
+    </div>
+  )
+}
+
+/** Two-column label/value stats at the top of a tab ("Current Value  $ 50,000.00"). */
+export function StatList({ children }: { children: ReactNode }) {
+  return <dl className="grid grid-cols-2 gap-x-6 gap-y-4">{children}</dl>
+}
+
+export function Stat({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <dt className="text-xs leading-4 text-muted-foreground">{label}</dt>
+      <dd className={cn('truncate text-foreground', className)}>{children}</dd>
     </div>
   )
 }

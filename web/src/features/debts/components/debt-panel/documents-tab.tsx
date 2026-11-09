@@ -14,7 +14,7 @@ export function DocumentsTab({ debt, portfolioId }: { debt: Debt; portfolioId: s
       loading={isPending}
       uploading={upload.isPending}
       onUpload={(file) => upload.mutate(file)}
-      onDownload={async (doc) => downloadUrl(await getDebtDocumentUrl(doc), doc.file_name)}
+      onDownload={async (doc) => downloadUrl(await getDebtDocumentUrl(portfolioId, debt.id, doc), doc.file_name)}
       deletePending={remove.isPending}
       onDelete={(id, done) => remove.mutate(id, { onSuccess: done })}
     />

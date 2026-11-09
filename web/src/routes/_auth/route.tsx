@@ -1,8 +1,10 @@
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router'
+import { redirectIfSignedIn } from '@/routes/-guards'
 import { QuotePanel } from './-components/quote-panel'
 
 /** Auth shell: form column + quote panel. Stays mounted across login → signup → verify. */
 export const Route = createFileRoute('/_auth')({
+  beforeLoad: redirectIfSignedIn,
   component: AuthLayout,
 })
 

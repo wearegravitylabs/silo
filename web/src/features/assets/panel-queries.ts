@@ -70,33 +70,37 @@ export const useUpdateAsset = (portfolioId: string, assetId: string) =>
   })
 
 export const useAssetRules = (portfolioId: string, assetId: string) =>
-  useQuery({ queryKey: panelKey(portfolioId, assetId, 'rules'), queryFn: () => listAssetRules(assetId) })
+  useQuery({ queryKey: panelKey(portfolioId, assetId, 'rules'), queryFn: () => listAssetRules(portfolioId, assetId) })
 
 export const useAssetRuleMutations = (portfolioId: string) => {
   const onSuccess = useRefetchAssets(portfolioId)
   return {
     save: useMutation({
-      mutationFn: ({ assetId, ...input }: AssetRuleInput & { assetId: string; ruleId?: string }) => saveAssetRule(assetId, input),
+      mutationFn: ({ assetId, ...input }: AssetRuleInput & { assetId: string; ruleId?: string }) =>
+        saveAssetRule(portfolioId, assetId, input),
       onSuccess,
     }),
-    toggle: useMutation({ mutationFn: toggleAssetRule, onSuccess }),
-    remove: useMutation({ mutationFn: deleteAssetRule, onSuccess }),
+    toggle: useMutation({ mutationFn: (ruleId: string) => toggleAssetRule(portfolioId, ruleId), onSuccess }),
+    remove: useMutation({ mutationFn: (ruleId: string) => deleteAssetRule(portfolioId, ruleId), onSuccess }),
   }
 }
 
 export const useAssetNotes = (portfolioId: string, assetId: string) =>
-  useQuery({ queryKey: panelKey(portfolioId, assetId, 'notes'), queryFn: () => listAssetNotes(assetId) })
+  useQuery({ queryKey: panelKey(portfolioId, assetId, 'notes'), queryFn: () => listAssetNotes(portfolioId, assetId) })
 
 export const useAssetNoteMutations = (portfolioId: string, assetId: string) => {
   const onSuccess = useRefetchAssets(portfolioId)
   return {
-    save: useMutation({ mutationFn: (input: AssetNoteInput & { noteId?: string }) => saveAssetNote(assetId, input), onSuccess }),
-    remove: useMutation({ mutationFn: deleteAssetNote, onSuccess }),
+    save: useMutation({
+      mutationFn: (input: AssetNoteInput & { noteId?: string }) => saveAssetNote(portfolioId, assetId, input),
+      onSuccess,
+    }),
+    remove: useMutation({ mutationFn: (noteId: string) => deleteAssetNote(portfolioId, assetId, noteId), onSuccess }),
   }
 }
 
 export const useAssetDocuments = (portfolioId: string, assetId: string) =>
-  useQuery({ queryKey: panelKey(portfolioId, assetId, 'documents'), queryFn: () => listAssetDocuments(assetId) })
+  useQuery({ queryKey: panelKey(portfolioId, assetId, 'documents'), queryFn: () => listAssetDocuments(portfolioId, assetId) })
 
 /** Uploads with progress (listed until done; cancel aborts one), and delete. */
 export const useAssetDocumentMutations = (portfolioId: string, assetId: string) => {
@@ -114,6 +118,7 @@ export const useAssetDocumentMutations = (portfolioId: string, assetId: string) 
     controllers.current.set(id, controller)
     setUploads((list) => [{ id, file_name: file.name, file_size: file.size, progress: 0 }, ...list])
     uploadAssetDocument(
+      portfolioId,
       assetId,
       file,
       (progress) => setUploads((list) => list.map((u) => (u.id === id ? { ...u, progress } : u))),
@@ -128,6 +133,6 @@ export const useAssetDocumentMutations = (portfolioId: string, assetId: string) 
     uploads,
     upload,
     cancel: (id: string) => controllers.current.get(id)?.abort(),
-    remove: useMutation({ mutationFn: deleteAssetDocument, onSuccess: refetch }),
+    remove: useMutation({ mutationFn: (docId: string) => deleteAssetDocument(portfolioId, assetId, docId), onSuccess: refetch }),
   }
 }

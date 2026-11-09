@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Dialog } from '@/components/ui/dialog'
 import { SheetContent } from '@/components/ui/sheet'
 import { getErrorMessage } from '@/lib/api-client'
+import { isDemoPortfolio } from '@/lib/demo'
+import { DEMO_ONLY_ASSET_TYPES } from '../../constants'
 import { useAssetMutations } from '../../queries'
 import type { AssetItem, TickerResult } from '../../types'
 import { AssetTypeStep } from './asset-type-step'
@@ -74,7 +76,7 @@ function CreateAssetFlow({ defaultCurrency = 'USD', ...props }: Omit<Props, 'ope
     <>
       <SheetHeader progress={0.01} />
       <StepBody>
-        <AssetTypeStep selected={type} onSelect={setType} />
+        <AssetTypeStep selected={type} onSelect={setType} unavailable={isDemoPortfolio(props.portfolioId) ? [] : DEMO_ONLY_ASSET_TYPES} />
       </StepBody>
       <SheetFooter
         back={{ label: 'Close', onClick: props.onClose }}
@@ -120,6 +122,7 @@ function TickerFlow({
         logo_url: ticker.logo_url,
         currency: ticker.currency,
         price: ticker.price,
+        country: ticker.country,
         lots: lots.toLots(),
       },
       done,

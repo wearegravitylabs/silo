@@ -20,6 +20,7 @@ export interface ChartSeries {
 /**
  * Scenario curves edge to edge on one shared scale, each with a faint fill below. Legend (scenario, value at the
  * horizon) top left; metric and scenario pickers top right. Hover, touch-drag or arrow keys read every line at a month.
+ * Series without points (the projection didn't load) leave the outline: a flat dashed line and dashes for values.
  */
 export function ProjectionChart({
   series,
@@ -80,6 +81,20 @@ export function ProjectionChart({
         onBlur={() => setActive(null)}
         className="absolute inset-0 touch-pan-y outline-none select-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-inset"
       >
+        {width > 0 && height > 0 && months === 0 && (
+          <svg width={width} height={height} className="block" aria-hidden>
+            <line
+              x1={0}
+              x2={width}
+              y1={top + ch / 2}
+              y2={top + ch / 2}
+              className="stroke-line"
+              strokeWidth="2"
+              strokeDasharray="6 6"
+              shapeRendering="crispEdges"
+            />
+          </svg>
+        )}
         {width > 0 && height > 0 && months > 0 && (
           <svg width={width} height={height} className="block" role="img" aria-label="Projected value per scenario">
             {/* Fills first, highest curve first so each lower one covers it (opaque tints, as in the design), then the lines */}
@@ -138,7 +153,7 @@ export function ProjectionChart({
               <span className="w-1 shrink-0 rounded-full" style={{ background: scenario.color }} />
               <div className="flex flex-col gap-1.5 py-0.5">
                 <dt className="text-xs leading-4 text-muted-foreground">{scenario.name}</dt>
-                <dd className="text-foreground">{projectionMoney(points.at(-1)?.value ?? 0, currency, 0)}</dd>
+                <dd className="text-foreground">{points.length ? projectionMoney(points.at(-1)!.value, currency, 0) : '—'}</dd>
               </div>
             </div>
           ))}

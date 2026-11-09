@@ -1,13 +1,16 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
+import { ConnectionBanner } from '@/components/connection-banner'
 import { meQuery } from '@/features/account'
 import { SubscriptionBanner } from '@/features/billing'
 import { portfoliosQuery } from '@/features/portfolios'
 import { MainPanel } from '@/routes/-components/main-panel'
 import { SidebarMenuButton } from '@/routes/-components/sidebar-frame'
+import { requireUser } from '@/routes/-guards'
 import { SettingsSidebar } from './-components/settings-sidebar'
 
 /** Account settings shell: settings sidebar | page. Pages render a <SettingsPage> and scroll inside the panel. */
 export const Route = createFileRoute('/settings')({
+  beforeLoad: ({ context: { queryClient } }) => requireUser(queryClient, { onboarded: true }),
   loader: ({ context: { queryClient } }) =>
     Promise.all([queryClient.query({ ...portfoliosQuery, staleTime: 'static' }), queryClient.query({ ...meQuery, staleTime: 'static' })]),
   component: SettingsLayout,
@@ -25,6 +28,7 @@ function SettingsLayout() {
             <SidebarMenuButton />
             <span className="font-medium text-foreground">Settings</span>
           </header>
+          <ConnectionBanner className="pb-3 lg:pt-6" />
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
             <Outlet />
           </div>

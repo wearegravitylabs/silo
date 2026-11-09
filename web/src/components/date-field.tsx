@@ -3,6 +3,7 @@ import { CalendarIcon } from '@/components/icons'
 import { Calendar } from '@/components/ui/calendar'
 import { InputGroup, InputGroupInput } from '@/components/ui/input-group'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { today } from '@/lib/dates'
 import { formatClock } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -26,10 +27,7 @@ function toIso(digits: string): string | null {
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Today as YYYY-MM-DD in local time. */
-export const todayIso = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
+export const todayIso = today
 
 /**
  * Day field typed as "DD / MM / YYYY" (slashes appear as you type), with a calendar button that opens a month grid

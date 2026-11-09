@@ -9,8 +9,8 @@ export interface User {
   is_email_verified: boolean
   is_onboarded: boolean
   portfolio_count: number
-  /** Days left on the free trial; null when not on a trial (paid, or trial not started). */
-  trial_days_left: number | null
+  /** Days left on the free trial; null/absent when not on a trial (paid, or trial not started). Not sent by the API yet. */
+  trial_days_left?: number | null
   created_at: string
   updated_at: string
 }
@@ -22,7 +22,8 @@ export interface OnboardInput {
   phone_country_code: string
 }
 
-export type UpdateProfileInput = OnboardInput
+/** Only the fields given are changed. */
+export type UpdateProfileInput = Partial<OnboardInput> & { avatar_url?: string }
 
 export function getUserInitials(user: Pick<User, 'first_name' | 'last_name'> | null | undefined) {
   if (!user) return '?'

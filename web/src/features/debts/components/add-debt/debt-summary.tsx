@@ -1,4 +1,5 @@
 import { Callout } from '@/components/callout'
+import { FieldError } from '@/components/field-error'
 import { SummaryList, type SummaryRow } from '@/components/summary-list'
 import { Button } from '@/components/ui/button'
 import { formatMoney } from '@/lib/format'
@@ -7,8 +8,18 @@ import type { AddDebtForm } from './use-add-debt-form'
 
 const EMPTY = '--'
 
-/** Right pane of the Add Debt sheet: live summary, payoff projection, Add Debt. */
-export function DebtSummary({ form, submitting, onSubmit }: { form: AddDebtForm; submitting?: boolean; onSubmit: () => void }) {
+/** Right pane of the Add Debt sheet: live summary, payoff projection, Add Debt (and why it failed, if it did). */
+export function DebtSummary({
+  form,
+  submitting,
+  error,
+  onSubmit,
+}: {
+  form: AddDebtForm
+  submitting?: boolean
+  error?: string
+  onSubmit: () => void
+}) {
   const { values, derived } = form
   const money = (n: number | null) => formatMoney(n ?? 0, values.currency)
 
@@ -45,9 +56,12 @@ export function DebtSummary({ form, submitting, onSubmit }: { form: AddDebtForm;
         </Callout>
       )}
 
-      <Button onClick={onSubmit} disabled={!derived.canSubmit} loading={submitting} loadingText="Adding…" className="w-full">
-        Add Debt
-      </Button>
+      <div>
+        <Button onClick={onSubmit} disabled={!derived.canSubmit} loading={submitting} loadingText="Adding…" className="w-full">
+          Add Debt
+        </Button>
+        {error && <FieldError message={error} />}
+      </div>
     </>
   )
 }

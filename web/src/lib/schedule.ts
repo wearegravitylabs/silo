@@ -1,3 +1,5 @@
+import { isoDay } from './dates'
+
 // Recurring schedules shared by debts (repayments, Auto-Pilot) and assets (Auto-Pilot).
 
 export type Frequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'biannual' | 'annually'
@@ -48,6 +50,6 @@ export function nextRun({ start_date, end_date, frequency }: { start_date: strin
   today.setHours(0, 0, 0, 0)
   let run = new Date(y, m - 1, d)
   for (let n = 1; run < today; n++) run = addPeriods(new Date(y, m - 1, d), frequency, n)
-  const iso = `${run.getFullYear()}-${String(run.getMonth() + 1).padStart(2, '0')}-${String(run.getDate()).padStart(2, '0')}`
+  const iso = isoDay(run)
   return end_date && iso > end_date ? null : iso
 }

@@ -84,9 +84,9 @@ export const useAssetMutations = (portfolioId: string) => {
       onSuccess: refetch,
     }),
     remove: useMutation({ mutationFn: (id: string) => deleteAsset(portfolioId, id), onSuccess: refetch }),
-    /** A deleted folder's assets go to another folder */
+    /** A deleted folder's mocked assets go to another folder */
     refile: useMutation({
-      mutationFn: ({ from, to }: { from: string; to: string }) => refileFolder(portfolioId, from, to),
+      mutationFn: ({ from, to }: { from: string; to: string | null }) => refileFolder(portfolioId, from, to),
       onSuccess: refetch,
     }),
   }

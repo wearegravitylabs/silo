@@ -1,17 +1,16 @@
 import { useState } from 'react'
-import { DateField } from '@/components/date-field'
 import { FormField } from '@/components/form-field'
 import { MoneyInput } from '@/components/money-input'
 import { formatNumber, parseNumber } from '@/components/number-input'
+import { ScheduleFields, useScheduleFields } from '@/components/schedule-fields'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { FREQUENCY_LABELS } from '../../constants'
 import { useDebtRuleMutations } from '../../queries'
 import type { Debt, DebtRule, PaymentFrequency } from '../../types'
 
-const FREQUENCIES = Object.entries(FREQUENCY_LABELS) as [PaymentFrequency, string][]
-export const END_BEFORE_START = 'End date must be after the start date'
+const FREQUENCIES = Object.keys(FREQUENCY_LABELS) as PaymentFrequency[]
+export { END_BEFORE_START } from '@/components/schedule-fields'
 
 /** Add an Auto-Pilot repayment rule to a debt, or edit one (`rule`). The form resets each time it opens. */
 export function RuleDialog({
@@ -39,19 +38,16 @@ export function RuleDialog({
 function RuleForm({ debt, rule, portfolioId, onDone }: { debt: Debt; rule: DebtRule | null; portfolioId: string; onDone: () => void }) {
   const [currency, setCurrency] = useState(debt.currency)
   const [amountText, setAmountText] = useState(rule ? formatNumber(rule.amount) : '')
-  const [frequency, setFrequency] = useState<PaymentFrequency>(rule?.frequency ?? 'weekly')
-  const [start, setStart] = useState(rule?.start_date ?? '')
-  const [end, setEnd] = useState(rule?.end_date ?? '')
+  const schedule = useScheduleFields(rule)
   const { save } = useDebtRuleMutations(portfolioId, debt.id)
 
   const amount = parseNumber(amountText)
-  const endError = end && start && end < start ? END_BEFORE_START : undefined
-  const valid = amount !== null && amount > 0 && start !== '' && !endError
+  const valid = amount !== null && amount > 0 && schedule.complete
 
   const submit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!valid) return
-    save.mutate({ ruleId: rule?.id, amount: amount!, frequency, start_date: start, end_date: end || null }, { onSuccess: onDone })
+    save.mutate({ ruleId: rule?.id, amount: amount!, ...schedule.value }, { onSuccess: onDone })
   }
 
   return (
@@ -64,26 +60,7 @@ function RuleForm({ debt, rule, portfolioId, onDone }: { debt: Debt; rule: DebtR
         <FormField label="Amount" htmlFor="rule-amount" required>
           <MoneyInput id="rule-amount" value={amountText} onChange={setAmountText} currency={currency} onCurrencyChange={setCurrency} />
         </FormField>
-        <FormField label="Frequency" htmlFor="rule-frequency" required>
-          <Select value={frequency} onValueChange={(v) => setFrequency(v as PaymentFrequency)}>
-            <SelectTrigger id="rule-frequency">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FREQUENCIES.map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </FormField>
-        <FormField label="Start Date" htmlFor="rule-start" required>
-          <DateField id="rule-start" value={start} onChange={setStart} />
-        </FormField>
-        <FormField label="End Date" htmlFor="rule-end" error={endError}>
-          <DateField id="rule-end" value={end} onChange={setEnd} min={start || undefined} invalid={!!endError} />
-        </FormField>
+        <ScheduleFields fields={schedule} frequencies={FREQUENCIES} />
       </DialogBody>
       <DialogFooter>
         <DialogClose asChild>

@@ -33,7 +33,12 @@ export const useCreatePortfolio = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: createPortfolio,
-    onSuccess: () => qc.invalidateQueries({ queryKey: portfoliosQuery.queryKey }),
+    // Route loaders read the list with staleTime 'static', so add the new portfolio to it rather than only invalidating:
+    // the next page's guard has to find it.
+    onSuccess: (portfolio) => {
+      qc.setQueryData(portfoliosQuery.queryKey, (list) => list && [...list, portfolio])
+      return qc.invalidateQueries({ queryKey: portfoliosQuery.queryKey })
+    },
   })
 }
 

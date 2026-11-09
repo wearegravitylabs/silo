@@ -11,22 +11,27 @@ import type { AddDebtForm as AddDebtFormState } from './use-add-debt-form'
 
 const FREQUENCIES = Object.entries(FREQUENCY_LABELS) as [PaymentFrequency, string][]
 
-/** Left pane of the Add Debt sheet: icon, heading, then type, name, balance and the optional payment schedule. */
-export function AddDebtForm({ form }: { form: AddDebtFormState }) {
+/**
+ * Left pane of the Add Debt sheet: icon, heading, then type, name, balance and the optional payment schedule.
+ * `pickIcon` false hides the icon picker (TODO: the API can't store a debt's icon yet, so its type's shows).
+ */
+export function AddDebtForm({ form, pickIcon = true }: { form: AddDebtFormState; pickIcon?: boolean }) {
   const { values, set, derived } = form
 
   return (
     <>
       <div className="flex flex-col items-center gap-3 text-center">
-        <IconPicker
-          value={values.icon}
-          onChange={set.icon}
-          options={DEBT_ICON_OPTIONS}
-          label="Choose debt icon"
-          discClassName="border-destructive-light bg-destructive-subtle"
-          iconClassName="text-destructive"
-          selectedClassName="bg-destructive-subtle"
-        />
+        {pickIcon && (
+          <IconPicker
+            value={values.icon}
+            onChange={set.icon}
+            options={DEBT_ICON_OPTIONS}
+            label="Choose debt icon"
+            discClassName="border-destructive-light bg-destructive-subtle"
+            iconClassName="text-destructive"
+            selectedClassName="bg-destructive-subtle"
+          />
+        )}
         <h2 className="mt-1 font-heading text-2xl leading-8 font-bold">Add Debt</h2>
         <p className="leading-5.5 text-muted-foreground">Add mortgage and other debts to your portfolio</p>
       </div>

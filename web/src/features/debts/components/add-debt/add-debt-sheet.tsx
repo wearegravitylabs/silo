@@ -2,6 +2,8 @@ import { TwoPane } from '@/components/two-pane'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { SheetContent } from '@/components/ui/sheet'
+import { getErrorMessage } from '@/lib/api-client'
+import { isDemoPortfolio } from '@/lib/demo'
 import { useCreateDebt } from '../../queries'
 import { AddDebtForm } from './add-debt-form'
 import { DebtSummary } from './debt-summary'
@@ -42,7 +44,7 @@ function AddDebtBody({
   onClose,
 }: Omit<Props, 'open' | 'onOpenChange'> & { onClose: () => void }) {
   const form = useAddDebtForm(defaultCurrency)
-  const { mutate: create, isPending } = useCreateDebt(portfolioId)
+  const { mutate: create, isPending, error } = useCreateDebt(portfolioId)
 
   const submit = () =>
     create(form.toInput(folderId), {
@@ -54,7 +56,17 @@ function AddDebtBody({
 
   return (
     <>
-      <TwoPane form={<AddDebtForm form={form} />} summary={<DebtSummary form={form} submitting={isPending} onSubmit={submit} />} />
+      <TwoPane
+        form={<AddDebtForm form={form} pickIcon={isDemoPortfolio(portfolioId)} />}
+        summary={
+          <DebtSummary
+            form={form}
+            submitting={isPending}
+            error={error ? getErrorMessage(error, 'Couldn’t add the debt. Try again.') : undefined}
+            onSubmit={submit}
+          />
+        }
+      />
       <div className="flex h-15 shrink-0 items-center border-t border-border px-4 md:px-5">
         <Button variant="secondary" size="xs" onClick={onClose} className="px-3">
           Close

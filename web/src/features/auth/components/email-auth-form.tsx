@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { isEmail } from '@/lib/validation'
 
-/** Email-only sign-in/sign-up form. UI only: validates, then hands the email to onSubmit. */
+/** Email-only sign-in/sign-up form: validates, then hands the email to onSubmit. */
 export function EmailAuthForm({
   title,
   subtitle,
@@ -67,7 +67,7 @@ export function EmailAuthForm({
             aria-invalid={!!emailError || undefined}
           />
         </FormField>
-        <Button type="submit" size="lg" loading={pending} loadingText="Sending link…" className="w-full">
+        <Button type="submit" size="lg" loading={pending} loadingText="Sending code…" className="w-full">
           Continue with Email
         </Button>
       </form>

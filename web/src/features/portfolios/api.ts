@@ -1,10 +1,11 @@
+import { api } from '@/lib/api-client'
+import { isDemoPortfolio } from '@/lib/demo'
 import type { CreatePortfolioInput, Currency, Invitation, Portfolio, UpdatePortfolioInput } from './types'
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// TODO: mocked until the app runs against the backend. Real call:
-// api<{ items: Portfolio[] | null }>('/portfolios').then((d) => d?.items ?? [])
-const MOCK_PORTFOLIOS: Portfolio[] = [
+// The sample portfolios (see lib/demo), listed in dev builds only, after the user's real ones.
+const DEMO_PORTFOLIOS: Portfolio[] = [
   {
     id: 'demo',
     user_id: 'demo-user',
@@ -29,47 +30,36 @@ const MOCK_PORTFOLIOS: Portfolio[] = [
     updated_at: '2026-02-01T00:00:00Z',
   },
 ]
-export const listPortfolios = () => Promise.resolve([...MOCK_PORTFOLIOS])
 
-// TODO: mocked. Real call: api<Portfolio>('/portfolios', { method: 'POST', body: data })
-export const createPortfolio = async (data: CreatePortfolioInput): Promise<Portfolio> => {
-  await delay(800)
-  const now = new Date().toISOString()
-  const portfolio: Portfolio = {
-    id: crypto.randomUUID(),
-    user_id: 'demo-user',
-    name: data.name,
-    description: data.description ?? '',
-    base_currency: data.base_currency,
-    image_url: data.image_url ?? null,
-    summary: { net_worth: 0, change_amount: 0, change_pct: 0 },
-    created_at: now,
-    updated_at: now,
-  }
-  MOCK_PORTFOLIOS.push(portfolio)
-  return portfolio
+export const listPortfolios = async () => {
+  const page = await api<{ items: Portfolio[] | null }>('/portfolios', { params: { size: 100 } })
+  const portfolios = page?.items ?? []
+  return import.meta.env.DEV ? [...portfolios, ...DEMO_PORTFOLIOS] : portfolios
 }
 
+export const createPortfolio = (data: CreatePortfolioInput) => api<Portfolio>('/portfolios', { method: 'POST', body: data })
+
 const findPortfolio = (id: string) => {
-  const portfolio = MOCK_PORTFOLIOS.find((p) => p.id === id)
+  const portfolio = DEMO_PORTFOLIOS.find((p) => p.id === id)
   if (!portfolio) throw new Error('This portfolio no longer exists')
   return portfolio
 }
 
-// TODO: mocked. Real call: api<Portfolio>(`/portfolios/${id}`, { method: 'PATCH', body: data })
 export const updatePortfolio = async (id: string, data: UpdatePortfolioInput): Promise<Portfolio> => {
+  if (!isDemoPortfolio(id)) return api<Portfolio>(`/portfolios/${id}`, { method: 'PATCH', body: data })
   await delay(600)
   const portfolio = findPortfolio(id)
   Object.assign(portfolio, data, { updated_at: new Date().toISOString() })
   return { ...portfolio }
 }
 
+// Delete and leave are mocked, so they only work on the demo portfolios; a real one fails with the usual error toast.
 const removeMockPortfolio = (id: string) => {
-  MOCK_PORTFOLIOS.splice(MOCK_PORTFOLIOS.indexOf(findPortfolio(id)), 1)
+  DEMO_PORTFOLIOS.splice(DEMO_PORTFOLIOS.indexOf(findPortfolio(id)), 1)
 }
 
 /** Emails the owner the code that confirms deleting a portfolio. */
-// TODO: mocked. Real call: api(`/portfolios/${id}/deletion-code`, { method: 'POST' })
+// TODO: mocked until the backend has deletion codes. Real call: api(`/portfolios/${id}/deletion-code`, { method: 'POST' })
 export const requestPortfolioDeletionCode = async (_id: string) => {
   await delay(400)
 }
@@ -81,22 +71,13 @@ export const deletePortfolio = async ({ id }: { id: string; code: string }) => {
 }
 
 /** Stop being a partner of a portfolio; it stays for everyone else. */
-// TODO: mocked. Real call: api(`/portfolios/${id}/members/${me.id}`, { method: 'DELETE' })
+// TODO: mocked until partners can leave (removing a member is owner-only). Real call: api(`/portfolios/${id}/members/${me.id}`, { method: 'DELETE' })
 export const leavePortfolio = async (id: string) => {
   await delay(600)
   removeMockPortfolio(id)
 }
 
-// TODO: mocked. Real call: api<Currency[] | null>('/currencies').then((d) => d ?? [])
-const MOCK_CURRENCIES: Currency[] = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'NGN', name: 'Nigerian Naira', symbol: '₦' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-]
-export const listCurrencies = () => Promise.resolve(MOCK_CURRENCIES)
+export const listCurrencies = () => api<Currency[] | null>('/currencies').then((d) => d ?? [])
 
 // TODO: mocked until the backend has invitations. Expected endpoints:
 // GET /portfolios/:id/invite-link, GET /invitations/:token, POST /invitations/:token/requests
