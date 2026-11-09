@@ -1,12 +1,13 @@
 import { api, ApiError } from '@/lib/api-client'
 import { isDemoPortfolio } from '@/lib/demo'
 import { mockDelay } from '@/lib/mock'
+import { project } from './engine'
 import { defaultScenario, demoScenarioB, MOCK_BASELINE } from './mock-data'
 import { slotsOf, type RuleTemplateId, type SlotEditor } from './templates'
-import type { ProjectionRule, ProjectionState, Scenario } from './types'
+import type { ProjectionPoint, ProjectionRule, ProjectionState, Scenario } from './types'
 
-// A real portfolio's scenarios and rules are the API's; the projection itself is still worked out here (engine.ts),
-// since the API's /chart doesn't convert currencies or grow categories. The demo portfolios stay in memory.
+// A real portfolio's scenarios, rules and projections are the API's: it does the maths, and the page shows its answer
+// as it is. The demo portfolios stay in memory, projected by the mock engine (engine.ts).
 // TODO: the API has no scenario colour (kept in `description`, see toScenario) or "intro seen" (kept in localStorage).
 const later = mockDelay(400)
 
@@ -16,7 +17,6 @@ const stateOf = (portfolioId: string, currency: string) => {
     const seeds = portfolioId === 'demo' ? [defaultScenario(portfolioId), demoScenarioB(portfolioId)] : [defaultScenario(portfolioId)]
     store.set(portfolioId, {
       currency,
-      baseline: MOCK_BASELINE,
       scenarios: seeds.map((s) => s.scenario),
       rules: seeds.flatMap((s) => s.rules),
       intro_seen: false,
@@ -238,10 +238,70 @@ export async function getProjections(portfolioId: string, currency: string): Pro
   for (const r of rules) loaded.set(r.id, r)
   return {
     currency,
-    baseline: null,
     scenarios: list.map(toScenario),
     rules,
     intro_seen: introSeen(),
+  }
+}
+
+// ─── Projections ──────────────────────────────────────────────────────────────
+
+/** A projected month as the API gives it. */
+interface ApiPoint {
+  month: number
+  net_worth: number
+  assets: number
+  debts: number
+}
+
+/** The point `month` months from now. */
+const pointAt = (month: number, p: Omit<ApiPoint, 'month'>): ProjectionPoint => {
+  const now = new Date()
+  const date = new Date(now.getFullYear(), now.getMonth() + month, 1)
+  return { date: date.toISOString().slice(0, 10), value: p.net_worth, assets: p.assets, debts: p.debts }
+}
+
+/** The demo scenario's months 0 … `months`, from the mock engine. */
+const mockProjection = (portfolioId: string, scenarioId: string, months: number) =>
+  project(
+    MOCK_BASELINE,
+    (store.get(portfolioId)?.rules ?? []).filter((r) => r.scenario_id === scenarioId),
+    months,
+  )
+
+/**
+ * A scenario's net worth, assets and debts from today to `years` ahead, evenly spaced: the API gives monthly points up
+ * to 2 years, yearly beyond.
+ */
+export async function getProjectionChart(portfolioId: string, scenarioId: string, years: number): Promise<ProjectionPoint[]> {
+  if (isDemoPortfolio(portfolioId)) return later(mockProjection(portfolioId, scenarioId, years * 12))
+  const chart = await api<{ points: ApiPoint[] | null }>(`${scenariosPath(portfolioId)}/${scenarioId}/chart`, {
+    method: 'POST',
+    body: { years_ahead: years },
+  })
+  return (chart.points ?? []).map((p) => pointAt(p.month, p))
+}
+
+/** A scenario today and at the API's milestones (1, 6, 12, 60, 120, 240 … months), by months from now. */
+export interface ProjectionMilestones {
+  start: ProjectionPoint
+  at: Record<number, ProjectionPoint>
+}
+
+export async function getProjectionMilestones(portfolioId: string, scenarioId: string): Promise<ProjectionMilestones> {
+  if (isDemoPortfolio(portfolioId)) {
+    const points = mockProjection(portfolioId, scenarioId, 240)
+    return later({ start: points[0], at: Object.fromEntries(points.map((p, months) => [months, p])) })
+  }
+  const result = await api<{
+    starting_net_worth: number
+    starting_assets: number
+    starting_debts: number
+    milestones: Array<ApiPoint & { months: number }> | null
+  }>(`${scenariosPath(portfolioId)}/${scenarioId}/compute`, { method: 'POST' })
+  return {
+    start: pointAt(0, { net_worth: result.starting_net_worth, assets: result.starting_assets, debts: result.starting_debts }),
+    at: Object.fromEntries((result.milestones ?? []).map((m) => [m.months, pointAt(m.months, m)])),
   }
 }
 

@@ -116,8 +116,8 @@ const byDate = (a: AssetHistoryEntry, b: AssetHistoryEntry) => a.date.localeComp
 /** Ticker assets: what went in less what came out. The rest: the first price. */
 const investedIn = (entries: AssetHistoryEntry[]) => {
   const prices = entries.filter((e) => e.kind === 'price').sort(byDate)
-  if (prices.length) return prices[0].amount
-  return entries.reduce((sum, e) => sum + (e.kind === 'add' ? e.amount : -e.amount), 0)
+  if (prices.length) return prices[0].amount ?? 0
+  return entries.reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.amount ?? 0), 0)
 }
 
 /** Newest first, as the History tab lists them. */
@@ -188,13 +188,13 @@ const mockChart = (portfolioId: string, assetId: string, period: ChartPeriod) =>
     const day = isoDay(at)
     const held = prices.length
       ? (prices.findLast((e) => e.date <= day)?.amount ?? 0)
-      : entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount), 0)
+      : entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.kind === 'add' ? 1 : -1) * (e.quantity ?? e.amount ?? 0), 0)
     const left = CHART_POINTS - 1 - i // 0 at today, so the line ends on the current value
     const wobble = left === 0 ? 1 : 1 + swing * (0.06 * Math.sin((i + seed) * 0.45) + 0.03 * Math.sin((i + seed) * 1.3))
     const value = isTicker(asset) ? held * price * wobble : held
     return { date: period === '1D' ? at.toISOString() : day, value: Math.max(0, Number(value.toFixed(2))) }
   })
-  return later(points)
+  return later({ currency: asset.converted_currency, points })
 }
 
 // ─── Reporting ────────────────────────────────────────────────────────────────
@@ -350,78 +350,39 @@ interface ApiValuePoint {
 const base = (portfolioId: string, assetId: string) => `/portfolios/${portfolioId}/assets/${assetId}`
 const getDetail = (portfolioId: string, assetId: string) => api<ApiAssetDetail>(base(portfolioId, assetId))
 
-/** Native whole-asset amounts → the portfolio's currency, owned share. */
-const toOwned = (a: ApiAssetDetail) => (amount: number) => amount * (a.exchange_rate || 1) * (a.ownership_pct / 100)
 const heldInUnits = (a: ApiAssetDetail) => toAssetItem(a).total_quantity != null
 
+/** The API's value records since `from`, oldest first, as it gives them (the asset's own currency, whole asset). */
+const valueHistory = async (portfolioId: string, assetId: string, from: Date) =>
+  [
+    ...((await api<ApiValuePoint[] | null>(`${base(portfolioId, assetId)}/value-history`, { params: { from: from.toISOString() } })) ?? []),
+  ].sort((x, y) => x.recorded_at.localeCompare(y.recorded_at))
+
 /**
- * Units bought (ticker assets: one entry per purchase), or the asset's value: what it was bought at, then each price
- * change. Oldest first.
+ * What the API records, as it gives it: each purchase (ticker assets: units and the price paid) or each recorded
+ * value (the rest). Oldest first, in the asset's own currency.
  */
-async function apiHistory(portfolioId: string, assetId: string) {
+async function apiHistory(portfolioId: string, assetId: string): Promise<AssetHistoryEntry[]> {
   const a = await getDetail(portfolioId, assetId)
-  const owned = toOwned(a)
-  const lots = [...(a.lots ?? [])].sort((x, y) => x.acquisition_date.localeCompare(y.acquisition_date))
   const entry = (id: string, date: string, created_at: string, rest: Partial<AssetHistoryEntry>): AssetHistoryEntry => ({
     id,
     asset_id: assetId,
     date: date.slice(0, 10),
     kind: 'price',
     quantity: null,
-    amount: 0,
+    amount: null,
     price: null,
     previous: null,
+    currency: a.currency,
     created_at,
     ...rest,
   })
-  if (heldInUnits(a)) {
-    return {
-      asset: a,
-      entries: lots.map((l) => {
-        const price = l.acquisition_price ?? a.current_price
-        return entry(l.id, l.acquisition_date, l.created_at, {
-          kind: 'add',
-          quantity: l.quantity,
-          amount: owned(l.quantity * price),
-          price: owned(price),
-        })
-      }),
-    }
-  }
-  const from = new Date(0).toISOString()
-  const points = (await api<ApiValuePoint[] | null>(`${base(portfolioId, assetId)}/value-history`, { params: { from } })) ?? []
-  const first = lots[0]
-  const prices = [
-    ...(first
-      ? [entry(first.id, first.acquisition_date, first.created_at, { amount: owned(first.quantity * (first.acquisition_price ?? 0)) })]
-      : []),
-    ...[...points]
-      .sort((x, y) => x.recorded_at.localeCompare(y.recorded_at))
-      .map((p) => entry(p.id, p.recorded_at, p.recorded_at, { amount: owned(p.value) })),
-  ]
-  return { asset: a, entries: prices.map((e, i) => (i ? { ...e, previous: prices[i - 1].amount } : e)) }
-}
-
-/** Ticker assets: what the purchases cost. The rest: what it was bought at. */
-const invested = (entries: AssetHistoryEntry[]) =>
-  entries.some((e) => e.kind === 'price') ? (entries[0]?.amount ?? 0) : entries.reduce((sum, e) => sum + e.amount, 0)
-
-/** Today's owned value at each of the period's points: units held then × today's price, or the price then. */
-function apiChart(a: ApiAssetDetail, entries: AssetHistoryEntry[], period: ChartPeriod) {
-  const value = toAssetItem(a).owned_value_converted
-  const units = heldInUnits(a)
-  const unitValue = a.quantity ? value / a.quantity : 0
-  const end = Date.now()
-  const span = periodDays(period) * 86_400_000
-  return Array.from({ length: CHART_POINTS }, (_, i) => {
-    const at = new Date(end - span + (span * i) / (CHART_POINTS - 1))
-    const day = isoDay(at)
-    const held = units
-      ? entries.filter((e) => e.date <= day).reduce((sum, e) => sum + (e.quantity ?? 0), 0) * unitValue
-      : (entries.findLast((e) => e.date <= day)?.amount ?? 0)
-    // The line ends on today's value, which already counts any change not in the history.
-    return { date: period === '1D' ? at.toISOString() : day, value: i === CHART_POINTS - 1 ? value : Number(held.toFixed(2)) }
-  })
+  if (heldInUnits(a))
+    return [...(a.lots ?? [])]
+      .sort((x, y) => x.acquisition_date.localeCompare(y.acquisition_date))
+      .map((l) => entry(l.id, l.acquisition_date, l.created_at, { kind: 'add', quantity: l.quantity, price: l.acquisition_price }))
+  const points = await valueHistory(portfolioId, assetId, new Date(0))
+  return points.map((p, i) => entry(p.id, p.recorded_at, p.recorded_at, { amount: p.value, previous: i ? points[i - 1].value : null }))
 }
 
 /** Sets the whole asset's unit price so its owned value becomes `value` (in the portfolio's currency). */
@@ -468,15 +429,13 @@ export const canRemoveUnits = (portfolioId: string, assetId: string) => isMocked
 /** Newest first, as the History tab lists them. */
 export const listAssetHistory = async (portfolioId: string, assetId: string) => {
   if (isMockedAsset(portfolioId, assetId)) return mockHistory(portfolioId, assetId)
-  return (await apiHistory(portfolioId, assetId)).entries.reverse()
+  return (await apiHistory(portfolioId, assetId)).reverse()
 }
 
-export const getAssetStats = async (portfolioId: string, assetId: string): Promise<AssetStats> => {
+/** What's invested and the gain; null for a real asset, since the API doesn't work them out yet. TODO: backend. */
+export const getAssetStats = async (portfolioId: string, assetId: string): Promise<AssetStats | null> => {
   if (isMockedAsset(portfolioId, assetId)) return mockStats(portfolioId, assetId)
-  const { asset, entries } = await apiHistory(portfolioId, assetId)
-  const spent = invested(entries)
-  const gain = toAssetItem(asset).owned_value_converted - spent
-  return { invested: spent, gain, gain_pct: spent > 0 ? (gain / spent) * 100 : 0 }
+  return null
 }
 
 /**
@@ -512,8 +471,9 @@ export const updateAssetPrice = async (portfolioId: string, assetId: string, inp
 
 export const getAssetChart = async (portfolioId: string, assetId: string, period: ChartPeriod) => {
   if (isMockedAsset(portfolioId, assetId)) return mockChart(portfolioId, assetId, period)
-  const { asset, entries } = await apiHistory(portfolioId, assetId)
-  return apiChart(asset, entries, period)
+  const a = await getDetail(portfolioId, assetId)
+  const points = await valueHistory(portfolioId, assetId, new Date(Date.now() - periodDays(period) * 86_400_000))
+  return { currency: a.currency, points: points.map((p) => ({ date: p.recorded_at, value: p.value })) }
 }
 
 /** Investable or not, and the share you own (the value scales with it). */

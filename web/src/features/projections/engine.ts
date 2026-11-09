@@ -1,11 +1,11 @@
 import type { Balances, Category, ProjectionMetric, ProjectionPoint, ProjectionRule } from './types'
 
 /**
- * Month-by-month projection from today's balances under a scenario's enabled rules.
+ * The demo's mock projection (a real portfolio's comes from the API): month by month from today's balances under a
+ * scenario's enabled rules.
  * A category grows at its own "Value of … to change by" rate, else the portfolio-wide rate (debts only their own);
  * assets also rise with inflation, so figures are in future (nominal) money. Yearly rates are applied monthly.
- * TODO: the other rule types (income, spending, debt payments, targets…) and "Net Worth + Cash" — the backend will
- * model them; until then they don't move the projection.
+ * The other rule types (income, spending, debt payments, targets…) don't move it.
  */
 export function project(baseline: Balances, rules: ProjectionRule[], months: number, _metric: ProjectionMetric = 'net_worth') {
   const on = rules.filter((r) => r.enabled)
@@ -36,27 +36,3 @@ export function project(baseline: Balances, rules: ProjectionRule[], months: num
   }
   return points
 }
-
-/**
- * Today's balances per category from the portfolio's assets (owned value, in the base currency) and its debt total:
- * stocks apart, then investable (cash included) and non-investable assets.
- */
-export function baselineOf(
-  assets: { asset_type: string; investability: 'investable' | 'non_investable'; owned_value_converted: number }[],
-  debts: number,
-): Balances {
-  const sum = (pick: (a: (typeof assets)[number]) => boolean) =>
-    assets.filter(pick).reduce((total, a) => total + a.owned_value_converted, 0)
-  const isStock = (a: (typeof assets)[number]) => STOCK_TYPES.includes(a.asset_type)
-  return {
-    investable_assets: sum((a) => !isStock(a) && a.investability === 'investable'),
-    stocks: sum(isStock),
-    non_investable_assets: sum((a) => !isStock(a) && a.investability === 'non_investable'),
-    debts,
-  }
-}
-
-const STOCK_TYPES = ['stock_ticker', 'stock_manual']
-
-/** Months from now to `year`'s current month ("To Oct 2036"). */
-export const monthsUntil = (year: number) => (year - new Date().getFullYear()) * 12

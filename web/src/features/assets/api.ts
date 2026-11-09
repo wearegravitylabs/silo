@@ -26,9 +26,8 @@ export const assetsOf = (portfolioId: string) => {
   return store.get(portfolioId)!
 }
 
-/** True when the asset lives in the mock store: the demo portfolio's, or a mocked addition to a real one. */
-export const isMockedAsset = (portfolioId: string, assetId?: string) =>
-  isDemoPortfolio(portfolioId) || (!!assetId && assetsOf(portfolioId).some((a) => a.id === assetId))
+/** True when the asset lives in the mock store: the demo portfolio's. A real portfolio's are all the API's. */
+export const isMockedAsset = (portfolioId: string, _assetId?: string) => isDemoPortfolio(portfolioId)
 
 // ─── API shapes ───────────────────────────────────────────────────────────────
 
@@ -99,19 +98,13 @@ const folderFor = (folderId: string | null) => {
 
 /** Total owned, and its change over the last 30 days. */
 export const getAssetsOverview = async (portfolioId: string): Promise<AssetsOverview> => {
-  const mocked = assetsOf(portfolioId)
   if (!isDemoPortfolio(portfolioId)) {
     const o = await api<{ currency: string; total_assets: { value: number }; growth_30d: { amount: number; percentage: number } }>(
       `/portfolios/${portfolioId}/assets/overview`,
     )
-    // Mocked values are in USD (CURRENCY).
-    const extra = mocked.reduce((sum, a) => sum + a.owned_value_converted, 0) * (USD_RATES[o.currency] ?? 1)
-    return {
-      currency: o.currency,
-      total: o.total_assets.value + extra,
-      change: { amount: o.growth_30d.amount, pct: o.growth_30d.percentage },
-    }
+    return { currency: o.currency, total: o.total_assets.value, change: { amount: o.growth_30d.amount, pct: o.growth_30d.percentage } }
   }
+  const mocked = assetsOf(portfolioId)
   // Mock: the 1M change worked back from each asset's own change.
   const total = mocked.reduce((sum, a) => sum + a.owned_value_converted, 0)
   const amount = mocked.reduce((sum, a) => {
@@ -125,12 +118,14 @@ export const getAssetsOverview = async (portfolioId: string): Promise<AssetsOver
 /** A folder's assets; no folder (or the demo's "All Assets") lists every asset in the portfolio. */
 export const listAssets = async (portfolioId: string, folderId?: string): Promise<AssetItem[]> => {
   const all = !folderId || folderId === defaultFolderId('asset')
-  const mocked = assetsOf(portfolioId)
-    .filter((a) => all || a.folder_id === folderId)
-    .map((a) => ({ ...a }))
-  if (isDemoPortfolio(portfolioId)) return later(mocked)
+  if (isDemoPortfolio(portfolioId))
+    return later(
+      assetsOf(portfolioId)
+        .filter((a) => all || a.folder_id === folderId)
+        .map((a) => ({ ...a })),
+    )
   const list = await api<ApiAsset[] | null>(`/portfolios/${portfolioId}/assets`, { params: { folder_id: all ? undefined : folderId } })
-  return [...(list ?? []).map(toAssetItem), ...mocked]
+  return (list ?? []).map(toAssetItem)
 }
 
 /** File an asset in another folder (the demo's default folder unfiles it). */
@@ -247,7 +242,8 @@ const createInApi = async (portfolioId: string, body: Record<string, unknown>) =
  * today's (what the summary showed) is used. Manual ones are priced at the entered price.
  */
 export const createAsset = async (portfolioId: string, input: CreateAssetInput): Promise<AssetItem> => {
-  if (!isDemoPortfolio(portfolioId) && input.asset_type !== 'crypto_ticker') {
+  if (!isDemoPortfolio(portfolioId)) {
+    if (input.asset_type === 'crypto_ticker') throw new Error('Crypto tickers can’t be added yet')
     const manual = input.asset_type.endsWith('_manual')
     const body = {
       folder_id: folderFor(input.folder_id),
@@ -380,6 +376,7 @@ const CONNECTED: Record<string, Pick<AssetItem, 'name' | 'asset_type' | 'detail'
  * OAuth, then POST /portfolios/:id/connections; balances would sync from the provider.
  */
 export const connectProvider = (portfolioId: string, input: ConnectInput): Promise<AssetItem> => {
+  if (!isDemoPortfolio(portfolioId)) return Promise.reject(new Error('Connections can’t be added yet'))
   const synced = CONNECTED[input.provider]
   if (!synced) return Promise.reject(new Error('This provider isn’t supported yet'))
   const now = new Date().toISOString()

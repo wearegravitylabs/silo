@@ -1,14 +1,37 @@
-import { queryOptions, useMutation, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
-import { edits, getProjections, saves } from './api'
+import { queryOptions, useMutation, useQueries, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
+import { edits, getProjectionChart, getProjectionMilestones, getProjections, saves } from './api'
 import type { ProjectionState } from './types'
 
-export const projectionKeys = { all: (portfolioId: string) => ['projections', portfolioId] as const }
+export const projectionKeys = {
+  all: (portfolioId: string) => ['projections', portfolioId] as const,
+  chart: (portfolioId: string, scenarioId: string, years: number) =>
+    [...projectionKeys.all(portfolioId), 'chart', scenarioId, years] as const,
+  milestones: (portfolioId: string, scenarioId: string) => [...projectionKeys.all(portfolioId), 'milestones', scenarioId] as const,
+}
 
 export const projectionsQuery = (portfolioId: string, currency: string) =>
   queryOptions({ queryKey: projectionKeys.all(portfolioId), queryFn: () => getProjections(portfolioId, currency), staleTime: Infinity })
 
-/** Scenarios, rules and baseline. Suspends — preload with `projectionsQuery` in the route loader. */
+/** Scenarios and rules. Suspends — preload with `projectionsQuery` in the route loader. */
 export const useProjections = (portfolioId: string, currency: string) => useSuspenseQuery(projectionsQuery(portfolioId, currency)).data
+
+/** Each scenario's projection to `years` ahead (keeps the last one while a new horizon loads). */
+export const useProjectionCharts = (portfolioId: string, scenarioIds: string[], years: number) =>
+  useQueries({
+    queries: scenarioIds.map((id) => ({
+      queryKey: projectionKeys.chart(portfolioId, id, years),
+      queryFn: () => getProjectionChart(portfolioId, id, years),
+      placeholderData: (previous: Awaited<ReturnType<typeof getProjectionChart>> | undefined) => previous,
+    })),
+  })
+
+/** The scenario at the Time Stamp milestones; fetched only while `enabled` (the Time Stamp view). */
+export const useProjectionMilestones = (portfolioId: string, scenarioId: string, enabled: boolean) =>
+  useQuery({
+    queryKey: projectionKeys.milestones(portfolioId, scenarioId),
+    queryFn: () => getProjectionMilestones(portfolioId, scenarioId),
+    enabled,
+  })
 
 /**
  * One mutation per edit: patches the cache at once (so toggles and edits feel instant), then takes the saved state:
@@ -32,7 +55,11 @@ const useEdit = <V>(
       if (ctx?.prev) qc.setQueryData(key, ctx.prev)
       qc.invalidateQueries({ queryKey: key }) // part of a bulk change may have saved
     },
-    onSuccess: (state) => (state ? qc.setQueryData(key, state) : qc.invalidateQueries({ queryKey: key })),
+    onSuccess: (state) => {
+      if (state) qc.setQueryData(key, state)
+      // Reload the rest (the projections, and a real portfolio's saved state): the API works them out again.
+      qc.invalidateQueries({ queryKey: key })
+    },
   })
 }
 

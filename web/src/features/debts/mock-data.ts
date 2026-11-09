@@ -50,7 +50,7 @@ export const MOCK_DEBTS: Debt[] = [
   debt('d5', 'Mastercard Debt', { debt_type: 'credit_card', balance: 10, interest_rate: 0.5 }),
 ]
 
-export const MOCK_OVERVIEW: DebtsOverview = {
+export const MOCK_OVERVIEW: DebtsOverview & { total: number } = {
   currency: CURRENCY,
   total: 10_000,
   change: { amount: 10_000, pct: 100 },

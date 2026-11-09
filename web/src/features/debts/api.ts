@@ -63,23 +63,14 @@ const toDebt = (d: ApiDebt): Debt => ({
 
 const debtsPath = (portfolioId: string) => `/portfolios/${portfolioId}/debts`
 
-/** Units of each currency per US dollar, the API's cached FX table; just USD if it can't be had. */
-async function usdRates() {
-  const rows = await api<Array<{ currency: string; rate: number }> | null>('/exchange-rates').catch(() => null)
-  return new Map([['USD', 1], ...(rows ?? []).map((r) => [r.currency.toUpperCase(), r.rate] as [string, number])])
-}
-
 // ─── Debts page ───────────────────────────────────────────────────────────────
 
-/** The portfolio's debt total (owned share) in its base currency, and the 1M change (demo only, for now). */
+/**
+ * The portfolio's debt total (owned share) in its base currency, and the 1M change. A real portfolio has neither yet:
+ * the API has no debts overview, and totals aren't worked out here. TODO: backend.
+ */
 export const getDebtsOverview = async (portfolioId: string, currency: string): Promise<DebtsOverview> => {
-  if (!isDemoPortfolio(portfolioId)) {
-    const [debts, rates] = await Promise.all([api<ApiDebt[] | null>(debtsPath(portfolioId)), usdRates()])
-    const to = rates.get(currency.toUpperCase()) ?? 1
-    // A currency without a rate is counted as is.
-    const total = (debts ?? []).reduce((sum, d) => sum + (d.owned_balance * to) / (rates.get(d.currency.toUpperCase()) ?? to), 0)
-    return { currency, total, change: null }
-  }
+  if (!isDemoPortfolio(portfolioId)) return { currency, total: null, change: null }
   const extra = added.get(portfolioId) ?? 0
   if (portfolioId === 'demo') return later({ ...MOCK_OVERVIEW, total: MOCK_OVERVIEW.total + extra })
   // A new portfolio's debt all arrived this month: the change is the whole total (+100%).
@@ -276,31 +267,6 @@ const debtPath = (portfolioId: string, debtId: string) => `${debtsPath(portfolio
 const getDebt = async (portfolioId: string, debtId: string) => toDebt(await api<ApiDebt>(debtPath(portfolioId, debtId)))
 const ownedShare = (d: Debt) => d.ownership_pct / 100
 
-/** Oldest first: the opening balance, then today's if it differs. */
-function apiEntries(d: Debt): DebtHistoryEntry[] {
-  const opening = d.principal * ownedShare(d)
-  const initial: DebtHistoryEntry = {
-    id: `${d.id}:initial`,
-    debt_id: d.id,
-    kind: 'initial',
-    date: (d.start_date ?? d.created_at).slice(0, 10),
-    balance: opening,
-    previous: null,
-    created_at: d.created_at,
-  }
-  if (Math.abs(d.owned_balance - opening) < 0.005) return [initial]
-  const current: DebtHistoryEntry = {
-    id: `${d.id}:current`,
-    debt_id: d.id,
-    kind: 'adjustment',
-    date: d.updated_at.slice(0, 10),
-    balance: d.owned_balance,
-    previous: opening,
-    created_at: d.updated_at,
-  }
-  return [initial, current]
-}
-
 /** Sets the whole debt's balance so the owned share comes to `owned`. */
 const setOwnedBalance = (portfolioId: string, d: Debt, owned: number) =>
   api(debtPath(portfolioId, d.id), { method: 'PATCH', body: { balance: owned / (ownedShare(d) || 1) } })
@@ -337,13 +303,15 @@ const toDocument = ({ id, debt_id, file_name, file_size, uploaded_at }: ApiDocum
 // ─── Detail panel: exports (the API for real portfolios, the mocks for the demo) ─
 
 /** Newest first, as the History tab lists them. */
+// A real debt has no history or chart yet: the API keeps no balance history, and it isn't worked out here.
+// TODO: backend.
 export const listDebtHistory = async (portfolioId: string, debtId: string): Promise<DebtHistoryEntry[]> => {
-  if (!isDemoPortfolio(portfolioId)) return apiEntries(await getDebt(portfolioId, debtId)).reverse()
+  if (!isDemoPortfolio(portfolioId)) return []
   return later([...mockEntries(debtId)].reverse())
 }
 
 export const getDebtChart = async (portfolioId: string, debtId: string, period: ChartPeriod) => {
-  if (!isDemoPortfolio(portfolioId)) return chartOf(apiEntries(await getDebt(portfolioId, debtId)), period)
+  if (!isDemoPortfolio(portfolioId)) return []
   return later(chartOf(mockEntries(debtId), period))
 }
 

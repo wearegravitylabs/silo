@@ -1,17 +1,16 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { Callout } from '@/components/callout'
 import { ExportDialog } from '@/components/export-dialog'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetIconDisc, assetsQuery, useAssets } from '@/features/assets'
-import { DEBT_TYPE_LABELS, DebtIconDisc, debtsOverviewQuery, useDebts, useDebtsOverview } from '@/features/debts'
+import { ASSET_TYPE_LABELS, ASSET_TYPES, AssetIconDisc, useAssets } from '@/features/assets'
+import { DEBT_TYPE_LABELS, DebtIconDisc, useDebts } from '@/features/debts'
 import { portfoliosQuery, usePortfolio } from '@/features/portfolios'
 import {
   AddRuleSheet,
-  baselineOf,
   DEFAULT_HORIZON,
-  monthsUntil,
   newRule,
-  project,
   ProjectionChart,
   projectionMoney,
   ProjectionsHeader,
@@ -21,7 +20,8 @@ import {
   RulesTable,
   ScenarioTabs,
   TimestampGrid,
-  TIMESTAMPS,
+  useProjectionCharts,
+  useProjectionMilestones,
   useProjectionMutations,
   useProjections,
   type ProjectionMetric,
@@ -41,7 +41,6 @@ const EXPORT_FORMATS = [
   { value: 'pdf', label: 'PDF' },
   { value: 'jpeg', label: 'JPEG' },
 ]
-const LONGEST_TIMESTAMP = TIMESTAMPS.at(-1)!.months
 
 export const Route = createFileRoute('/portfolio/$portfolioId/projections')({
   validateSearch: (search: Record<string, unknown>): ProjectionsSearch => ({
@@ -50,15 +49,10 @@ export const Route = createFileRoute('/portfolio/$portfolioId/projections')({
     ...(Number(search.to) > THIS_YEAR && { to: Number(search.to) }),
   }),
   loader: async ({ context: { queryClient }, params: { portfolioId } }) => {
-    // Portfolios are already cached by the parent route; the totals need the base currency.
+    // Portfolios are already cached by the parent route; the mock needs the base currency.
     const portfolios = await queryClient.query({ ...portfoliosQuery, staleTime: 'static' })
     const currency = portfolios.find((p) => p.id === portfolioId)?.base_currency ?? 'USD'
-    // The scenarios, and today's assets and debts the projection starts from.
-    await Promise.all([
-      queryClient.query({ ...projectionsQuery(portfolioId, currency), staleTime: 'static' }),
-      queryClient.query(assetsQuery(portfolioId, null)),
-      queryClient.query(debtsOverviewQuery(portfolioId, currency)),
-    ])
+    await queryClient.query({ ...projectionsQuery(portfolioId, currency), staleTime: 'static' })
   },
   pendingComponent: ProjectionsSkeleton,
   component: ProjectionsPage,
@@ -78,8 +72,6 @@ function ProjectionsPage() {
   // Blanks that name an asset or a debt pick from the portfolio's own.
   const { data: assets = [] } = useAssets(portfolioId, null)
   const { data: debts = [] } = useDebts(portfolioId, null)
-  const debtTotal = useDebtsOverview(portfolioId, currency).total
-  const baseline = useMemo(() => state.baseline ?? baselineOf(assets, debtTotal), [state.baseline, assets, debtTotal])
   const options = useMemo(
     () =>
       ruleOptions({
@@ -107,26 +99,19 @@ function ProjectionsPage() {
 
   const setSearch = (patch: Partial<ProjectionsSearch>) => navigate({ search: (s) => ({ ...s, ...patch }), replace: true })
   const horizon = search.to ?? THIS_YEAR + DEFAULT_HORIZON
-  const months = monthsUntil(horizon)
   const active = state.scenarios.find((s) => s.id === search.scenario) ?? state.scenarios[0]
 
-  // Each scenario projected far enough for both the chart (to the horizon) and the 20-year Time Stamp.
-  const projections = useMemo(
-    () =>
-      Object.fromEntries(
-        state.scenarios.map((s) => [
-          s.id,
-          project(
-            baseline,
-            state.rules.filter((r) => r.scenario_id === s.id),
-            Math.max(months, LONGEST_TIMESTAMP),
-            metric,
-          ),
-        ]),
-      ),
-    [state, baseline, months, metric],
+  // The API's projection of each scenario to the horizon, shown as it comes. TODO: "Net Worth + Cash" (the API has
+  // no cash figure yet, so both metrics show net worth).
+  const charts = useProjectionCharts(
+    portfolioId,
+    state.scenarios.map((s) => s.id),
+    horizon - THIS_YEAR,
   )
-  const at = (id: string) => projections[id][months].value
+  const pointsOf = Object.fromEntries(state.scenarios.map((s, k) => [s.id, charts[k]?.data]))
+  const activeChart = charts[state.scenarios.indexOf(active)]
+  const activePoints = pointsOf[active.id]
+  const milestones = useProjectionMilestones(portfolioId, active.id, search.view === 'timestamp')
   const visible = state.scenarios.filter((s) => (shown ?? state.scenarios.map((x) => x.id)).includes(s.id))
 
   return (
@@ -134,8 +119,8 @@ function ProjectionsPage() {
     <div className="@container min-h-0 flex-1 overflow-y-auto">
       <div className="flex min-h-full flex-col">
         <ProjectionsHeader
-          value={at(active.id)}
-          start={projections[active.id][0].value}
+          value={activePoints?.at(-1)?.value ?? null}
+          start={activePoints?.[0]?.value ?? null}
           currency={currency}
           horizon={horizon}
           onHorizonChange={(to) => setSearch({ to })}
@@ -145,10 +130,18 @@ function ProjectionsPage() {
 
         <div className="px-4 pt-4.5 md:px-10">
           {search.view === 'timestamp' ? (
-            <TimestampGrid points={projections[active.id]} currency={currency} />
-          ) : (
+            milestones.data ? (
+              <TimestampGrid start={milestones.data.start} at={milestones.data.at} currency={currency} />
+            ) : milestones.isError ? (
+              <ProjectionError onRetry={() => milestones.refetch()} />
+            ) : (
+              <Skeleton className="h-77.5 rounded-2xl" />
+            )
+          ) : activePoints ? (
             <ProjectionChart
-              series={(visible.length ? visible : [active]).map((s) => ({ scenario: s, points: projections[s.id].slice(0, months + 1) }))}
+              series={(visible.length ? visible : [active])
+                .filter((s) => pointsOf[s.id])
+                .map((s) => ({ scenario: s, points: pointsOf[s.id]! }))}
               scenarios={state.scenarios}
               visible={visible.map((s) => s.id)}
               onVisibleChange={setShown}
@@ -156,12 +149,21 @@ function ProjectionsPage() {
               onMetricChange={setMetric}
               currency={currency}
             />
+          ) : activeChart?.isError ? (
+            <ProjectionError onRetry={() => activeChart.refetch()} />
+          ) : (
+            <Skeleton className="h-77.5 rounded-2xl" />
           )}
         </div>
 
         <ScenarioTabs
           scenarios={state.scenarios}
-          values={Object.fromEntries(state.scenarios.map((s) => [s.id, projectionMoney(at(s.id), currency, 0)]))}
+          values={Object.fromEntries(
+            state.scenarios.map((s) => {
+              const last = pointsOf[s.id]?.at(-1)
+              return [s.id, last ? projectionMoney(last.value, currency, 0) : '—']
+            }),
+          )}
           activeId={active.id}
           onSelect={(scenario) => setSearch({ scenario })}
           onEdit={(id, patch) => updateScenario.mutate({ id, ...patch })}
@@ -194,6 +196,21 @@ function ProjectionsPage() {
         <ExportDialog title="Export Projection" formats={EXPORT_FORMATS} open={exporting} onOpenChange={setExporting} />
       </div>
     </div>
+  )
+}
+
+/** The projection didn't load: the API's message and Retry. */
+function ProjectionError({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Callout
+      variant="error"
+      title="Couldn’t load the projection"
+      action={
+        <Button variant="secondary" size="xs" onClick={onRetry}>
+          Retry
+        </Button>
+      }
+    />
   )
 }
 

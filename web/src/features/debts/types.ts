@@ -53,7 +53,8 @@ export interface CreateDebtInput {
 /** Portfolio-wide debt total and its change over the last month, in the base currency. Added up in api.ts (no endpoint yet). */
 export interface DebtsOverview {
   currency: string
-  total: number
+  /** Null for a real portfolio until the API has a debts total. */
+  total: number | null
   change: { amount: number; pct: number } | null
 }
 

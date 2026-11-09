@@ -144,12 +144,14 @@ export interface AssetHistoryEntry {
   kind: 'add' | 'remove' | 'price'
   /** Units, for ticker assets */
   quantity: number | null
-  /** Value added or removed, or the new price, in the asset's currency */
-  amount: number
+  /** Value added or removed, or the new price; null when the API doesn't give it (a purchase's total) */
+  amount: number | null
   /** Price per unit at the time, for ticker assets */
   price: number | null
   /** The price before (price changes after the first) */
   previous: number | null
+  /** What the amounts are in, when not the asset's portfolio currency (the API's history is in the asset's own) */
+  currency?: string
   created_at: string
 }
 
@@ -168,6 +170,7 @@ export interface AddAssetHistoryInput {
 }
 
 /** An asset's totals for the History tab. */
+/** What's invested and the gain (null for a real asset: the API doesn't work them out yet). */
 export interface AssetStats {
   /** What went in, less what came out (ticker assets); the first price (the rest) */
   invested: number

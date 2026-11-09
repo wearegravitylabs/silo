@@ -5,14 +5,16 @@ import { formatMoney } from '@/lib/format'
 import { projectionChange, TIMESTAMPS } from '../constants'
 import type { ProjectionPoint } from '../types'
 
-/** Six snapshots of the active scenario (1 month … 20 years): net worth, change from today, assets and debts. */
-export function TimestampGrid({ points, currency }: { points: ProjectionPoint[]; currency: string }) {
-  const start = points[0]
-
+/**
+ * Six snapshots of the active scenario (1 month … 20 years): net worth, change from today, assets and debts. `at` holds
+ * them by months from now; one it lacks is left out.
+ */
+export function TimestampGrid({ start, at, currency }: { start: ProjectionPoint; at: Record<number, ProjectionPoint>; currency: string }) {
   return (
     <div className="grid gap-x-4 gap-y-5 @xl:grid-cols-2 @4xl:grid-cols-3">
       {TIMESTAMPS.map(({ months, label }) => {
-        const p = points[months]
+        const p = at[months]
+        if (!p) return null
         const change = projectionChange(p.value, start.value, currency)
         return (
           <section key={months} className="flex min-w-0 flex-col gap-1.5" aria-label={label}>

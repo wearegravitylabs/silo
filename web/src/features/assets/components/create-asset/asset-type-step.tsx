@@ -3,13 +3,25 @@ import { Tooltip } from '@/components/ui/tooltip'
 import { CREATABLE_ASSET_TYPES } from '../../constants'
 import { StepHeading } from './step-heading'
 
-/** Step 1: the ten asset kinds in two columns (one on phones). Kinds without a flow yet say "Coming soon". */
-export function AssetTypeStep({ selected, onSelect }: { selected: string | null; onSelect: (type: string) => void }) {
+/**
+ * Step 1: the ten asset kinds in two columns (one on phones). Kinds without a flow yet, or `unavailable` here, say
+ * "Coming soon".
+ */
+export function AssetTypeStep({
+  selected,
+  onSelect,
+  unavailable = [],
+}: {
+  selected: string | null
+  onSelect: (type: string) => void
+  unavailable?: string[]
+}) {
   return (
     <div className="flex w-full max-w-136 flex-col gap-9">
       <StepHeading title="Choose an Asset Type">Specify the type of asset you want to add.</StepHeading>
       <div role="radiogroup" aria-label="Asset type" className="grid gap-3 sm:grid-cols-2">
-        {CREATABLE_ASSET_TYPES.map(({ id, label, Icon, enabled }) => {
+        {CREATABLE_ASSET_TYPES.map(({ id, label, Icon, ...type }) => {
+          const enabled = type.enabled && !unavailable.includes(id)
           const card = (
             <ChoiceCard
               size="sm"
