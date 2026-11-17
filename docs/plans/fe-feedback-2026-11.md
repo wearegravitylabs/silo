@@ -62,6 +62,27 @@ These are bugs, not missing features. I checked each one in the code, and the ca
 
 ## Phase 1: Make every amount right (silo)
 
+> **Status (2026-11-17): done in silo, not yet committed.** Checked against a real database with USD, NGN
+> and GBP holdings (45/45 pass, and the Phase 0 check still passes 28/28).
+>
+> **How it behaves:**
+> - **Exchange rates:** only today's rates are kept, so past values are converted at today's rate.
+> - **Gain:** the price gain only (value − cost of lots). Cash flows are not included.
+> - **New items:** an asset or debt added to Silo in the last 30 days has no 1-month change, and doesn't
+>   appear in top movers. Its only older value is the purchase price, so a "this month" change would be wrong.
+>
+> **Not done here:** `needs_attention` (left out on purpose).
+>
+> **Found and fixed on the way:**
+> - The amortization schedule put today's balance on dates counted from the loan's original start date.
+> - `biannual` payments were treated as monthly.
+> - A manual asset created with several lots saved wrong history values. A migration corrects them.
+>
+> **silo-cloud when it moves to the next tag:**
+> - `Asset` and `Debt` services have new methods (`Sell`, `Overview`, `ListBalanceHistory`).
+> - `Dashboard.Get` takes an optional `Options`. The chat tool's call `Get(ctx, p, u, "1M")` still compiles.
+> - Cloud's `main.go` needs no new wiring for this phase.
+
 Most of the dashboard, asset and debt items share one root cause: **nothing is converted to the portfolio's base currency.** The `exchange_rates` table and the daily FX refresh already exist. We add one helper that converts an amount from one currency to another on a given date, and then use it everywhere.
 
 **Dashboard**

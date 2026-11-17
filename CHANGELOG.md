@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `STORAGE_PUBLIC_ENDPOINT` for signing document links with a browser-reachable address
 - `go run ./cmd/fix-content-types` to repair the content type of files uploaded before this release
 - `OnAccountDeleted` hooks on `app.Dependency` for cleanup outside the OSS tables
+- `app/fx`: one currency converter used by every total (assets, debts, dashboard, snapshots)
+- Assets: `invested`, `gain`, `gain_pct`, `change_amount_1m`, `change_pct_1m` (base currency)
+- `POST /assets/:id/sell`: partial sells, oldest lots first, proceeds recorded as a `sale_proceeds` cash flow
+- Asset updates take `owned_value` (owned share in base currency) and `price_date`
+- Asset value history returns `owned_value_converted` and the change from the previous point
+- Debt balance history (`debt_balance_history` table, `GET /debts/:id/balance-history`); every balance change is recorded
+- `GET /debts/overview`: total, 1-month change, scheduled / unscheduled totals, monthly payments, interest paid this year, debt-free date
+- Debts: `icon`, `metadata`, `owned_balance_converted`, `monthly_payment`, 1-month change; updates take `owned_balance`, `balance_date`, `balance_note`
+- Dashboard: periods `1D`, `1M`, `3M`, `YTD`, `1Y`, `ALL`; `?movers=today|week|month`; `net_worth_by_currency`; allocation `by_type`, `by_currency`, `by_folder`; `debt_summary`
 
 ### Changed
 
@@ -39,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/insights/*` answer `501 NOT_AVAILABLE` on the open-source server
 - `FOLDER_TYPE_MISMATCH` is a 400, not a 500
 - Removed the unused `thirdparty/storage/minio` adapter; MinIO runs through the S3 client
+- Dashboard totals, allocation, movers and chart are in the base currency. The chart is rebuilt day by day from asset and debt history (weekly beyond two years), with today's live value as the last point
+- An unknown dashboard period is `400 INVALID_PERIOD` instead of silently returning 1M
+- Asset and debt create/update responses carry lots and converted fields (they were zero)
+- The amortization schedule starts today from the current balance, allows 0% loans, and handles `biannual`
 
 ### Fixed
 
@@ -49,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GET /debts?folder_id=` returned 400
 - Uploaded files were stored as `application/octet-stream`, so images downloaded instead of opening
 - Scheduled jobs no longer run for deleted portfolios
+- A manual asset created with several lots recorded each lot's value on its own in the history instead of everything held that day; existing points are corrected
 
 ### Security
 
