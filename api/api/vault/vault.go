@@ -23,12 +23,15 @@ type handler struct{ svc appVault.Vault }
 func New(r *gin.RouterGroup, svc appVault.Vault, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios/:portfolioID/vault")
+	owned := mid.RequireOwned(
+		middleware.Owned{Param: "id", Table: "vault_documents", Column: "portfolio_id", ParentParam: "portfolioID"},
+	)
 
-	member := g.Group("", mid.RequirePortfolioMember())
+	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("/documents", h.listDocuments)
 	member.GET("/documents/:id/download-url", h.downloadURL)
 
-	editor := g.Group("", mid.RequirePortfolioEditor())
+	editor := g.Group("", mid.RequirePortfolioEditor(), owned)
 	editor.POST("/documents", h.upload)
 	editor.DELETE("/documents/:id", h.deleteDocument)
 }

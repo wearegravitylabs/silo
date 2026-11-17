@@ -151,6 +151,12 @@ const (
 	FolderDeleted    = "Folder deleted. Assets in this folder have been moved to the root."
 	FoldersReordered = "Folders reordered."
 
+	// ErrNotAvailable is shown for a feature this server doesn't provide.
+	ErrNotAvailable = "This feature isn't available on this server."
+
+	// ErrNotFound is shown when an id in the URL doesn't exist in this portfolio.
+	ErrNotFound = "We couldn't find that item in this portfolio."
+
 	// ErrFolderNotFound is shown when the folder ID doesn't exist or the caller lacks access.
 	ErrFolderNotFound = "That folder doesn't exist or you don't have access to it."
 	// ErrFolderRequired is shown when no folder_id is provided on asset creation.

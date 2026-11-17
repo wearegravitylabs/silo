@@ -54,15 +54,8 @@ func (s *service) Create(ctx context.Context, portfolioID uuid.UUID, req model.C
 	}
 
 	if req.FolderID != nil {
-		folder, err := s.dp.FolderStore.GetFolderByID(ctx, *req.FolderID)
-		if err != nil {
-			return model.Debt{}, siloErrors.ErrFolderNotFound
-		}
-		if folder.PortfolioID != portfolioID {
-			return model.Debt{}, siloErrors.ErrFolderNotFound
-		}
-		if folder.FolderType != model.FolderTypeDebt {
-			return model.Debt{}, siloErrors.ErrFolderTypeMismatch
+		if err := s.checkFolder(ctx, *req.FolderID, portfolioID); err != nil {
+			return model.Debt{}, err
 		}
 	}
 
@@ -75,7 +68,7 @@ func (s *service) Create(ctx context.Context, portfolioID uuid.UUID, req model.C
 	// Default currency to portfolio base currency if not provided.
 	currency := req.Currency
 	if currency == "" {
-		portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, uuid.Nil)
+		portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, portfolioID)
 		if err == nil {
 			currency = portfolio.BaseCurrency
 		} else {
@@ -147,8 +140,13 @@ func (s *service) Update(ctx context.Context, id uuid.UUID, req model.UpdateDebt
 	}
 
 	// Apply only non-nil fields.
-	if req.FolderID != nil {
-		debt.FolderID = req.FolderID
+	if req.FolderID.Set {
+		if req.FolderID.Value != nil {
+			if err := s.checkFolder(ctx, *req.FolderID.Value, debt.PortfolioID); err != nil {
+				return model.Debt{}, err
+			}
+		}
+		debt.FolderID = req.FolderID.Value
 	}
 	if req.Name != nil {
 		debt.Name = *req.Name
@@ -292,4 +290,17 @@ func periodsPerYear(f model.PaymentFrequency) int {
 
 func round2(v float64) float64 {
 	return math.Round(v*100) / 100
+}
+
+// checkFolder makes sure a debt is being put in a debt folder of its own
+// portfolio.
+func (s *service) checkFolder(ctx context.Context, folderID, portfolioID uuid.UUID) error {
+	folder, err := s.dp.FolderStore.GetFolderByID(ctx, folderID)
+	if err != nil || folder.PortfolioID != portfolioID {
+		return siloErrors.ErrFolderNotFound
+	}
+	if folder.FolderType != model.FolderTypeDebt {
+		return siloErrors.ErrFolderTypeMismatch
+	}
+	return nil
 }

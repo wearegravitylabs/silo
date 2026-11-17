@@ -108,6 +108,13 @@ func main() {
 	if err := sched.Register("price-refresh", "@daily", assetSvc.RefreshAllPrices); err != nil {
 		log.Fatal().Err(err).Msg("failed to register price-refresh scheduler job")
 	}
+	if err := sched.Register("snapshot-capture", "@daily", snapshotSvc.CaptureAll); err != nil {
+		log.Fatal().Err(err).Msg("failed to register snapshot-capture scheduler job")
+	}
+	// Removes accounts and portfolios deleted more than 30 days ago.
+	if err := sched.Register("purge-deleted-accounts", "@daily", userSvc.PurgeDeletedAccounts); err != nil {
+		log.Fatal().Err(err).Msg("failed to register purge-deleted-accounts scheduler job")
+	}
 	sched.Start()
 	defer sched.Stop()
 

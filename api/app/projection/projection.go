@@ -249,7 +249,7 @@ func (s *service) Compute(ctx context.Context, scenarioID, portfolioID uuid.UUID
 	}
 
 	// Fetch portfolio for base currency.
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, uuid.Nil)
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, portfolioID)
 	if err != nil {
 		return model.ProjectionResult{}, err
 	}
@@ -515,7 +515,7 @@ func (s *service) Chart(ctx context.Context, scenarioID, portfolioID uuid.UUID, 
 		return model.ChartResult{}, err
 	}
 
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, uuid.Nil)
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, portfolioID)
 	if err != nil {
 		return model.ChartResult{}, err
 	}

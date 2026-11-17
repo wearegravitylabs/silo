@@ -48,7 +48,7 @@ func (s *service) Upload(ctx context.Context, userID, portfolioID uuid.UUID, fil
 
 	key := buildKey(portfolioID, userID, fileName)
 
-	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size); err != nil {
+	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size, fileType); err != nil {
 		log.Error().Err(err).Msg("failed to upload vault document")
 		return model.VaultDocument{}, siloErrors.ErrStorageUploadFailed
 	}

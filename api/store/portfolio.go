@@ -17,6 +17,9 @@ import (
 type PortfolioDatabase interface {
 	CreatePortfolio(ctx context.Context, portfolio model.Portfolio) (model.Portfolio, error)
 	GetPortfolioByID(ctx context.Context, id, callerID uuid.UUID) (model.Portfolio, error)
+	// GetPortfolio loads a portfolio without checking membership. Use it only
+	// where the caller's access has already been checked (route middleware).
+	GetPortfolio(ctx context.Context, id uuid.UUID) (model.Portfolio, error)
 	ListPortfoliosByUser(ctx context.Context, userID uuid.UUID) ([]model.Portfolio, error)
 	ListPortfoliosFiltered(ctx context.Context, userID uuid.UUID, filter model.ListPortfoliosFilter, page model.Page) ([]model.Portfolio, model.PageInfo, error)
 	UpdatePortfolio(ctx context.Context, portfolio model.Portfolio) (model.Portfolio, error)
@@ -26,6 +29,12 @@ type PortfolioDatabase interface {
 	RemoveMember(ctx context.Context, portfolioID, userID uuid.UUID) error
 	GetMember(ctx context.Context, portfolioID, userID uuid.UUID) (model.PortfolioMember, error)
 	ListMembers(ctx context.Context, portfolioID uuid.UUID) ([]model.PortfolioMember, error)
+	// ListLiveIDs returns the id of every portfolio that is not deleted, for
+	// scheduled jobs that run over all portfolios.
+	ListLiveIDs(ctx context.Context) ([]uuid.UUID, error)
+	// RowBelongsTo reports whether the row with the given id in table has
+	// column = parentID. table and column must come from code, never a request.
+	RowBelongsTo(ctx context.Context, table, column string, id, parentID uuid.UUID) (bool, error)
 }
 
 type portfolioStore struct{ storage *Store }
@@ -49,6 +58,20 @@ func (p *portfolioStore) GetPortfolioByID(ctx context.Context, id, callerID uuid
 		Joins("JOIN portfolio_members pm ON pm.portfolio_id = portfolios.id AND pm.user_id = ?", callerID).
 		Preload("Members").
 		Where("portfolios.id = ? AND portfolios.deleted_at IS NULL", id).
+		First(&portfolio).Error
+	if err == gorm.ErrRecordNotFound {
+		return model.Portfolio{}, siloErrors.ErrPortfolioNotFound
+	}
+	if err != nil {
+		return model.Portfolio{}, siloErrors.ErrGenericErr
+	}
+	return portfolio, nil
+}
+
+func (p *portfolioStore) GetPortfolio(ctx context.Context, id uuid.UUID) (model.Portfolio, error) {
+	var portfolio model.Portfolio
+	err := p.storage.DB.WithContext(ctx).
+		Where("id = ? AND deleted_at IS NULL", id).
 		First(&portfolio).Error
 	if err == gorm.ErrRecordNotFound {
 		return model.Portfolio{}, siloErrors.ErrPortfolioNotFound
@@ -161,4 +184,28 @@ func (p *portfolioStore) CountOwners(ctx context.Context, portfolioID uuid.UUID)
 		Where("portfolio_id = ? AND role = ?", portfolioID, model.RoleOwner).
 		Count(&count).Error
 	return count, err
+}
+
+func (p *portfolioStore) RowBelongsTo(ctx context.Context, table, column string, id, parentID uuid.UUID) (bool, error) {
+	var n int64
+	err := p.storage.DB.WithContext(ctx).
+		Table(table).
+		Where("id = ? AND "+column+" = ?", id, parentID).
+		Count(&n).Error
+	if err != nil {
+		return false, siloErrors.ErrGenericErr
+	}
+	return n > 0, nil
+}
+
+func (p *portfolioStore) ListLiveIDs(ctx context.Context) ([]uuid.UUID, error) {
+	var ids []uuid.UUID
+	err := p.storage.DB.WithContext(ctx).
+		Model(&model.Portfolio{}).
+		Where("deleted_at IS NULL").
+		Pluck("id", &ids).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	return ids, nil
 }

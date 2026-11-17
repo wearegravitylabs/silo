@@ -65,11 +65,11 @@ func (j *JSONB) Scan(value any) error {
 
 // Asset represents any financial holding tracked within a portfolio.
 type Asset struct {
-	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
-	PortfolioID uuid.UUID `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
-	FolderID    uuid.UUID `gorm:"type:uuid;index"                                  json:"folder_id"`
-	Name        string    `gorm:"not null"                                         json:"name"`
-	AssetType   AssetType `gorm:"not null"                                         json:"asset_type"`
+	ID          uuid.UUID  `gorm:"type:uuid;primary_key;default:uuid_generate_v4()" json:"id"`
+	PortfolioID uuid.UUID  `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
+	FolderID    *uuid.UUID `gorm:"type:uuid;index"                                 json:"folder_id"`
+	Name        string     `gorm:"not null"                                         json:"name"`
+	AssetType   AssetType  `gorm:"not null"                                         json:"asset_type"`
 
 	// Ticker / price-feed fields (populated for ticker-based assets)
 	Ticker        string  `json:"ticker"`
@@ -232,10 +232,11 @@ type OverviewGrowth struct {
 // UpdateAssetRequest is the payload for PATCH /portfolios/:id/assets/:id.
 // All fields are optional; omitted fields are not changed.
 type UpdateAssetRequest struct {
-	FolderID     *uuid.UUID `json:"folder_id"`
-	Name         *string    `json:"name"`
-	Quantity     *float64   `json:"quantity"`
-	CurrentPrice *float64   `json:"current_price"`
+	// FolderID moves the asset to another folder; null takes it out of its folder.
+	FolderID     Optional[uuid.UUID] `json:"folder_id"`
+	Name         *string             `json:"name"`
+	Quantity     *float64            `json:"quantity"`
+	CurrentPrice *float64            `json:"current_price"`
 	// OwnershipPct is always accepted — any asset type.
 	OwnershipPct *float64 `json:"ownership_pct"`
 	// Investability is silently ignored for asset types with a preset value.

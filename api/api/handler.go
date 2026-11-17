@@ -148,9 +148,9 @@ func (h *Handler) Build() {
 	autopilot.New(onboarded, h.autopilotSvc, h.mid)
 	projection.New(onboarded, h.projectionSvc, h.mid)
 	dashboard.New(onboarded, h.dashboardSvc, h.mid)
-	snapshot.New(onboarded, h.snapshotSvc)
+	snapshot.New(onboarded, h.snapshotSvc, h.mid)
 	vault.New(onboarded, h.vaultSvc, h.mid)
-	insight.New(onboarded, h.insightSvc)
+	insight.New(onboarded, h.insightSvc, h.mid)
 
 	// ── Internal — no user auth required, should be network-restricted in production ──
 	internal := h.engine.Group("/internal")

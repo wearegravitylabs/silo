@@ -112,7 +112,7 @@ func (h *handler) upload(c *gin.Context) {
 	ext := filepath.Ext(header.Filename)
 	key := fmt.Sprintf("%s/%s%s", callerID.String(), uuid.New().String(), ext)
 
-	url, err := h.storage.Upload(c.Request.Context(), h.bucket, key, file, header.Size)
+	url, err := h.storage.Upload(c.Request.Context(), h.bucket, key, file, header.Size, contentType)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrStorageUploadFailed)
 		return

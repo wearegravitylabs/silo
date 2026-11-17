@@ -152,8 +152,8 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 		}
 		portfolio.BaseCurrency = *req.BaseCurrency
 	}
-	if req.ImageURL != nil {
-		portfolio.ImageURL = req.ImageURL
+	if req.ImageURL.Set {
+		portfolio.ImageURL = req.ImageURL.Value
 	}
 
 	updated, err := s.dp.PortfolioStore.UpdatePortfolio(ctx, portfolio)

@@ -22,12 +22,15 @@ type handler struct{ svc appAutopilot.Autopilot }
 func New(r *gin.RouterGroup, svc appAutopilot.Autopilot, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios/:portfolioID/autopilot")
+	owned := mid.RequireOwned(
+		middleware.Owned{Param: "id", Table: "autopilot_rules", Column: "portfolio_id", ParentParam: "portfolioID"},
+	)
 
-	member := g.Group("", mid.RequirePortfolioMember())
+	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("/rules", h.listRules)
 	member.GET("/rules/:id", h.getRule)
 
-	editor := g.Group("", mid.RequirePortfolioEditor())
+	editor := g.Group("", mid.RequirePortfolioEditor(), owned)
 	editor.POST("/rules", h.createRule)
 	editor.POST("/rules/:id/pause", h.pauseRule)
 	editor.POST("/rules/:id/resume", h.resumeRule)

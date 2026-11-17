@@ -22,14 +22,18 @@ type handler struct{ svc appProjection.Projection }
 func New(r *gin.RouterGroup, svc appProjection.Projection, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
 	g := r.Group("/portfolios/:portfolioID/projections")
+	owned := mid.RequireOwned(
+		middleware.Owned{Param: "scenarioID", Table: "projection_scenarios", Column: "portfolio_id", ParentParam: "portfolioID"},
+		middleware.Owned{Param: "ruleID", Table: "projection_rules", Column: "scenario_id", ParentParam: "scenarioID"},
+	)
 
-	member := g.Group("", mid.RequirePortfolioMember())
+	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("", h.listScenarios)
 	member.GET("/:scenarioID", h.getScenario)
 	member.POST("/:scenarioID/compute", h.compute)
 	member.POST("/:scenarioID/chart", h.chart)
 
-	editor := g.Group("", mid.RequirePortfolioEditor())
+	editor := g.Group("", mid.RequirePortfolioEditor(), owned)
 	editor.POST("", h.createScenario)
 	editor.PATCH("/:scenarioID", h.updateScenario)
 	editor.DELETE("/:scenarioID", h.deleteScenario)
@@ -179,10 +183,6 @@ func (h *handler) addRule(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parsePortfolioID(c)
-	if !ok {
-		return
-	}
 	scenarioID, ok := parseScenarioID(c)
 	if !ok {
 		return
@@ -192,28 +192,16 @@ func (h *handler) addRule(c *gin.Context) {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
 	}
-	if _, err := h.svc.AddRule(c.Request.Context(), scenarioID, req); err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, err)
-		return
-	}
-	result, err := h.svc.Compute(c.Request.Context(), scenarioID, portfolioID)
+	rule, err := h.svc.AddRule(c.Request.Context(), scenarioID, req)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
-	apiModel.Created(c, messages.RuleAdded, result)
+	apiModel.Created(c, messages.RuleAdded, rule)
 }
 
 func (h *handler) updateRule(c *gin.Context) {
 	_, ok := mustCallerID(c)
-	if !ok {
-		return
-	}
-	portfolioID, ok := parsePortfolioID(c)
-	if !ok {
-		return
-	}
-	scenarioID, ok := parseScenarioID(c)
 	if !ok {
 		return
 	}
@@ -226,28 +214,16 @@ func (h *handler) updateRule(c *gin.Context) {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
 	}
-	if _, err := h.svc.UpdateRule(c.Request.Context(), ruleID, req); err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, err)
-		return
-	}
-	result, err := h.svc.Compute(c.Request.Context(), scenarioID, portfolioID)
+	rule, err := h.svc.UpdateRule(c.Request.Context(), ruleID, req)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
-	apiModel.OK(c, messages.RuleUpdated, result)
+	apiModel.OK(c, messages.RuleUpdated, rule)
 }
 
 func (h *handler) deleteRule(c *gin.Context) {
 	_, ok := mustCallerID(c)
-	if !ok {
-		return
-	}
-	portfolioID, ok := parsePortfolioID(c)
-	if !ok {
-		return
-	}
-	scenarioID, ok := parseScenarioID(c)
 	if !ok {
 		return
 	}
@@ -259,12 +235,7 @@ func (h *handler) deleteRule(c *gin.Context) {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
-	result, err := h.svc.Compute(c.Request.Context(), scenarioID, portfolioID)
-	if err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, err)
-		return
-	}
-	apiModel.OK(c, messages.RuleDeleted, result)
+	apiModel.OK(c, messages.RuleDeleted, nil)
 }
 
 func (h *handler) toggleRule(c *gin.Context) {
@@ -272,28 +243,16 @@ func (h *handler) toggleRule(c *gin.Context) {
 	if !ok {
 		return
 	}
-	portfolioID, ok := parsePortfolioID(c)
-	if !ok {
-		return
-	}
-	scenarioID, ok := parseScenarioID(c)
-	if !ok {
-		return
-	}
 	ruleID, ok := parseRuleID(c)
 	if !ok {
 		return
 	}
-	if _, err := h.svc.ToggleRule(c.Request.Context(), ruleID); err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, err)
-		return
-	}
-	result, err := h.svc.Compute(c.Request.Context(), scenarioID, portfolioID)
+	rule, err := h.svc.ToggleRule(c.Request.Context(), ruleID)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
-	apiModel.OK(c, messages.RuleUpdated, result)
+	apiModel.OK(c, messages.RuleUpdated, rule)
 }
 
 // ─── Compute & Chart ─────────────────────────────────────────────────────────

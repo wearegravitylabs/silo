@@ -185,15 +185,8 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		req.Lots, lotDates = priced, dates
 	}
 
-	folder, err := s.dp.FolderStore.GetFolderByID(ctx, req.FolderID)
-	if err != nil {
-		return model.Asset{}, siloErrors.ErrFolderNotFound
-	}
-	if folder.PortfolioID != portfolioID {
-		return model.Asset{}, siloErrors.ErrFolderNotFound
-	}
-	if folder.FolderType != model.FolderTypeAsset {
-		return model.Asset{}, siloErrors.ErrFolderTypeMismatch
+	if err := s.checkFolder(ctx, req.FolderID, portfolioID); err != nil {
+		return model.Asset{}, err
 	}
 
 	// Resolve currency — fall back to portfolio base currency when empty.
@@ -408,7 +401,7 @@ func (s *service) upsertStockAsset(
 
 		a := model.Asset{
 			PortfolioID:   portfolioID,
-			FolderID:      req.FolderID,
+			FolderID:      &req.FolderID,
 			Name:          helpers.Coalesce(req.Name, name),
 			AssetType:     req.AssetType,
 			AssetClass:    classCode,
@@ -432,7 +425,7 @@ func (s *service) upsertStockAsset(
 	// Manual stock — always create a new row.
 	a := model.Asset{
 		PortfolioID:   portfolioID,
-		FolderID:      req.FolderID,
+		FolderID:      &req.FolderID,
 		Name:          req.Name,
 		AssetType:     req.AssetType,
 		AssetClass:    classCode,
@@ -927,8 +920,13 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 		return model.Asset{}, err
 	}
 
-	if req.FolderID != nil {
-		a.FolderID = *req.FolderID
+	if req.FolderID.Set {
+		if req.FolderID.Value != nil {
+			if err := s.checkFolder(ctx, *req.FolderID.Value, a.PortfolioID); err != nil {
+				return model.Asset{}, err
+			}
+		}
+		a.FolderID = req.FolderID.Value
 	}
 	if req.Name != nil {
 		a.Name = *req.Name
@@ -1088,7 +1086,7 @@ func (s *service) upsertCryptoAsset(
 
 		a := model.Asset{
 			PortfolioID:   portfolioID,
-			FolderID:      req.FolderID,
+			FolderID:      &req.FolderID,
 			Name:          helpers.Coalesce(req.Name, quote.CompanyName, coinID),
 			AssetType:     req.AssetType,
 			AssetClass:    classCode,
@@ -1122,7 +1120,7 @@ func (s *service) createManualAsset(
 ) (uuid.UUID, error) {
 	a := model.Asset{
 		PortfolioID:   portfolioID,
-		FolderID:      req.FolderID,
+		FolderID:      &req.FolderID,
 		Name:          req.Name,
 		AssetType:     req.AssetType,
 		AssetClass:    classCode,
@@ -1194,6 +1192,19 @@ func (s *service) DeleteCashFlow(ctx context.Context, assetID, callerID, flowID 
 // ListValueHistory returns per-asset value snapshots within the time range.
 func (s *service) ListValueHistory(ctx context.Context, assetID, callerID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error) {
 	return s.dp.AssetValueHistStore.ListByAsset(ctx, assetID, from, to)
+}
+
+// checkFolder makes sure an asset is being put in an asset folder of its own
+// portfolio.
+func (s *service) checkFolder(ctx context.Context, folderID, portfolioID uuid.UUID) error {
+	folder, err := s.dp.FolderStore.GetFolderByID(ctx, folderID)
+	if err != nil || folder.PortfolioID != portfolioID {
+		return siloErrors.ErrFolderNotFound
+	}
+	if folder.FolderType != model.FolderTypeAsset {
+		return siloErrors.ErrFolderTypeMismatch
+	}
+	return nil
 }
 
 // recordValueHistory writes a value history snapshot for an asset.

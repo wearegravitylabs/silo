@@ -54,7 +54,7 @@ func (s *service) UploadToAsset(ctx context.Context, assetID, callerID uuid.UUID
 
 	key := buildKey("assets", portfolioID, assetID, fileName)
 
-	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size); err != nil {
+	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size, fileType); err != nil {
 		log.Error().Err(err).Msg("failed to upload document")
 		return model.AssetDocument{}, siloErrors.ErrStorageUploadFailed
 	}
@@ -88,7 +88,7 @@ func (s *service) UploadToDebt(ctx context.Context, debtID, callerID uuid.UUID, 
 
 	key := buildKey("debts", portfolioID, debtID, fileName)
 
-	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size); err != nil {
+	if _, err := s.dp.ObjectStorage.Upload(ctx, s.dp.StoragePrivateBucket, key, data, size, fileType); err != nil {
 		log.Error().Err(err).Msg("failed to upload document")
 		return model.AssetDocument{}, siloErrors.ErrStorageUploadFailed
 	}

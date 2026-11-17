@@ -12,7 +12,9 @@ import (
 // ObjectStorage is the interface for storing and retrieving binary objects (documents, vault files).
 type ObjectStorage interface {
 	// Upload stores data at the given key within the bucket and returns the storage path.
-	Upload(ctx context.Context, bucket, key string, data io.Reader, size int64) (string, error)
+	// contentType is saved with the object so browsers open it instead of
+	// downloading it; empty means application/octet-stream.
+	Upload(ctx context.Context, bucket, key string, data io.Reader, size int64, contentType string) (string, error)
 	// Download retrieves an object by key.
 	Download(ctx context.Context, bucket, key string) (io.ReadCloser, error)
 	// Delete removes an object by key.

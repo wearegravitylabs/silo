@@ -70,5 +70,6 @@ type UpdateProfileRequest struct {
 	LastName         *string `json:"last_name"`
 	PhoneNumber      *string `json:"phone_number"`
 	PhoneCountryCode *string `json:"phone_country_code"`
-	AvatarURL        *string `json:"avatar_url"`
+	// AvatarURL sets the profile photo; null removes it.
+	AvatarURL Optional[string] `json:"avatar_url"`
 }

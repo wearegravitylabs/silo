@@ -126,6 +126,7 @@ func codeToHTTPStatus(code string) int {
 		return http.StatusForbidden
 
 	case siloErrors.ErrRecordNotFound.Code,
+		siloErrors.ErrNotFound.Code,
 		siloErrors.ErrUserNotFound.Code,
 		siloErrors.ErrPortfolioNotFound.Code,
 		siloErrors.ErrAssetNotFound.Code,
@@ -150,8 +151,12 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrInvalidCurrency.Code,
 		siloErrors.ErrFolderRequired.Code,
 		siloErrors.ErrAcquisitionPriceRequired.Code,
-		siloErrors.ErrInvalidCountry.Code:
+		siloErrors.ErrInvalidCountry.Code,
+		siloErrors.ErrFolderTypeMismatch.Code:
 		return http.StatusBadRequest
+
+	case siloErrors.ErrNotAvailable.Code:
+		return http.StatusNotImplemented
 
 	case siloErrors.ErrMarketRateLimited.Code:
 		return http.StatusTooManyRequests

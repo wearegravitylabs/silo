@@ -131,6 +131,7 @@ func (a *assetStore) ListAssetsWithTickers(ctx context.Context) ([]model.Asset, 
 	var assets []model.Asset
 	err := a.storage.DB.WithContext(ctx).
 		Where("ticker != '' AND deleted_at IS NULL").
+		Where("portfolio_id IN (SELECT id FROM portfolios WHERE deleted_at IS NULL)").
 		Find(&assets).Error
 	return assets, err
 }

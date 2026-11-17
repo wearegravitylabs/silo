@@ -27,3 +27,7 @@ type AssetValueHistory struct {
 	Source     ValueHistorySource `gorm:"not null;default:'manual'"                        json:"source"`
 	RecordedAt time.Time          `gorm:"not null"                                         json:"recorded_at"`
 }
+
+// TableName pins the table name; GORM would otherwise look for
+// "asset_value_histories", which does not exist.
+func (AssetValueHistory) TableName() string { return "asset_value_history" }

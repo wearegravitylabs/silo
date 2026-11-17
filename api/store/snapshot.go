@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
@@ -47,7 +48,13 @@ func (s *snapshotStore) LatestSnapshot(ctx context.Context, portfolioID uuid.UUI
 		Where("portfolio_id = ?", portfolioID).
 		Order("snapped_at DESC").
 		First(&snapshot).Error
-	return snapshot, err
+	if err == gorm.ErrRecordNotFound {
+		return model.Snapshot{}, siloErrors.ErrRecordNotFound
+	}
+	if err != nil {
+		return model.Snapshot{}, siloErrors.ErrGenericErr
+	}
+	return snapshot, nil
 }
 
 func (s *snapshotStore) DeleteSnapshotsBefore(ctx context.Context, portfolioID uuid.UUID, before time.Time) error {

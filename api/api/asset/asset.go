@@ -33,8 +33,15 @@ type handler struct {
 func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, noteSvc appNote.Note, mid *middleware.Middleware) {
 	h := &handler{svc: svc, docSvc: docSvc, noteSvc: noteSvc}
 	g := r.Group("/portfolios/:portfolioID/assets")
+	owned := mid.RequireOwned(
+		middleware.Owned{Param: "id", Table: "assets", Column: "portfolio_id", ParentParam: "portfolioID"},
+		middleware.Owned{Param: "lotID", Table: "asset_lots", Column: "asset_id", ParentParam: "id"},
+		middleware.Owned{Param: "flowID", Table: "asset_cash_flows", Column: "asset_id", ParentParam: "id"},
+		middleware.Owned{Param: "docID", Table: "asset_documents", Column: "asset_id", ParentParam: "id"},
+		middleware.Owned{Param: "noteID", Table: "asset_notes", Column: "asset_id", ParentParam: "id"},
+	)
 
-	member := g.Group("", mid.RequirePortfolioMember())
+	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("/overview", h.overview) // must come before /:id to avoid conflict
 	member.GET("/ticker/search", h.tickerSearch)
 	member.GET("/ticker/preview", h.tickerPreview)
@@ -49,7 +56,7 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, no
 	// Notes — read
 	member.GET("/:id/notes", h.listNotes)
 
-	editor := g.Group("", mid.RequirePortfolioEditor())
+	editor := g.Group("", mid.RequirePortfolioEditor(), owned)
 	editor.POST("", h.create)
 	editor.PATCH("/:id", h.update)
 	editor.DELETE("/:id", h.delete)

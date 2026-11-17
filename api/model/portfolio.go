@@ -74,7 +74,8 @@ type UpdatePortfolioRequest struct {
 	Name         *string `json:"name"          binding:"omitempty,min=1,max=255"`
 	Description  *string `json:"description"`
 	BaseCurrency *string `json:"base_currency"`
-	ImageURL     *string `json:"image_url"`
+	// ImageURL is cleared by sending null.
+	ImageURL Optional[string] `json:"image_url"`
 }
 
 // InviteMemberRequest is the payload for POST /portfolios/:id/members.

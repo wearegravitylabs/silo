@@ -42,6 +42,7 @@ func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error
 			Region:         env.GetWithDefault("STORAGE_REGION", "us-east-1"),
 			ForcePathStyle: false,
 			PublicURL:      env.Get("STORAGE_PUBLIC_URL"),
+			PublicEndpoint: env.Get("STORAGE_PUBLIC_ENDPOINT"),
 		})
 
 	case ProviderR2:
@@ -54,6 +55,7 @@ func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error
 			Region:         env.GetWithDefault("STORAGE_REGION", "auto"),
 			ForcePathStyle: false,
 			PublicURL:      env.Get("STORAGE_PUBLIC_URL"),
+			PublicEndpoint: env.Get("STORAGE_PUBLIC_ENDPOINT"),
 		})
 
 	case ProviderMinIO:
@@ -66,6 +68,7 @@ func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error
 			Region:         env.GetWithDefault("STORAGE_REGION", "us-east-1"),
 			ForcePathStyle: true,
 			PublicURL:      env.Get("STORAGE_PUBLIC_URL"),
+			PublicEndpoint: env.Get("STORAGE_PUBLIC_ENDPOINT"),
 		})
 
 	case "":
@@ -81,7 +84,7 @@ func NewFromEnv(ctx context.Context, env *environment.Env) (ObjectStorage, error
 // All operations return an error explaining what's missing.
 type noopStorage struct{}
 
-func (n *noopStorage) Upload(_ context.Context, _, _ string, _ io.Reader, _ int64) (string, error) {
+func (n *noopStorage) Upload(_ context.Context, _, _ string, _ io.Reader, _ int64, _ string) (string, error) {
 	return "", fmt.Errorf("storage: no provider configured — set STORAGE_PROVIDER in your .env")
 }
 func (n *noopStorage) Download(_ context.Context, _, _ string) (io.ReadCloser, error) {

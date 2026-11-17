@@ -3,6 +3,7 @@ package user
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -22,6 +23,9 @@ type User interface {
 	UpdateProfile(ctx context.Context, id uuid.UUID, req model.UpdateProfileRequest) (model.User, error)
 	// DeleteAccount soft-deletes the user's account.
 	DeleteAccount(ctx context.Context, id uuid.UUID) error
+	// PurgeDeletedAccounts permanently removes accounts and portfolios deleted
+	// more than DeletedRetention ago, files included. It is a daily scheduler job.
+	PurgeDeletedAccounts(ctx context.Context) error
 	// Onboard completes the onboarding flow: sets first/last name + phone, marks is_onboarded = true.
 	// Returns ErrAlreadyOnboarded when is_onboarded is already true.
 	Onboard(ctx context.Context, id uuid.UUID, req model.OnboardRequest) (model.User, error)
@@ -72,8 +76,8 @@ func (s *service) UpdateProfile(ctx context.Context, id uuid.UUID, req model.Upd
 	if req.PhoneCountryCode != nil {
 		user.PhoneCountryCode = req.PhoneCountryCode
 	}
-	if req.AvatarURL != nil {
-		user.AvatarURL = req.AvatarURL
+	if req.AvatarURL.Set {
+		user.AvatarURL = req.AvatarURL.Value
 	}
 
 	updated, err := s.dp.UserStore.UpdateUser(ctx, user)
@@ -86,19 +90,62 @@ func (s *service) UpdateProfile(ctx context.Context, id uuid.UUID, req model.Upd
 	return updated, nil
 }
 
-// DeleteAccount soft-deletes the user.
+// DeleteAccount soft-deletes the user and the portfolios only they own (see
+// store.DeleteAccount), then runs the OnAccountDeleted hooks. The data is kept
+// for PurgeDeletedAccounts to remove for good after the retention period.
 func (s *service) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "user.DeleteAccount").
 		Str("user_id", id.String()).
 		Logger()
 
-	if err := s.dp.UserStore.SoftDeleteUser(ctx, id); err != nil {
+	if err := s.dp.UserStore.DeleteAccount(ctx, id); err != nil {
 		log.Error().Err(err).Msg("failed to delete account")
 		return err
 	}
 
+	// Hooks clean up what the OSS tables don't know about (e.g. silo-cloud
+	// cancels the subscription). The account is already gone, so a failing
+	// hook is logged, not returned.
+	for _, hook := range s.dp.OnAccountDeleted {
+		if err := hook(context.WithoutCancel(ctx), id); err != nil {
+			log.Error().Err(err).Msg("account-deleted hook failed")
+		}
+	}
+
 	log.Info().Msg("account deleted")
+	return nil
+}
+
+// DeletedRetention is how long a deleted account or portfolio is kept, so
+// support can restore it, before PurgeDeletedAccounts removes it for good.
+const DeletedRetention = 30 * 24 * time.Hour
+
+func (s *service) PurgeDeletedAccounts(ctx context.Context) error {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "user.PurgeDeletedAccounts").
+		Logger()
+
+	cutoff := time.Now().UTC().Add(-DeletedRetention)
+
+	// Files first: once the rows are gone nothing points at them any more.
+	keys, err := s.dp.UserStore.ListPurgeableFiles(ctx, cutoff)
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		if err := s.dp.ObjectStorage.Delete(ctx, s.dp.StoragePrivateBucket, key); err != nil {
+			log.Warn().Err(err).Str("key", key).Msg("failed to delete purged file")
+		}
+	}
+
+	users, portfolios, err := s.dp.UserStore.PurgeDeleted(ctx, cutoff)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to purge deleted accounts")
+		return err
+	}
+	log.Info().Int64("users", users).Int64("portfolios", portfolios).Int("files", len(keys)).
+		Msg("deleted accounts purged")
 	return nil
 }
 

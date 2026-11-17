@@ -53,6 +53,15 @@ var (
 	ErrDuplicateRecord = &TranslatableError{Code: "DUPLICATE_RECORD", Key: "ERR_DUPLICATE_RECORD",
 		Message: "record already exists"}
 
+	// ErrNotFound is shown when an id in the URL doesn't exist in this portfolio.
+	ErrNotFound = &TranslatableError{Code: "NOT_FOUND", Key: "ERR_NOT_FOUND",
+		Message: messages.ErrNotFound, Public: true}
+
+	// ErrNotAvailable is shown for a feature this server doesn't provide
+	// (e.g. AI insights, which only the hosted service offers).
+	ErrNotAvailable = &TranslatableError{Code: "NOT_AVAILABLE", Key: "ERR_NOT_AVAILABLE",
+		Message: messages.ErrNotAvailable, Public: true}
+
 	// ErrInvalidRequest is shown when request binding or validation fails.
 	ErrInvalidRequest = &TranslatableError{Code: "INVALID_REQUEST", Key: "ERR_INVALID_REQUEST",
 		Message: messages.ErrInvalidRequest, Public: true}

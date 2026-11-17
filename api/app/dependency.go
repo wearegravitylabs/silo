@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 
 	modelEnv "github.com/wearegravitylabs/silo/api/model/env"
@@ -62,6 +63,11 @@ type Dependency struct {
 	AIProvider      ai.AIProvider
 	ObjectStorage   storage.ObjectStorage
 	EmailingService email.EmailingService
+
+	// OnAccountDeleted runs after a user deletes their account, for cleanup
+	// outside the OSS tables (silo-cloud cancels the Stripe subscription and
+	// drops OAuth links here). Errors are logged; they don't undo the delete.
+	OnAccountDeleted []func(ctx context.Context, userID uuid.UUID) error
 }
 
 // InitDp builds and returns a fully wired Dependency using the given store and env.

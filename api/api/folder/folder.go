@@ -25,8 +25,11 @@ func New(r *gin.RouterGroup, svc appFolder.Folder, mid *middleware.Middleware) {
 
 	g.GET("", mid.RequirePortfolioMember(), h.list)
 	g.POST("", mid.RequirePortfolioEditor(), h.create)
-	g.PATCH("/:id", mid.RequirePortfolioEditor(), h.update)
-	g.DELETE("/:id", mid.RequirePortfolioEditor(), h.delete)
+	owned := mid.RequireOwned(
+		middleware.Owned{Param: "id", Table: "folders", Column: "portfolio_id", ParentParam: "portfolioID"},
+	)
+	g.PATCH("/:id", mid.RequirePortfolioEditor(), owned, h.update)
+	g.DELETE("/:id", mid.RequirePortfolioEditor(), owned, h.delete)
 	g.PUT("/reorder", mid.RequirePortfolioEditor(), h.reorder)
 }
 

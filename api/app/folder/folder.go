@@ -112,11 +112,11 @@ func (s *service) Update(ctx context.Context, folderID, callerID uuid.UUID, req 
 	if req.Name != nil {
 		folder.Name = *req.Name
 	}
-	if req.Icon != nil {
-		folder.Icon = req.Icon
+	if req.Icon.Set {
+		folder.Icon = req.Icon.Value
 	}
-	if req.ImageURL != nil {
-		folder.ImageURL = req.ImageURL
+	if req.ImageURL.Set {
+		folder.ImageURL = req.ImageURL.Value
 	}
 
 	updated, err := s.dp.FolderStore.UpdateFolder(ctx, folder)

@@ -30,8 +30,13 @@ type handler struct {
 func New(r *gin.RouterGroup, svc appDebt.Debt, noteSvc appNote.Note, docSvc appDocument.Document, mid *middleware.Middleware) {
 	h := &handler{svc: svc, noteSvc: noteSvc, docSvc: docSvc}
 	g := r.Group("/portfolios/:portfolioID/debts")
+	owned := mid.RequireOwned(
+		middleware.Owned{Param: "id", Table: "debts", Column: "portfolio_id", ParentParam: "portfolioID"},
+		middleware.Owned{Param: "docID", Table: "asset_documents", Column: "debt_id", ParentParam: "id"},
+		middleware.Owned{Param: "noteID", Table: "asset_notes", Column: "debt_id", ParentParam: "id"},
+	)
 
-	member := g.Group("", mid.RequirePortfolioMember())
+	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("", h.list)
 	member.GET("/:id", h.get)
 	member.GET("/:id/amortization", h.amortizationSchedule)
@@ -41,7 +46,7 @@ func New(r *gin.RouterGroup, svc appDebt.Debt, noteSvc appNote.Note, docSvc appD
 	member.GET("/:id/documents", h.listDocuments)
 	member.GET("/:id/documents/:docID/download-url", h.documentDownloadURL)
 
-	editor := g.Group("", mid.RequirePortfolioEditor())
+	editor := g.Group("", mid.RequirePortfolioEditor(), owned)
 	editor.POST("", h.create)
 	editor.PATCH("/:id", h.update)
 	editor.DELETE("/:id", h.delete)
@@ -119,6 +124,15 @@ func (h *handler) list(c *gin.Context) {
 	if err := c.ShouldBindQuery(&filter); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
 		return
+	}
+	// folder_id is bound manually — Gin's query binder can't parse a *uuid.UUID.
+	if raw := c.Query("folder_id"); raw != "" {
+		folderID, err := uuid.Parse(raw)
+		if err != nil {
+			apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+			return
+		}
+		filter.FolderID = &folderID
 	}
 	debts, err := h.svc.ListByPortfolio(c.Request.Context(), portfolioID, filter)
 	if err != nil {

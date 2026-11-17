@@ -283,6 +283,47 @@ func (m *Middleware) requirePortfolioRole(minRole model.PortfolioMemberRole) gin
 	}
 }
 
+// Owned ties an id in the URL to the parent it must belong to: the row in
+// Table whose id is the Param value must have Column equal to the ParentParam
+// value. Routes without Param are skipped.
+type Owned struct {
+	Param       string
+	Table       string
+	Column      string
+	ParentParam string
+}
+
+// RequireOwned aborts with 404 when an id in the URL belongs to a different
+// portfolio (or a different parent row). Run it after the portfolio role
+// middleware, which has already checked the caller is a member of the
+// portfolio in the URL; this checks the ids under it are that portfolio's.
+func (m *Middleware) RequireOwned(checks ...Owned) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		for _, chk := range checks {
+			raw := c.Param(chk.Param)
+			if raw == "" {
+				continue
+			}
+			id, err1 := uuid.Parse(raw)
+			parentID, err2 := uuid.Parse(c.Param(chk.ParentParam))
+			if err1 != nil || err2 != nil {
+				abortNotFound(c)
+				return
+			}
+			ok, err := m.portfolioStore.RowBelongsTo(c.Request.Context(), chk.Table, chk.Column, id, parentID)
+			if err != nil {
+				apiModel.HandleErrorResponse(c, serviceName, err)
+				return
+			}
+			if !ok {
+				abortNotFound(c)
+				return
+			}
+		}
+		c.Next()
+	}
+}
+
 // ─── Health check ─────────────────────────────────────────────────────────────
 
 // HealthCheck returns a simple liveness probe handler.
@@ -303,6 +344,22 @@ func HealthCheck() gin.HandlerFunc {
 func abortUnauthorized(c *gin.Context, e *siloErrors.TranslatableError) {
 	c.AbortWithStatusJSON(http.StatusUnauthorized, apiModel.APIResponse{
 		Code:    http.StatusUnauthorized,
+		Data:    nil,
+		Message: helpers.StringPtr("an error has occurred"),
+		Error: &apiModel.ErrorData{
+			ID:      requestid.Get(c),
+			Service: serviceName,
+			Code:    e.Code,
+			Message: e.Message,
+		},
+	})
+}
+
+// abortNotFound writes a 404 and stops the handler chain.
+func abortNotFound(c *gin.Context) {
+	e := siloErrors.ErrNotFound
+	c.AbortWithStatusJSON(http.StatusNotFound, apiModel.APIResponse{
+		Code:    http.StatusNotFound,
 		Data:    nil,
 		Message: helpers.StringPtr("an error has occurred"),
 		Error: &apiModel.ErrorData{

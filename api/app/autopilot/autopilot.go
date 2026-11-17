@@ -46,6 +46,20 @@ func (s *service) CreateRule(ctx context.Context, portfolioID uuid.UUID, req mod
 		return model.AutopilotRule{}, err
 	}
 
+	// The rule's target must be in this portfolio, or the daily run would
+	// change another portfolio's asset or debt.
+	table, notFound := "assets", siloErrors.ErrAssetNotFound
+	if req.TargetType == model.TargetDebt {
+		table, notFound = "debts", siloErrors.ErrDebtNotFound
+	}
+	ok, err := s.dp.PortfolioStore.RowBelongsTo(ctx, table, "portfolio_id", req.TargetID, portfolioID)
+	if err != nil {
+		return model.AutopilotRule{}, err
+	}
+	if !ok {
+		return model.AutopilotRule{}, notFound
+	}
+
 	startDate := req.StartDate
 	if startDate.IsZero() {
 		startDate = time.Now().UTC()

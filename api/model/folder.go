@@ -39,9 +39,10 @@ type CreateFolderRequest struct {
 // UpdateFolderRequest is the payload for PATCH /portfolios/:id/folders/:fid.
 // All fields are optional.
 type UpdateFolderRequest struct {
-	Name     *string `json:"name"      binding:"omitempty,min=1,max=255"`
-	Icon     *string `json:"icon"`
-	ImageURL *string `json:"image_url"`
+	Name *string `json:"name"      binding:"omitempty,min=1,max=255"`
+	// Icon and ImageURL are cleared by sending null.
+	Icon     Optional[string] `json:"icon"`
+	ImageURL Optional[string] `json:"image_url"`
 }
 
 // FolderPosition is a single {id, position} pair used in a reorder request.

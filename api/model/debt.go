@@ -78,15 +78,16 @@ type CreateDebtRequest struct {
 // UpdateDebtRequest is the input for modifying a debt.
 // All fields are optional — only non-nil values are applied.
 type UpdateDebtRequest struct {
-	FolderID      *uuid.UUID        `json:"folder_id"`
-	Name          *string           `json:"name"`
-	Balance       *float64          `json:"balance"`
-	InterestRate  *float64          `json:"interest_rate"`
-	PaymentAmount *float64          `json:"payment_amount"`
-	Frequency     *PaymentFrequency `json:"frequency"`
-	HasSchedule   *bool             `json:"has_schedule"`
-	OwnershipPct  *float64          `json:"ownership_pct"`
-	StartDate     *time.Time        `json:"start_date"`
+	// FolderID moves the debt to another folder; null takes it out of its folder.
+	FolderID      Optional[uuid.UUID] `json:"folder_id"`
+	Name          *string             `json:"name"`
+	Balance       *float64            `json:"balance"`
+	InterestRate  *float64            `json:"interest_rate"`
+	PaymentAmount *float64            `json:"payment_amount"`
+	Frequency     *PaymentFrequency   `json:"frequency"`
+	HasSchedule   *bool               `json:"has_schedule"`
+	OwnershipPct  *float64            `json:"ownership_pct"`
+	StartDate     *time.Time          `json:"start_date"`
 }
 
 // ListDebtsFilter carries optional filter and sort criteria for GET /debts.
@@ -96,7 +97,9 @@ type ListDebtsFilter struct {
 	// DebtType filters by a specific debt category.
 	DebtType DebtType `form:"debt_type"`
 	// FolderID filters debts that belong to a specific folder.
-	FolderID *uuid.UUID `form:"folder_id"`
+	// Bound manually in the handler (form:"-") because Gin's query binder
+	// cannot unmarshal a *uuid.UUID from a query string.
+	FolderID *uuid.UUID `form:"-"`
 	// Sort is the field to sort by: balance, name, created_at. Defaults to created_at.
 	Sort string `form:"sort"`
 	// Order is the sort direction: asc or desc. Defaults to asc.
