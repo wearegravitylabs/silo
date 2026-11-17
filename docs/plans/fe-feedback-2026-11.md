@@ -184,6 +184,14 @@ Tests: a table of known cases, one per rule and frequency, with numbers worked o
 
 ## Phase 3: Smaller API gaps (silo)
 
+> **Status (2026-11-17): done and pushed.** 12/12 live checks pass.
+>
+> **Decided:**
+> - An autopilot rule can be edited, but not its target.
+> - Export is CSV only.
+>
+> **Also fixed:** paused autopilot rules were missing from the list.
+
 - Autopilot:
   - `PATCH /autopilot/rules/:id`
   - `GET /autopilot/rules?target_id=` to list one asset's or debt's rules

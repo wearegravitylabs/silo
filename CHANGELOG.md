@@ -39,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Projections: `value_change` rule (category growth for investable assets, stocks, non-investable assets, debts); a projected `cash` line and `net_worth_with_cash`; scenario `color`; `warnings`
 - Every new portfolio gets the default "Scenario A"; existing portfolios without a scenario get it too
 - Users: `date_of_birth` (for "until age" income) and `settings` (merged on PATCH, e.g. `projections_intro_seen`)
+- `PATCH /autopilot/rules/:id` (everything but the target) and `GET /autopilot/rules?target_id=`
+- `GET /assets/export` and `GET /debts/export` download CSV files
+- Folders have a `color`
 
 ### Changed
 
@@ -59,6 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/chart` returns monthly points for any horizon, with `change_amount` / `change_pct` from today
 - Projection rules are checked on save (`400 INVALID_RULE_CONFIG`)
 - Creating a scenario no longer imports fixed-amount autopilot buys as income
+- The autopilot rule list includes paused rules
+- Note `tags` are a plain array (the old `{"list": [...]}` shape is still accepted)
 
 ### Fixed
 

@@ -3220,10 +3220,10 @@
                 "folders"
               ]
             },
-            "description": "Requires portfolio **editor**.\n\nSaves `folderID`.",
+            "description": "Requires portfolio **editor**.\n\nSaves `folderID`.\n\n`color` is any CSS colour (optional).",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"folder_type\": \"asset\",\n  \"name\": \"Real estate\",\n  \"icon\": \"house\",\n  \"image_url\": null\n}",
+              "raw": "{\n  \"folder_type\": \"asset\",\n  \"name\": \"Crypto\",\n  \"icon\": \"🪙\",\n  \"color\": \"#F59E0B\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3272,7 +3272,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"folder_type\": \"asset\",\n  \"name\": \"Real estate\",\n  \"icon\": \"house\",\n  \"image_url\": null\n}",
+                  "raw": "{\n  \"folder_type\": \"asset\",\n  \"name\": \"Crypto\",\n  \"icon\": \"🪙\",\n  \"color\": \"#F59E0B\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -3294,7 +3294,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"c3d2e4f5-6071-4283-a4b5-c6d7e8f9a0b1\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_type\": \"asset\",\n    \"name\": \"Real estate\",\n    \"icon\": \"house\",\n    \"image_url\": null,\n    \"position\": 1,\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\"\n  },\n  \"message\": \"Folder created.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"74cfd866-0d9b-5a73-93b5-0a059f9b6c16\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_type\": \"asset\",\n    \"name\": \"Crypto\",\n    \"icon\": \"🪙\",\n    \"image_url\": null,\n    \"color\": \"#F59E0B\",\n    \"position\": 1,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Folder created.\",\n  \"error\": null\n}"
             },
             {
               "name": "400 · Bad folder_type or missing name",
@@ -3573,6 +3573,54 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"folder\",\n    \"code\": \"FOLDER_NOT_FOUND\",\n    \"message\": \"That folder doesn't exist or you don't have access to it.\"\n  }\n}"
+            },
+            {
+              "name": "200 · Colour changed (null clears it)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/folders/{{folderID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "folders",
+                    "{{folderID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"color\": \"#10B981\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"74cfd866-0d9b-5a73-93b5-0a059f9b6c16\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_type\": \"asset\",\n    \"name\": \"Crypto\",\n    \"icon\": \"🪙\",\n    \"image_url\": null,\n    \"color\": \"#10B981\",\n    \"position\": 1,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Folder updated.\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -4325,6 +4373,62 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"middleware\",\n    \"code\": \"INSUFFICIENT_PERMISSION\",\n    \"message\": \"You don't have permission to do that.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export assets (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/export",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "assets",
+                "export"
+              ]
+            },
+            "description": "Requires portfolio **member**. Downloads every asset as `assets-YYYY-MM-DD.csv` (UTF-8 with BOM, so Excel shows ₦ and accents). Columns: name, type, class, folder, ticker, location, currency, quantity, price, total value, ownership %, owned value, base currency, owned value (base), invested, gain, gain %, 1M change %, date added."
+          },
+          "response": [
+            {
+              "name": "200 · CSV file",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/export",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "export"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/csv; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "Name,Type,Class,Folder,Ticker,Location,Currency,Quantity,Price,Total value,Ownership %,Owned value,Base currency,Owned value (base),Invested (base),Gain (base),Gain %,1M change %,Added\nVanguard S&P 500,stock_manual,stock,General,,,USD,10,512.4,5124,100,5124,USD,5124,4300,824,19.16,,2026-11-17\n\"Flat, Lekki\",real_estate,real_estate,General,,,NGN,1,150000000,150000000,100,150000000,USD,100000,60000,40000,66.67,,2026-11-17\n"
             }
           ]
         },
@@ -8874,10 +8978,10 @@
                 "notes"
               ]
             },
-            "description": "Requires portfolio **editor**. Only `content` is required.\n\nSaves `noteID`.",
+            "description": "Requires portfolio **editor**. Only `content` is required.\n\nSaves `noteID`.\n\n**Tags:** a plain array of strings. The older `{\"list\": [...]}` shape is still accepted; responses always use the array.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Valuation basis\",\n  \"content\": \"Comparable sale on the same street, Aug 2025.\",\n  \"tags\": {\n    \"source\": \"zillow\"\n  }\n}",
+              "raw": "{\n  \"title\": \"Why I hold it\",\n  \"content\": \"Core long-term position.\",\n  \"tags\": [\"long-term\", \"core\"]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8928,7 +9032,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"title\": \"Valuation basis\",\n  \"content\": \"Comparable sale on the same street, Aug 2025.\",\n  \"tags\": {\n    \"source\": \"zillow\"\n  }\n}",
+                  "raw": "{\n  \"title\": \"Why I hold it\",\n  \"content\": \"Core long-term position.\",\n  \"tags\": [\"long-term\", \"core\"]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -8950,7 +9054,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"e5746353-8239-44a5-86b3-c4d5e6f7a8b9\",\n    \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"title\": \"Valuation basis\",\n    \"content\": \"Comparable sale on the same street, Aug 2025.\",\n    \"tags\": {\n      \"source\": \"zillow\"\n    },\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\"\n  },\n  \"message\": \"Note added.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"8ca11dd6-3776-53d1-bdec-78bbafa82f51\",\n    \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"title\": \"Why I hold it\",\n    \"content\": \"Core long-term position.\",\n    \"tags\": [\n      \"long-term\",\n      \"core\"\n    ],\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Note added.\",\n  \"error\": null\n}"
             },
             {
               "name": "400 · content missing",
@@ -9138,6 +9242,56 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"asset\",\n    \"code\": \"RECORD_NOT_FOUND\",\n    \"message\": \"an error occurred\"\n  }\n}"
+            },
+            {
+              "name": "200 · Old {list: [...]} tag shape still accepted",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/notes/{{noteID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}",
+                    "notes",
+                    "{{noteID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tags\": {\n    \"list\": [\n      \"long-term\"\n    ]\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"8ca11dd6-3776-53d1-bdec-78bbafa82f51\",\n    \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"title\": \"Why I hold it\",\n    \"content\": \"Core long-term position.\",\n    \"tags\": [\n      \"long-term\"\n    ],\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Note updated.\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -9518,6 +9672,62 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"currency\": \"USD\",\n    \"count\": 2,\n    \"total\": 388800,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null,\n    \"scheduled_total\": 386000,\n    \"unscheduled_total\": 2800,\n    \"monthly_payments\": 2770.12,\n    \"interest_paid_ytd\": 24717.96,\n    \"debt_free_date\": \"2047-09-17\"\n  },\n  \"message\": \"debts overview\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export debts (CSV)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/export",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "debts",
+                "export"
+              ]
+            },
+            "description": "Requires portfolio **member**. Downloads every debt as `debts-YYYY-MM-DD.csv`. Columns: name, type, folder, currency, principal, balance, ownership %, owned balance, base currency, owned balance (base), interest rate %, payment, frequency, scheduled, monthly payment (base), 1M change %, start date, date added."
+          },
+          "response": [
+            {
+              "name": "200 · CSV file",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/export",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "debts",
+                    "export"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/csv; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "Name,Type,Folder,Currency,Principal,Balance,Ownership %,Owned balance,Base currency,Owned balance (base),Interest rate %,Payment,Frequency,Scheduled,Monthly payment (base),1M change %,Start date,Added\nCar loan,car_loan,General,USD,18000,12400,100,12400,USD,12400,7.9,420,monthly,true,420,,,2026-11-17\n"
             }
           ]
         },
@@ -11279,7 +11489,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules",
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules?target_id=",
               "host": [
                 "{{base_url}}"
               ],
@@ -11288,18 +11498,25 @@
                 "{{portfolioID}}",
                 "autopilot",
                 "rules"
+              ],
+              "query": [
+                {
+                  "key": "target_id",
+                  "value": "",
+                  "disabled": true
+                }
               ]
             },
-            "description": "Requires portfolio **member**."
+            "description": "Requires portfolio **member**. Every rule, **paused ones included** (`is_active: false`), oldest first. Optional `?target_id=` lists the rules of one asset or debt."
           },
           "response": [
             {
-              "name": "200 · Rules",
+              "name": "200 · All rules (one paused)",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules",
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules?target_id=",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -11308,6 +11525,13 @@
                     "{{portfolioID}}",
                     "autopilot",
                     "rules"
+                  ],
+                  "query": [
+                    {
+                      "key": "target_id",
+                      "value": "",
+                      "disabled": true
+                    }
                   ]
                 }
               },
@@ -11325,7 +11549,47 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"4bdac9b9-e89f-4a0b-ac19-c0d1e2f3a4b5\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"target_id\": \"d4c3b2a1-7182-4394-b5c6-d7e8f9a0b1c2\",\n      \"target_type\": \"asset\",\n      \"action\": \"add\",\n      \"amount\": 500,\n      \"percentage\": 0,\n      \"frequency\": \"monthly\",\n      \"start_date\": \"2025-11-01T00:00:00Z\",\n      \"next_run_at\": \"2025-11-01T00:00:00Z\",\n      \"is_active\": true,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\"\n    },\n    {\n      \"id\": \"5cebdac0-1a2b-4c3d-8e4f-5a6b7c8d9e0f\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"target_id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n      \"target_type\": \"debt\",\n      \"action\": \"remove\",\n      \"amount\": 0,\n      \"percentage\": 1.5,\n      \"frequency\": \"quarterly\",\n      \"start_date\": \"2026-01-01T00:00:00Z\",\n      \"next_run_at\": \"2026-01-01T00:00:00Z\",\n      \"is_active\": false,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:31:05.902117Z\"\n    }\n  ],\n  \"message\": \"rules\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"3b87480a-6692-50b1-9146-8404feb7bc9a\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"target_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"target_type\": \"asset\",\n      \"action\": \"add\",\n      \"amount\": 750,\n      \"percentage\": 0,\n      \"frequency\": \"weekly\",\n      \"start_date\": \"2026-11-17T09:14:22.481203Z\",\n      \"next_run_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"is_active\": false,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n    },\n    {\n      \"id\": \"2789fb4c-f236-526a-abc6-a77c53c62370\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"target_id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n      \"target_type\": \"debt\",\n      \"action\": \"remove\",\n      \"amount\": 420,\n      \"percentage\": 0,\n      \"frequency\": \"monthly\",\n      \"start_date\": \"2026-11-17T09:14:22.481203Z\",\n      \"next_run_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"is_active\": true,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n    }\n  ],\n  \"message\": \"rules\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · One debt's rules (?target_id=)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules?target_id={{debtID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "autopilot",
+                    "rules"
+                  ],
+                  "query": [
+                    {
+                      "key": "target_id",
+                      "value": "{{debtID}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"2789fb4c-f236-526a-abc6-a77c53c62370\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"target_id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n      \"target_type\": \"debt\",\n      \"action\": \"remove\",\n      \"amount\": 420,\n      \"percentage\": 0,\n      \"frequency\": \"monthly\",\n      \"start_date\": \"2026-11-17T09:14:22.481203Z\",\n      \"next_run_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"is_active\": true,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n    }\n  ],\n  \"message\": \"rules\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -11616,6 +11880,141 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"autopilot\",\n    \"code\": \"AUTOPILOT_RULE_NOT_FOUND\",\n    \"message\": \"an error occurred\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update rule",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{autopilotRuleID}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "autopilot",
+                "rules",
+                "{{autopilotRuleID}}"
+              ]
+            },
+            "description": "Requires portfolio **editor**. Change `amount`, `percentage`, `units`, `frequency`, `start_date` or `end_date` (`null` clears `units` / `end_date`). The target (`target_id`, `target_type`, `action`) can't change — delete the rule and make a new one. Afterwards exactly one of amount / percentage / units must be set: to switch, send the old one as 0 (e.g. `{\"amount\": 0, \"percentage\": 2}`). A future `start_date` moves the next run to it.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 750,\n  \"frequency\": \"weekly\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Updated",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{autopilotRuleID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "autopilot",
+                    "rules",
+                    "{{autopilotRuleID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"amount\": 750,\n  \"frequency\": \"weekly\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"3b87480a-6692-50b1-9146-8404feb7bc9a\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"target_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"target_type\": \"asset\",\n    \"action\": \"add\",\n    \"amount\": 750,\n    \"percentage\": 0,\n    \"frequency\": \"weekly\",\n    \"start_date\": \"2026-11-17T09:14:22.481203Z\",\n    \"next_run_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"is_active\": true,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"rule updated\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · Two values set (amount and percentage)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/autopilot/rules/{{autopilotRuleID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "autopilot",
+                    "rules",
+                    "{{autopilotRuleID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"percentage\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"autopilot\",\n    \"code\": \"INVALID_REQUEST\",\n    \"message\": \"The request is missing required fields or contains invalid data. Please check and try again.\"\n  }\n}"
             }
           ]
         },
