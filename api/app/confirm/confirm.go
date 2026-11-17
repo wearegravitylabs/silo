@@ -28,8 +28,9 @@ const (
 )
 
 var actions = map[model.ConfirmationPurpose]string{
-	model.PurposeDeleteAccount:   "delete your Silo account",
-	model.PurposeDeletePortfolio: "delete a portfolio",
+	model.PurposeDeleteAccount:       "delete your Silo account",
+	model.PurposeDeletePortfolio:     "delete a portfolio",
+	model.PurposeChangeVaultPassword: "change a vault password",
 }
 
 // Send emails a new code for the action. Earlier unused codes for the same

@@ -82,6 +82,18 @@ var (
 	ErrSectionNotAllowed = &TranslatableError{Code: "SECTION_NOT_ALLOWED", Key: "ERR_SECTION_NOT_ALLOWED",
 		Message: messages.ErrSectionNotAllowed, Public: true}
 
+	// ErrInvalidVaultPassword is shown when the vault password is wrong.
+	ErrInvalidVaultPassword = &TranslatableError{Code: "INVALID_VAULT_PASSWORD", Key: "ERR_INVALID_VAULT_PASSWORD",
+		Message: messages.ErrInvalidVaultPassword, Public: true}
+
+	// ErrVaultPasswordSet is shown when setting a password the vault already has.
+	ErrVaultPasswordSet = &TranslatableError{Code: "VAULT_PASSWORD_SET", Key: "ERR_VAULT_PASSWORD_SET",
+		Message: messages.ErrVaultPasswordSet, Public: true}
+
+	// ErrVaultPasswordNotSet is shown when unlocking a vault with no password yet.
+	ErrVaultPasswordNotSet = &TranslatableError{Code: "VAULT_PASSWORD_NOT_SET", Key: "ERR_VAULT_PASSWORD_NOT_SET",
+		Message: messages.ErrVaultPasswordNotSet, Public: true}
+
 	// ErrInvalidCode is shown for a wrong, expired or missing emailed code.
 	ErrInvalidCode = &TranslatableError{Code: "INVALID_CODE", Key: "ERR_INVALID_CODE",
 		Message: messages.ErrInvalidCode, Public: true}

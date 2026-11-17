@@ -12,6 +12,8 @@ type ConfirmationPurpose string
 const (
 	PurposeDeleteAccount   ConfirmationPurpose = "delete_account"
 	PurposeDeletePortfolio ConfirmationPurpose = "delete_portfolio"
+	// PurposeChangeVaultPassword confirms changing a portfolio's vault password.
+	PurposeChangeVaultPassword ConfirmationPurpose = "change_vault_password"
 )
 
 // ConfirmationCode is a 6-digit code emailed to confirm a risky action.
@@ -40,8 +42,8 @@ type EmailChange struct {
 
 // SendConfirmationCodeRequest is the body of POST /users/me/confirmation-code.
 type SendConfirmationCodeRequest struct {
-	Purpose ConfirmationPurpose `json:"purpose" binding:"required,oneof=delete_account delete_portfolio"`
-	// PortfolioID is required for delete_portfolio.
+	Purpose ConfirmationPurpose `json:"purpose" binding:"required,oneof=delete_account delete_portfolio change_vault_password"`
+	// PortfolioID is required for delete_portfolio and change_vault_password.
 	PortfolioID *uuid.UUID `json:"portfolio_id"`
 }
 

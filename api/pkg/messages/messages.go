@@ -157,6 +157,15 @@ const (
 	// ErrSectionNotAllowed is shown when a member opens a section they can't see.
 	ErrSectionNotAllowed = "You don't have access to this part of the portfolio."
 
+	// ErrInvalidVaultPassword is shown when the vault password is wrong.
+	ErrInvalidVaultPassword = "That vault password isn't right."
+
+	// ErrVaultPasswordSet is shown when the vault already has a password.
+	ErrVaultPasswordSet = "This vault already has a password. Change it instead."
+
+	// ErrVaultPasswordNotSet is shown when the vault has no password yet.
+	ErrVaultPasswordNotSet = "This vault has no password yet. The owner sets one first."
+
 	// ErrInvalidCode is shown for a wrong, expired or missing emailed code.
 	ErrInvalidCode = "That code didn't work. Check the email we sent, or ask for a new code."
 

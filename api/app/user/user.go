@@ -134,7 +134,7 @@ func (s *service) SendConfirmationCode(ctx context.Context, id uuid.UUID, req mo
 		return err
 	}
 	var target *uuid.UUID
-	if req.Purpose == model.PurposeDeletePortfolio {
+	if req.Purpose == model.PurposeDeletePortfolio || req.Purpose == model.PurposeChangeVaultPassword {
 		if req.PortfolioID == nil {
 			return siloErrors.ErrInvalidRequest
 		}

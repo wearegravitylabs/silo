@@ -161,8 +161,13 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrInvalidRuleConfig.Code,
 		siloErrors.ErrInvalidCode.Code,
 		siloErrors.ErrInvalidLink.Code,
-		siloErrors.ErrInvalidSettings.Code:
+		siloErrors.ErrInvalidSettings.Code,
+		siloErrors.ErrInvalidVaultPassword.Code:
 		return http.StatusBadRequest
+
+	case siloErrors.ErrVaultPasswordSet.Code,
+		siloErrors.ErrVaultPasswordNotSet.Code:
+		return http.StatusConflict
 
 	case siloErrors.ErrNotAvailable.Code:
 		return http.StatusNotImplemented
