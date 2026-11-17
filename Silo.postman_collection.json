@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Silo API",
-    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
+    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "silo-api-v1"
   },
@@ -1106,7 +1106,7 @@
                 "me"
               ]
             },
-            "description": "Partial update — omit a field to leave it unchanged.\n\nSend `\"avatar_url\": null` to remove the profile photo.",
+            "description": "Partial update — omit a field to leave it unchanged.\n\nSend `\"avatar_url\": null` to remove the profile photo.\n\n**Date of birth and settings:** `date_of_birth` (YYYY-MM-DD, null removes it) is used by projections that run \"until age\". `settings` is merged into the saved settings: keys sent replace those keys, a key sent as `null` is removed, others are kept (e.g. `projections_intro_seen`).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\",\n  \"phone_number\": \"8012345678\",\n  \"phone_country_code\": \"+234\",\n  \"avatar_url\": \"https://cdn.example.com/avatar.png\"\n}",
@@ -1255,6 +1255,52 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"email\": \"ada@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"phone_number\": \"8012345678\",\n    \"phone_country_code\": \"+234\",\n    \"avatar_url\": null,\n    \"is_email_verified\": true,\n    \"is_onboarded\": true,\n    \"portfolio_count\": 1,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Your profile has been updated.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · Date of birth and a setting",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"date_of_birth\": \"1990-04-12\",\n  \"settings\": {\n    \"projections_intro_seen\": true\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"email\": \"ada@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"phone_number\": \"8012345678\",\n    \"phone_country_code\": \"+234\",\n    \"avatar_url\": null,\n    \"date_of_birth\": \"1990-04-12\",\n    \"settings\": {\n      \"projections_intro_seen\": true\n    },\n    \"is_email_verified\": true,\n    \"is_onboarded\": true,\n    \"portfolio_count\": 1,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Your profile has been updated.\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -11791,7 +11837,7 @@
     },
     {
       "name": "Projections",
-      "description": "Tier 3 — fast-forward scenarios. Every rule mutation returns the recomputed projection rather than the rule.",
+      "description": "Tier 3 — what-if projections of net worth. Each portfolio starts with **Scenario A** (5 rules: investable +7%, stocks +5%, non-investable +7%, debts −2% a year, inflation 8%).\n\n**How the projection works** (month by month, from today):\n- Starting values are every asset's and debt's **owned share in the base currency**.\n- **Assets** grow by the **most specific** growth rule that covers them: single asset → asset type → category → portfolio-wide. Rules don't stack.\n- **Debts** change only through debt rules (`debt_interest` on one debt beats one on all debts, which beats `value_change` on `debts`). A debt's own payment schedule is not applied by itself.\n- **Cash** starts at 0. Income goes in; expenses, planned purchases and debt payments come out. It can go below 0. Points carry `cash` and `net_worth_with_cash`.\n- **Rates** compound per their frequency: 6% `annually` = ×1.06 over a year. **Amounts** are spread evenly: $60,000 `annually` = $5,000 a month.\n- **Inflation** raises expenses (`regular_expense`, `asset_expense`, `future_obligation`) only.\n- `frequency`: `daily`, `weekly`, `biweekly`, `monthly`, `quarterly`, `biannual`, `annually` (or `yearly`). Percent rules default to `annually`, amount rules to `monthly`.\n- Numbers may be sent as numbers or numeric strings. Dates are `YYYY-MM-DD`.\n\n**Rule types and config** (missing or wrong config → 400 `INVALID_RULE_CONFIG`):\n\n| rule_type | config |\n|---|---|\n| `value_change` | `target` (`investable_assets` / `stocks` / `non_investable_assets` / `debts`), `percentage` per year (can be negative) |\n| `portfolio_growth` | `percentage`, `frequency` |\n| `asset_type_growth` | `asset_type` (e.g. `real_estate`; `venture_capital` is read as `vc`), `percentage`, `frequency` |\n| `asset_growth` | `asset_id`, `percentage`, `frequency` |\n| `asset_target_value` | `asset_id`, `target_value`, `by_year` — reached gradually by December of that year |\n| `debt_interest` | `percentage` a year, optional `debt_id` (else all debts) |\n| `debt_payment` | `amount`, `frequency`, optional `start_date`, optional `debt_id` (else split across debts by balance) |\n| `debt_accelerated` | `percentage` of total debt a year |\n| `debt_free_goal` | `months` — paid down evenly to 0 by then |\n| `employment_income` | `amount`, `frequency`, optional `annual_increase_pct` (once a year), optional `age` (stops at that age; needs the user's `date_of_birth`, else warning `date_of_birth_missing`) |\n| `asset_income` | `amount`, `frequency`, `asset_id` (label only) |\n| `one_time_income` | `amount`, `date` |\n| `future_income` | `amount`, `frequency`, `start_date` |\n| `regular_expense` | `amount`, `frequency`, optional `category` (label only) |\n| `asset_expense` | `amount`, `frequency`, `asset_id` (label only) |\n| `management_fee` | `percentage` a year, `scope` (`portfolio` or an asset id) — taken off those assets |\n| `planned_purchase` | `amount`, `date` |\n| `future_obligation` | `amount`, `frequency`, `start_date` |\n| `inflation_rate` | `percentage` a year |\n\nRule add / update / toggle return the rule; call **Chart projection** to redraw. The \"projections intro seen\" flag lives in the user's `settings` (see **Update my profile**).",
       "item": [
         {
           "name": "List scenarios",
@@ -11813,7 +11859,7 @@
           },
           "response": [
             {
-              "name": "200 · Scenarios with their rules",
+              "name": "200 · New portfolio: Scenario A with its 5 default rules",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -11843,7 +11889,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"name\": \"Base case\",\n      \"description\": \"No lifestyle changes\",\n      \"is_default\": false,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"rules\": [\n        {\n          \"id\": \"6dfcebdb-0ab1-4c2d-8e3b-e2f3a4b5c6d7\",\n          \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n          \"rule_type\": \"portfolio_growth\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": 7,\n            \"frequency\": \"monthly\"\n          },\n          \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n          \"updated_at\": \"2026-10-31T09:14:22.481203Z\"\n        },\n        {\n          \"id\": \"7e0dfcec-1bc2-4d3e-9f4c-f3a4b5c6d7e8\",\n          \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n          \"rule_type\": \"inflation_rate\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": 3\n          },\n          \"created_at\": \"2026-10-31T09:31:05.902117Z\",\n          \"updated_at\": \"2026-10-31T09:31:05.902117Z\"\n        }\n      ]\n    }\n  ],\n  \"message\": \"scenarios\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"name\": \"Scenario A\",\n      \"description\": \"\",\n      \"color\": \"var(--color-primary-dark)\",\n      \"is_default\": true,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"rules\": [\n        {\n          \"id\": \"da3ffa43-8894-58c5-8f3c-c43183415b59\",\n          \"scenario_id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n          \"rule_type\": \"value_change\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": 7,\n            \"target\": \"investable_assets\"\n          },\n          \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n          \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n        },\n        {\n          \"id\": \"2c0dcdb5-0cc3-5042-8de1-491785dddeb7\",\n          \"scenario_id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n          \"rule_type\": \"inflation_rate\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": 8\n          },\n          \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n          \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n        },\n        {\n          \"id\": \"c39ec679-35ef-5a91-83f7-cc3b7d09578e\",\n          \"scenario_id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n          \"rule_type\": \"value_change\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": 5,\n            \"target\": \"stocks\"\n          },\n          \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n          \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n        },\n        {\n          \"id\": \"9b13b00c-a9a7-5a02-8eaf-3e29079c1d64\",\n          \"scenario_id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n          \"rule_type\": \"value_change\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": -2,\n            \"target\": \"debts\"\n          },\n          \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n          \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n        },\n        {\n          \"id\": \"31a63d33-5f61-5c47-8ac1-3fd24553f3f8\",\n          \"scenario_id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n          \"rule_type\": \"value_change\",\n          \"is_active\": true,\n          \"config\": {\n            \"percentage\": 7,\n            \"target\": \"non_investable_assets\"\n          },\n          \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n          \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n        }\n      ]\n    }\n  ],\n  \"message\": \"scenarios\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · None yet",
@@ -11901,10 +11947,10 @@
                 "projections"
               ]
             },
-            "description": "Requires portfolio **editor**.\n\nSaves `scenarioID`.",
+            "description": "Requires portfolio **editor**. `color` is any CSS colour (the app's swatch `var(--…)` or `#RRGGBB`).\n\nSaves `scenarioID`.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Base case\",\n  \"description\": \"No lifestyle changes\"\n}",
+              "raw": "{\n  \"name\": \"Retire early\",\n  \"description\": \"Max out savings\",\n  \"color\": \"#F59E0B\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -11931,7 +11977,7 @@
           ],
           "response": [
             {
-              "name": "201 · Created (no rules yet)",
+              "name": "201 · Created",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -11953,7 +11999,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Base case\",\n  \"description\": \"No lifestyle changes\"\n}",
+                  "raw": "{\n  \"name\": \"Retire early\",\n  \"description\": \"Max out savings\",\n  \"color\": \"#F59E0B\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -11975,7 +12021,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"name\": \"Base case\",\n    \"description\": \"No lifestyle changes\",\n    \"is_default\": false,\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\"\n  },\n  \"message\": \"Projection scenario created.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"name\": \"Retire early\",\n    \"description\": \"Max out savings\",\n    \"color\": \"#F59E0B\",\n    \"is_default\": false,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Projection scenario created.\",\n  \"error\": null\n}"
             },
             {
               "name": "400 · name missing",
@@ -12141,7 +12187,7 @@
             "description": "Requires portfolio **editor**.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Base case (2026)\",\n  \"description\": \"Updated assumptions\"\n}",
+              "raw": "{\n  \"name\": \"Retire early\",\n  \"color\": \"var(--color-highlight)\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -12151,7 +12197,7 @@
           },
           "response": [
             {
-              "name": "200 · Updated (rules not included)",
+              "name": "200 · Colour changed",
               "originalRequest": {
                 "method": "PATCH",
                 "header": [
@@ -12174,7 +12220,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Base case (2026)\",\n  \"description\": \"Updated assumptions\"\n}",
+                  "raw": "{\n  \"color\": \"var(--color-highlight)\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -12196,7 +12242,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"name\": \"Base case (2026)\",\n    \"description\": \"Updated assumptions\",\n    \"is_default\": false,\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:31:05.902117Z\"\n  },\n  \"message\": \"Scenario updated.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"name\": \"Retire early\",\n    \"description\": \"Max out savings\",\n    \"color\": \"var(--color-highlight)\",\n    \"is_default\": false,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Scenario updated.\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -12274,11 +12320,11 @@
                 "compute"
               ]
             },
-            "description": "Requires portfolio **member**. Runs the scenario and returns the projected result. No body.\n\nFixed: this used to return 404 `PORTFOLIO_NOT_FOUND` for every caller."
+            "description": "Requires portfolio **member**. No body. The projection at 1M, 6M, 1Y, 5Y, 10Y, 20Y, 40Y and 50Y, with `cash`, `net_worth_with_cash` and cumulative income and expenses. Same engine as **Chart projection**."
           },
           "response": [
             {
-              "name": "200 · Projection (milestones trimmed to 1M / 6M / 1Y here — the real list also has 5Y, 10Y, 20Y, 40Y, 50Y)",
+              "name": "200 · Milestones",
               "originalRequest": {
                 "method": "POST",
                 "header": [],
@@ -12310,7 +12356,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"scenario_name\": \"Base case\",\n    \"computed_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"starting_net_worth\": 210758.45,\n    \"starting_assets\": 608144,\n    \"starting_debts\": 397385.55,\n    \"currency\": \"USD\",\n    \"milestones\": [\n      {\n        \"label\": \"1M\",\n        \"months\": 1,\n        \"year\": 2026,\n        \"net_worth\": 214305.96,\n        \"assets\": 611691.51,\n        \"debts\": 397385.55,\n        \"change_amount\": 3547.51,\n        \"change_pct\": 1.68,\n        \"cumulative_income\": 0,\n        \"cumulative_expenses\": 0\n      },\n      {\n        \"label\": \"6M\",\n        \"months\": 6,\n        \"year\": 2027,\n        \"net_worth\": 232356.32,\n        \"assets\": 629741.87,\n        \"debts\": 397385.55,\n        \"change_amount\": 21597.87,\n        \"change_pct\": 10.25,\n        \"cumulative_income\": 0,\n        \"cumulative_expenses\": 0\n      },\n      {\n        \"label\": \"1Y\",\n        \"months\": 12,\n        \"year\": 2027,\n        \"net_worth\": 254721.23,\n        \"assets\": 652106.78,\n        \"debts\": 397385.55,\n        \"change_amount\": 43962.78,\n        \"change_pct\": 20.86,\n        \"cumulative_income\": 0,\n        \"cumulative_expenses\": 0\n      }\n    ]\n  },\n  \"message\": \"projection\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"scenario_name\": \"Retire early\",\n    \"computed_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"starting_net_worth\": 210758.45,\n    \"starting_assets\": 608144,\n    \"starting_debts\": 397385.55,\n    \"currency\": \"USD\",\n    \"milestones\": [\n      {\n        \"label\": \"1M\",\n        \"months\": 1,\n        \"year\": 2026,\n        \"net_worth\": 216143.44,\n        \"assets\": 610758.87,\n        \"debts\": 394615.43,\n        \"cash\": 2718.78,\n        \"net_worth_with_cash\": 218862.22,\n        \"change_amount\": 5384.99,\n        \"change_pct\": 2.56,\n        \"cumulative_income\": 10000,\n        \"cumulative_expenses\": 4511.1\n      },\n      {\n        \"label\": \"6M\",\n        \"months\": 6,\n        \"year\": 2027,\n        \"net_worth\": 243242.48,\n        \"assets\": 624007.31,\n        \"debts\": 380764.83,\n        \"cash\": 16145.26,\n        \"net_worth_with_cash\": 259387.74,\n        \"change_amount\": 32484.03,\n        \"change_pct\": 15.41,\n        \"cumulative_income\": 60000,\n        \"cumulative_expenses\": 27234.02\n      },\n      {\n        \"label\": \"1Y\",\n        \"months\": 12,\n        \"year\": 2027,\n        \"net_worth\": 276151.41,\n        \"assets\": 640295.52,\n        \"debts\": 364144.11,\n        \"cash\": 31885.02,\n        \"net_worth_with_cash\": 308036.43,\n        \"change_amount\": 65392.96,\n        \"change_pct\": 31.03,\n        \"cumulative_income\": 120000,\n        \"cumulative_expenses\": 54873.54\n      },\n      {\n        \"label\": \"5Y\",\n        \"months\": 60,\n        \"year\": 2031,\n        \"net_worth\": 556209.12,\n        \"assets\": 787387.47,\n        \"debts\": 231178.35,\n        \"cash\": 179558.04,\n        \"net_worth_with_cash\": 735767.16,\n        \"change_amount\": 345450.67,\n        \"change_pct\": 163.91,\n        \"cumulative_income\": 637096.3,\n        \"cumulative_expenses\": 291331.06\n      },\n      {\n        \"label\": \"10Y\",\n        \"months\": 120,\n        \"year\": 2036,\n        \"net_worth\": 956449.43,\n        \"assets\": 1021420.58,\n        \"debts\": 64971.15,\n        \"cash\": 414187.51,\n        \"net_worth_with_cash\": 1370636.94,\n        \"change_amount\": 745690.98,\n        \"change_pct\": 353.81,\n        \"cumulative_income\": 1375665.52,\n        \"cumulative_expenses\": 629063.61\n      },\n      {\n        \"label\": \"20Y\",\n        \"months\": 240,\n        \"year\": 2046,\n        \"net_worth\": 1730320.43,\n        \"assets\": 1730320.43,\n        \"debts\": 0,\n        \"cash\": 1005971.52,\n        \"net_worth_with_cash\": 2736291.95,\n        \"change_amount\": 1519561.98,\n        \"change_pct\": 721,\n        \"cumulative_income\": 2877829.57,\n        \"cumulative_expenses\": 1474472.5\n      },\n      {\n        \"label\": \"40Y\",\n        \"months\": 480,\n        \"year\": 2066,\n        \"net_worth\": 5135144.37,\n        \"assets\": 5135144.37,\n        \"debts\": 0,\n        \"cash\": -1657089.82,\n        \"net_worth_with_cash\": 3478054.55,\n        \"change_amount\": 4924385.92,\n        \"change_pct\": 2336.51,\n        \"cumulative_income\": 2877829.57,\n        \"cumulative_expenses\": 4137533.84\n      },\n      {\n        \"label\": \"50Y\",\n        \"months\": 600,\n        \"year\": 2076,\n        \"net_worth\": 9034117.24,\n        \"assets\": 9034117.24,\n        \"debts\": 0,\n        \"cash\": -3709119.09,\n        \"net_worth_with_cash\": 5324998.15,\n        \"change_amount\": 8823358.79,\n        \"change_pct\": 4186.48,\n        \"cumulative_income\": 2877829.57,\n        \"cumulative_expenses\": 6189563.11\n      }\n    ],\n    \"warnings\": []\n  },\n  \"message\": \"projection\",\n  \"error\": null\n}"
             },
             {
               "name": "404 · Scenario not found",
@@ -12372,7 +12418,7 @@
                 "chart"
               ]
             },
-            "description": "Requires portfolio **member**. The body is optional — omit it and `years_ahead` defaults to 10. Values above 50 are capped.\n\nFixed: this used to return 404 `PORTFOLIO_NOT_FOUND` for every caller.",
+            "description": "Requires portfolio **member**. Body optional: `years_ahead` (default 10, max 50).\n\nOne point **per month** from today (`month` 0) to `years_ahead` × 12, each with `assets`, `debts`, `net_worth`, `cash` and `net_worth_with_cash`. `change_amount` / `change_pct` (and `_with_cash`) are the change from today to the last point, for the page header. `warnings` lists what was skipped.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"years_ahead\": 25\n}",
@@ -12385,7 +12431,7 @@
           },
           "response": [
             {
-              "name": "200 · Yearly points (years_ahead > 2; trimmed to the first 4 here)",
+              "name": "200 · 10 years monthly (trimmed to the first and last 4 points)",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -12409,7 +12455,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"years_ahead\": 25\n}",
+                  "raw": "{\n  \"years_ahead\": 10\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -12431,10 +12477,10 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"granularity\": \"yearly\",\n    \"years_ahead\": 25,\n    \"currency\": \"USD\",\n    \"points\": [\n      {\n        \"label\": \"2026\",\n        \"month\": 0,\n        \"year\": 2026,\n        \"net_worth\": 210758.45,\n        \"assets\": 608144,\n        \"debts\": 397385.55\n      },\n      {\n        \"label\": \"2027\",\n        \"month\": 12,\n        \"year\": 2027,\n        \"net_worth\": 254721.23,\n        \"assets\": 652106.78,\n        \"debts\": 397385.55\n      },\n      {\n        \"label\": \"2028\",\n        \"month\": 24,\n        \"year\": 2028,\n        \"net_worth\": 301862.09,\n        \"assets\": 699247.64,\n        \"debts\": 397385.55\n      },\n      {\n        \"label\": \"2029\",\n        \"month\": 36,\n        \"year\": 2029,\n        \"net_worth\": 352410.76,\n        \"assets\": 749796.31,\n        \"debts\": 397385.55\n      }\n    ]\n  },\n  \"message\": \"chart\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"granularity\": \"monthly\",\n    \"years_ahead\": 10,\n    \"currency\": \"USD\",\n    \"points\": [\n      {\n        \"label\": \"Nov 2026\",\n        \"date\": \"2026-11-01\",\n        \"month\": 0,\n        \"year\": 2026,\n        \"net_worth\": 210758.45,\n        \"assets\": 608144,\n        \"debts\": 397385.55,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 210758.45\n      },\n      {\n        \"label\": \"Dec 2026\",\n        \"date\": \"2026-12-01\",\n        \"month\": 1,\n        \"year\": 2026,\n        \"net_worth\": 216143.44,\n        \"assets\": 610758.87,\n        \"debts\": 394615.43,\n        \"cash\": 2718.78,\n        \"net_worth_with_cash\": 218862.22\n      },\n      {\n        \"label\": \"Jan 2027\",\n        \"date\": \"2027-01-01\",\n        \"month\": 2,\n        \"year\": 2027,\n        \"net_worth\": 221539.96,\n        \"assets\": 613385.27,\n        \"debts\": 391845.31,\n        \"cash\": 5426.44,\n        \"net_worth_with_cash\": 226966.4\n      },\n      {\n        \"label\": \"Feb 2027\",\n        \"date\": \"2027-02-01\",\n        \"month\": 3,\n        \"year\": 2027,\n        \"net_worth\": 226948.08,\n        \"assets\": 616023.27,\n        \"debts\": 389075.19,\n        \"cash\": 8122.94,\n        \"net_worth_with_cash\": 235071.02\n      },\n      {\n        \"label\": \"Aug 2036\",\n        \"date\": \"2036-08-01\",\n        \"month\": 117,\n        \"year\": 2036,\n        \"net_worth\": 934885.65,\n        \"assets\": 1008167.16,\n        \"debts\": 73281.51,\n        \"cash\": 401452.95,\n        \"net_worth_with_cash\": 1336338.59\n      },\n      {\n        \"label\": \"Sep 2036\",\n        \"date\": \"2036-09-01\",\n        \"month\": 118,\n        \"year\": 2036,\n        \"net_worth\": 942053.76,\n        \"assets\": 1012565.15,\n        \"debts\": 70511.39,\n        \"cash\": 405712.65,\n        \"net_worth_with_cash\": 1347766.41\n      },\n      {\n        \"label\": \"Oct 2036\",\n        \"date\": \"2036-10-01\",\n        \"month\": 119,\n        \"year\": 2036,\n        \"net_worth\": 949241.65,\n        \"assets\": 1016982.92,\n        \"debts\": 67741.27,\n        \"cash\": 409957.52,\n        \"net_worth_with_cash\": 1359199.17\n      },\n      {\n        \"label\": \"Nov 2036\",\n        \"date\": \"2036-11-01\",\n        \"month\": 120,\n        \"year\": 2036,\n        \"net_worth\": 956449.43,\n        \"assets\": 1021420.58,\n        \"debts\": 64971.15,\n        \"cash\": 414187.51,\n        \"net_worth_with_cash\": 1370636.94\n      }\n    ],\n    \"change_amount\": 745690.98,\n    \"change_pct\": 353.81,\n    \"change_amount_with_cash\": 1159878.49,\n    \"change_pct_with_cash\": 550.34,\n    \"warnings\": []\n  },\n  \"message\": \"chart\",\n  \"error\": null\n}"
             },
             {
-              "name": "200 · Monthly points (years_ahead ≤ 2; trimmed to the first 3 here)",
+              "name": "200 · Warning: \"until age\" income but no date of birth",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -12480,7 +12526,56 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"granularity\": \"monthly\",\n    \"years_ahead\": 1,\n    \"currency\": \"USD\",\n    \"points\": [\n      {\n        \"label\": \"Oct 2026\",\n        \"month\": 0,\n        \"year\": 2026,\n        \"net_worth\": 210758.45,\n        \"assets\": 608144,\n        \"debts\": 397385.55\n      },\n      {\n        \"label\": \"Nov 2026\",\n        \"month\": 1,\n        \"year\": 2026,\n        \"net_worth\": 214305.96,\n        \"assets\": 611691.51,\n        \"debts\": 397385.55\n      },\n      {\n        \"label\": \"Dec 2026\",\n        \"month\": 2,\n        \"year\": 2026,\n        \"net_worth\": 217874.16,\n        \"assets\": 615259.71,\n        \"debts\": 397385.55\n      }\n    ]\n  },\n  \"message\": \"chart\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"granularity\": \"monthly\",\n    \"years_ahead\": 1,\n    \"currency\": \"USD\",\n    \"points\": [\n      {\n        \"label\": \"Nov 2026\",\n        \"date\": \"2026-11-01\",\n        \"month\": 0,\n        \"year\": 2026,\n        \"net_worth\": 210758.45,\n        \"assets\": 608144,\n        \"debts\": 397385.55,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 210758.45\n      },\n      {\n        \"label\": \"Dec 2026\",\n        \"date\": \"2026-12-01\",\n        \"month\": 1,\n        \"year\": 2026,\n        \"net_worth\": 216143.44,\n        \"assets\": 610758.87,\n        \"debts\": 394615.43,\n        \"cash\": 2718.78,\n        \"net_worth_with_cash\": 218862.22\n      },\n      {\n        \"label\": \"Jan 2027\",\n        \"date\": \"2027-01-01\",\n        \"month\": 2,\n        \"year\": 2027,\n        \"net_worth\": 221539.96,\n        \"assets\": 613385.27,\n        \"debts\": 391845.31,\n        \"cash\": 5426.44,\n        \"net_worth_with_cash\": 226966.4\n      },\n      {\n        \"label\": \"Feb 2027\",\n        \"date\": \"2027-02-01\",\n        \"month\": 3,\n        \"year\": 2027,\n        \"net_worth\": 226948.08,\n        \"assets\": 616023.27,\n        \"debts\": 389075.19,\n        \"cash\": 8122.94,\n        \"net_worth_with_cash\": 235071.02\n      },\n      {\n        \"label\": \"Aug 2027\",\n        \"date\": \"2027-08-01\",\n        \"month\": 9,\n        \"year\": 2027,\n        \"net_worth\": 259643.1,\n        \"assets\": 632097.57,\n        \"debts\": 372454.47,\n        \"cash\": 24066.2,\n        \"net_worth_with_cash\": 283709.3\n      },\n      {\n        \"label\": \"Sep 2027\",\n        \"date\": \"2027-09-01\",\n        \"month\": 10,\n        \"year\": 2027,\n        \"net_worth\": 265133.83,\n        \"assets\": 634818.18,\n        \"debts\": 369684.35,\n        \"cash\": 26683.86,\n        \"net_worth_with_cash\": 291817.69\n      },\n      {\n        \"label\": \"Oct 2027\",\n        \"date\": \"2027-10-01\",\n        \"month\": 11,\n        \"year\": 2027,\n        \"net_worth\": 270636.58,\n        \"assets\": 637550.81,\n        \"debts\": 366914.23,\n        \"cash\": 29290.14,\n        \"net_worth_with_cash\": 299926.73\n      },\n      {\n        \"label\": \"Nov 2027\",\n        \"date\": \"2027-11-01\",\n        \"month\": 12,\n        \"year\": 2027,\n        \"net_worth\": 276151.41,\n        \"assets\": 640295.52,\n        \"debts\": 364144.11,\n        \"cash\": 31885.02,\n        \"net_worth_with_cash\": 308036.43\n      }\n    ],\n    \"change_amount\": 65392.96,\n    \"change_pct\": 31.03,\n    \"change_amount_with_cash\": 97277.98,\n    \"change_pct_with_cash\": 46.16,\n    \"warnings\": [\n      \"date_of_birth_missing\"\n    ]\n  },\n  \"message\": \"chart\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · Default Scenario A, 1 year (trimmed)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/projections/{{scenarioID}}/chart",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "projections",
+                    "{{scenarioID}}",
+                    "chart"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"years_ahead\": 1\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"scenario_id\": \"2570c5ad-3a2a-5169-b258-79b58c430a89\",\n    \"granularity\": \"monthly\",\n    \"years_ahead\": 1,\n    \"currency\": \"USD\",\n    \"points\": [\n      {\n        \"label\": \"Nov 2026\",\n        \"date\": \"2026-11-01\",\n        \"month\": 0,\n        \"year\": 2026,\n        \"net_worth\": 210758.45,\n        \"assets\": 608144,\n        \"debts\": 397385.55,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 210758.45\n      },\n      {\n        \"label\": \"Dec 2026\",\n        \"date\": \"2026-12-01\",\n        \"month\": 1,\n        \"year\": 2026,\n        \"net_worth\": 214773.57,\n        \"assets\": 611490.67,\n        \"debts\": 396717.09,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 214773.57\n      },\n      {\n        \"label\": \"Jan 2027\",\n        \"date\": \"2027-01-01\",\n        \"month\": 2,\n        \"year\": 2027,\n        \"net_worth\": 218806.12,\n        \"assets\": 614855.88,\n        \"debts\": 396049.76,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 218806.12\n      },\n      {\n        \"label\": \"Feb 2027\",\n        \"date\": \"2027-02-01\",\n        \"month\": 3,\n        \"year\": 2027,\n        \"net_worth\": 222856.2,\n        \"assets\": 618239.75,\n        \"debts\": 395383.54,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 222856.2\n      },\n      {\n        \"label\": \"Aug 2027\",\n        \"date\": \"2027-08-01\",\n        \"month\": 9,\n        \"year\": 2027,\n        \"net_worth\": 247530.74,\n        \"assets\": 638940.48,\n        \"debts\": 391409.74,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 247530.74\n      },\n      {\n        \"label\": \"Sep 2027\",\n        \"date\": \"2027-09-01\",\n        \"month\": 10,\n        \"year\": 2027,\n        \"net_worth\": 251706.52,\n        \"assets\": 642457.85,\n        \"debts\": 390751.33,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 251706.52\n      },\n      {\n        \"label\": \"Oct 2027\",\n        \"date\": \"2027-10-01\",\n        \"month\": 11,\n        \"year\": 2027,\n        \"net_worth\": 255900.69,\n        \"assets\": 645994.72,\n        \"debts\": 390094.03,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 255900.69\n      },\n      {\n        \"label\": \"Nov 2027\",\n        \"date\": \"2027-11-01\",\n        \"month\": 12,\n        \"year\": 2027,\n        \"net_worth\": 260113.36,\n        \"assets\": 649551.2,\n        \"debts\": 389437.84,\n        \"cash\": 0,\n        \"net_worth_with_cash\": 260113.36\n      }\n    ],\n    \"change_amount\": 49354.91,\n    \"change_pct\": 23.42,\n    \"change_amount_with_cash\": 49354.91,\n    \"change_pct_with_cash\": 23.42,\n    \"warnings\": []\n  },\n  \"message\": \"chart\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -12510,7 +12605,7 @@
             "description": "Requires portfolio **editor**. Returns the new rule. Call **Chart projection** or **Compute projection** afterwards to redraw.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"rule_type\": \"portfolio_growth\",\n  \"config\": {\n    \"percentage\": 7.0,\n    \"frequency\": \"monthly\"\n  }\n}",
+              "raw": "{\n  \"rule_type\": \"asset_growth\",\n  \"config\": {\n    \"asset_id\": \"{{assetID}}\",\n    \"percentage\": 5,\n    \"frequency\": \"annually\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -12544,7 +12639,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"rule_type\": \"portfolio_growth\",\n  \"config\": {\n    \"percentage\": 7.0,\n    \"frequency\": \"monthly\"\n  }\n}",
+                  "raw": "{\n  \"rule_type\": \"asset_growth\",\n  \"config\": {\n    \"asset_id\": \"{{assetID}}\",\n    \"percentage\": 5,\n    \"frequency\": \"annually\"\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -12566,10 +12661,10 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"6dfcebdb-0ab1-4c2d-8e3b-e2f3a4b5c6d7\",\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"rule_type\": \"portfolio_growth\",\n    \"is_active\": true,\n    \"config\": {\n      \"frequency\": \"monthly\",\n      \"percentage\": 7\n    },\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Rule added.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"5486b4ad-03f4-5bfc-8e8d-e6eaa316403c\",\n    \"scenario_id\": \"5cebdaca-f9a0-4b1c-bd2a-d1e2f3a4b5c6\",\n    \"rule_type\": \"asset_growth\",\n    \"is_active\": true,\n    \"config\": {\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"frequency\": \"annually\",\n      \"percentage\": 5\n    },\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Rule added.\",\n  \"error\": null\n}"
             },
             {
-              "name": "400 · rule_type missing",
+              "name": "400 · Config the rule can't use",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -12593,7 +12688,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"config\": {\n    \"percentage\": 7\n  }\n}",
+                  "raw": "{\n  \"rule_type\": \"value_change\",\n  \"config\": {\n    \"target\": \"cars\",\n    \"percentage\": 2\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -12615,7 +12710,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"projection\",\n    \"code\": \"INVALID_REQUEST\",\n    \"message\": \"The request is missing required fields or contains invalid data. Please check and try again.\"\n  }\n}"
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"b12a5189-7af8-51b9-a52a-28aacacaf292\",\n    \"service\": \"projection\",\n    \"code\": \"INVALID_RULE_CONFIG\",\n    \"message\": \"That rule is missing a setting or isn't a rule we know. Please check every field.\"\n  }\n}"
             }
           ]
         },
