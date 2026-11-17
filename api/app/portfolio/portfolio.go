@@ -3,6 +3,7 @@ package portfolio
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -77,6 +78,23 @@ func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.Crea
 	// Increment the owner's portfolio count. Non-fatal — log on error, don't fail the create.
 	if err := s.dp.UserStore.IncrementPortfolioCount(ctx, callerID); err != nil {
 		log.Error().Err(err).Msg("failed to increment portfolio_count")
+	}
+
+	// Every portfolio starts with the default projection scenario. Non-fatal.
+	now := time.Now().UTC()
+	scenario, err := s.dp.ProjectionStore.CreateScenario(ctx, model.ProjectionScenario{
+		PortfolioID: created.ID, Name: model.DefaultScenarioName, Color: model.DefaultScenarioColor,
+		IsDefault: true, CreatedAt: now, UpdatedAt: now,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to create default projection scenario")
+	} else {
+		for _, r := range model.DefaultScenarioRules() {
+			r.ScenarioID, r.CreatedAt, r.UpdatedAt = scenario.ID, now, now
+			if _, err := s.dp.ProjectionStore.AddRule(ctx, r); err != nil {
+				log.Error().Err(err).Msg("failed to add default projection rule")
+			}
+		}
 	}
 
 	// Auto-create a default "General" folder for each type. Non-fatal.

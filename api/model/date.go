@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql/driver"
 	"fmt"
 	"time"
 )
@@ -57,4 +58,28 @@ func RecordTime(d *DateOnly) (t time.Time, ok bool) {
 		return now, true
 	}
 	return day, true
+}
+
+// Value stores a DateOnly in a DATE column.
+func (d DateOnly) Value() (driver.Value, error) { return time.Time(d).Format("2006-01-02"), nil }
+
+// Scan reads a DateOnly from a DATE column.
+func (d *DateOnly) Scan(v any) error {
+	switch t := v.(type) {
+	case time.Time:
+		*d = DateOnly(t.UTC())
+	case string:
+		p, err := time.Parse("2006-01-02", t[:min(len(t), 10)])
+		if err != nil {
+			return err
+		}
+		*d = DateOnly(p)
+	case []byte:
+		return d.Scan(string(t))
+	case nil:
+		*d = DateOnly{}
+	default:
+		return fmt.Errorf("cannot scan %T into DateOnly", v)
+	}
+	return nil
 }

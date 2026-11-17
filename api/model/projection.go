@@ -38,7 +38,33 @@ const (
 	RuleFutureObligation ProjectionRuleType = "future_obligation" // recurring cost starting date
 
 	// Portfolio settings
-	RuleInflationRate ProjectionRuleType = "inflation_rate" // applied to all expenses
+	RuleInflationRate ProjectionRuleType = "inflation_rate" // applied to expenses only
+
+	// Category growth: one of investable_assets, stocks, non_investable_assets
+	// or debts changes by X% a year. The default scenario is made of these.
+	RuleValueChange ProjectionRuleType = "value_change"
+)
+
+// DefaultScenarioRules are the rules of "Scenario A", which every new
+// portfolio starts with. The 20261117000022 migration gave existing
+// portfolios the same.
+func DefaultScenarioRules() []ProjectionRule {
+	change := func(target string, pct float64) ProjectionRule {
+		return ProjectionRule{RuleType: RuleValueChange, IsActive: true, Config: JSONB{"target": target, "percentage": pct}}
+	}
+	return []ProjectionRule{
+		change("investable_assets", 7),
+		{RuleType: RuleInflationRate, IsActive: true, Config: JSONB{"percentage": 8.0}},
+		change("stocks", 5),
+		change("debts", -2),
+		change("non_investable_assets", 7),
+	}
+}
+
+// Default scenario name and colour (the app's first swatch).
+const (
+	DefaultScenarioName  = "Scenario A"
+	DefaultScenarioColor = "var(--color-primary-dark)"
 )
 
 // ─── DB models ────────────────────────────────────────────────────────────────
@@ -49,9 +75,11 @@ type ProjectionScenario struct {
 	PortfolioID uuid.UUID `gorm:"type:uuid;not null;index"                         json:"portfolio_id"`
 	Name        string    `gorm:"not null"                                         json:"name"`
 	Description string    `gorm:"not null;default:''"                              json:"description"`
-	IsDefault   bool      `gorm:"default:false"                                    json:"is_default"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	// Color is the scenario's line colour in the app (any CSS colour).
+	Color     string    `gorm:"not null;default:''"                                json:"color"`
+	IsDefault bool      `gorm:"default:false"                                      json:"is_default"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 
 	// Preloaded (not stored).
 	Rules []ProjectionRule `gorm:"-" json:"rules,omitempty"`
@@ -73,11 +101,13 @@ type ProjectionRule struct {
 type CreateScenarioRequest struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
+	Color       string `json:"color"`
 }
 
 type UpdateScenarioRequest struct {
 	Name        *string `json:"name"`
 	Description *string `json:"description"`
+	Color       *string `json:"color"`
 }
 
 type CreateRuleRequest struct {
@@ -98,23 +128,36 @@ type ChartRequest struct {
 	YearsAhead int `json:"years_ahead"`
 }
 
-// ChartPoint is a single data point on the projected net-worth chart.
+// ChartPoint is one month on the projected chart.
 type ChartPoint struct {
-	Label    string  `json:"label"` // "Jan 2026" (monthly) or "2031" (yearly)
-	Month    int     `json:"month"` // months from now; 0 = current state
+	Label    string  `json:"label"` // "Jan 2026"
+	Date     string  `json:"date"`  // first of the month, YYYY-MM-DD
+	Month    int     `json:"month"` // months from now; 0 = today
 	Year     int     `json:"year"`  // calendar year
 	NetWorth float64 `json:"net_worth"`
 	Assets   float64 `json:"assets"`
 	Debts    float64 `json:"debts"`
+	// Cash is the money income and expenses have added up to since today
+	// (starts at 0, can go below 0). NetWorthWithCash is NetWorth + Cash.
+	Cash             float64 `json:"cash"`
+	NetWorthWithCash float64 `json:"net_worth_with_cash"`
 }
 
 // ChartResult is the response for POST /chart.
 type ChartResult struct {
 	ScenarioID  uuid.UUID    `json:"scenario_id"`
-	Granularity string       `json:"granularity"` // "monthly" | "yearly"
+	Granularity string       `json:"granularity"` // always "monthly"
 	YearsAhead  int          `json:"years_ahead"`
 	Currency    string       `json:"currency"`
-	Points      []ChartPoint `json:"points"` // includes month 0 (current state)
+	Points      []ChartPoint `json:"points"` // month 0 (today) to years_ahead × 12
+	// Change from today to the last point, for the page header.
+	ChangeAmount         float64  `json:"change_amount"`
+	ChangePct            *float64 `json:"change_pct"`
+	ChangeAmountWithCash float64  `json:"change_amount_with_cash"`
+	ChangePctWithCash    *float64 `json:"change_pct_with_cash"`
+	// Warnings name what the projection had to skip, e.g.
+	// "date_of_birth_missing" when an "until age" rule has no date of birth.
+	Warnings []string `json:"warnings"`
 }
 
 // ─── Computation output ───────────────────────────────────────────────────────
@@ -127,6 +170,9 @@ type ProjectionMilestone struct {
 	NetWorth float64 `json:"net_worth"`
 	Assets   float64 `json:"assets"`
 	Debts    float64 `json:"debts"`
+	// Cash and NetWorthWithCash: see ChartPoint.
+	Cash             float64 `json:"cash"`
+	NetWorthWithCash float64 `json:"net_worth_with_cash"`
 
 	// Change vs the starting net worth.
 	ChangeAmount float64 `json:"change_amount"` // net_worth - starting_net_worth
@@ -147,4 +193,6 @@ type ProjectionResult struct {
 	StartingDebts    float64               `json:"starting_debts"`
 	Currency         string                `json:"currency"`
 	Milestones       []ProjectionMilestone `json:"milestones"`
+	// Warnings: see ChartResult.
+	Warnings []string `json:"warnings"`
 }

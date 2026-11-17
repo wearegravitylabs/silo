@@ -79,6 +79,24 @@ func (s *service) UpdateProfile(ctx context.Context, id uuid.UUID, req model.Upd
 	if req.AvatarURL.Set {
 		user.AvatarURL = req.AvatarURL.Value
 	}
+	if req.DateOfBirth.Set {
+		if req.DateOfBirth.Value != nil && req.DateOfBirth.Value.Time().After(time.Now()) {
+			return model.User{}, siloErrors.ErrDateInFuture
+		}
+		user.DateOfBirth = req.DateOfBirth.Value
+	}
+	if req.Settings != nil {
+		if user.Settings == nil {
+			user.Settings = model.JSONB{}
+		}
+		for k, v := range req.Settings {
+			if v == nil {
+				delete(user.Settings, k)
+			} else {
+				user.Settings[k] = v
+			}
+		}
+	}
 
 	updated, err := s.dp.UserStore.UpdateUser(ctx, user)
 	if err != nil {

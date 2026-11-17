@@ -151,6 +151,9 @@ const (
 	FolderDeleted    = "Folder deleted. Assets in this folder have been moved to the root."
 	FoldersReordered = "Folders reordered."
 
+	// ErrInvalidRuleConfig is shown for an unknown projection rule or a missing setting.
+	ErrInvalidRuleConfig = "That rule is missing a setting or isn't a rule we know. Please check every field."
+
 	// ErrSellExceedsHolding is shown when a sale is bigger than what is held.
 	ErrSellExceedsHolding = "You can't sell more units than you hold."
 

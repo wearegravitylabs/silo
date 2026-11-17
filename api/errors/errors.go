@@ -74,6 +74,11 @@ var (
 	ErrInvalidPeriod = &TranslatableError{Code: "INVALID_PERIOD", Key: "ERR_INVALID_PERIOD",
 		Message: messages.ErrInvalidPeriod, Public: true}
 
+	// ErrInvalidRuleConfig is shown when a projection rule's type is unknown or
+	// its config is missing what the rule needs.
+	ErrInvalidRuleConfig = &TranslatableError{Code: "INVALID_RULE_CONFIG", Key: "ERR_INVALID_RULE_CONFIG",
+		Message: messages.ErrInvalidRuleConfig, Public: true}
+
 	// ErrInvalidRequest is shown when request binding or validation fails.
 	ErrInvalidRequest = &TranslatableError{Code: "INVALID_REQUEST", Key: "ERR_INVALID_REQUEST",
 		Message: messages.ErrInvalidRequest, Public: true}
