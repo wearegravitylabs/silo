@@ -313,6 +313,28 @@ The details still need agreeing with the FE, because the browser does the encryp
 
 ## Phase 7: Silo AI (cloud)
 
+> **Status (2026-11-17): done and pushed (silo-cloud `04b6a96`, silo `api/v0.3.0`).** 9/9 live checks
+> without calling Claude. Claude itself hasn't been called live yet: streaming with reasoning, and the
+> insight card's JSON.
+>
+> **Decided:**
+> - Insights are made on the first dashboard open each day, cached, and free.
+> - Retry replaces the last answer.
+>
+> **Done:**
+> - Chats: open, rename and delete. The chat list follows the latest activity.
+> - Stream events: `status` (thinking / executing / processing) and `reasoning` (summarized thinking).
+> - Stop: close the stream and what was written is kept.
+> - Retry, which also withdraws changes the old answer proposed.
+> - `mentions`, plus debt tools and vault file names.
+> - The daily insight card, with structured output.
+> - A cleanup job for expired proposals.
+> - The app's reference is `silo-cloud/docs/silo-ai.md`.
+>
+> **Fixed on the way:**
+> - Chat tools could read another portfolio's asset by id.
+> - AI usage was never counted, because of a wrong table name.
+
 **Already built in silo-cloud** (built and tested, but never run against the live API):
 - `POST /portfolios/:id/chat/messages`: a streamed reply over SSE, with `text`, `tool_use`, `status`, `confirm_required`, `done` and `error` events.
 - `GET /portfolios/:id/chat/threads`: the list of saved chats.
@@ -339,6 +361,22 @@ The details still need agreeing with the FE, because the browser does the encryp
 ---
 
 ## Phase 8: Billing (cloud)
+
+> **Status (2026-11-17): done and pushed (silo-cloud `4d5b707`).** 7/7 live checks pass.
+>
+> **Decided:** a shared portfolio follows its owner's plan, and members don't pay.
+>
+> **Done:**
+> - Billing works for users whose plan has lapsed (before, they couldn't reach checkout to pay).
+> - `trial_days_left` and `active` on the subscription.
+> - Daily trial reminder emails.
+> - The app's reference is `silo-cloud/docs/billing.md`.
+>
+> **Fixed on the way:**
+> - Only the first sign-up ever could get a trial.
+> - Google and Apple sign-in queries hit a table that doesn't exist.
+>
+> **Still to do in the Stripe dashboard:** allow monthly ↔ yearly switching on the billing page.
 
 **Already built:**
 - `GET /billing/subscription`
