@@ -277,6 +277,20 @@ Work:
 
 ## Phase 6: Vault password and encryption (silo)
 
+> **Status (2026-11-17): done and pushed.** 19/19 live checks pass, and Phases 0–5 still pass. File upload
+> and replace were built but not tested live, because no object storage was available locally.
+>
+> **Decided:**
+> - One password per portfolio, set by an owner.
+> - Only the browser ever has the key, so a forgotten password means the files are lost.
+>
+> **How it works:**
+> - The server keeps the wrapped key, the salt, the KDF settings and a hash of a password-derived verifier.
+> - Unlocking checks the verifier first. Five wrong tries lock unlocking for that person for 15 minutes.
+> - Changing the password needs the old password and the emailed code. The browser re-wraps the same key.
+> - Auto-lock is the user's `settings.vault.auto_lock_minutes`.
+> - Older plain files can be swapped for encrypted versions with `PUT /vault/documents/:id/file`.
+
 **Decided:** only the user holds the key. The server stores a locked copy of the key that it can't open, so even we can't read vault files.
 
 What this means:

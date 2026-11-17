@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Silo API",
-    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG`, `INVALID_CODE`, `INVALID_LINK`, `INVALID_SETTINGS` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION`, `SECTION_NOT_ALLOWED`, `PUBLIC_LINKS_DISABLED` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
+    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG`, `INVALID_CODE`, `INVALID_LINK`, `INVALID_SETTINGS`, `INVALID_VAULT_PASSWORD` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION`, `SECTION_NOT_ALLOWED`, `PUBLIC_LINKS_DISABLED` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS`, `VAULT_PASSWORD_SET`, `VAULT_PASSWORD_NOT_SET` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED`, `VAULT_LOCKED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "silo-api-v1"
   },
@@ -14108,7 +14108,7 @@
     },
     {
       "name": "Vault",
-      "description": "Tier 3 — portfolio-level document storage.",
+      "description": "A portfolio's vault has **one password**, set by an owner; members with the `vault` section unlock it with the same password.\n\n**How the browser does it** (the server never sees the password or the vault key):\n1. **Set** — make a random vault key; derive keys from the password with `kdf` + random `salt` (e.g. PBKDF2-SHA256, 600k iterations, 64 bytes: first half wraps the vault key, second half is the `verifier`). Send `wrapped_key`, `salt`, `kdf`, `verifier` to **Set vault password**.\n2. **Unlock** — **Vault status** gives `salt` + `kdf`; derive again and send the `verifier` to **Unlock vault**; unwrap the returned `wrapped_key` locally. 5 wrong tries in a row lock unlocking for that person for 15 minutes (429 `VAULT_LOCKED`).\n3. **Files** — encrypt with the vault key (e.g. AES-GCM) before upload and send how in the `encryption` form field (`{\"alg\":\"AES-GCM\",\"iv\":\"…\",\"key_version\":1}`). Files uploaded before the password have `encrypted: false`; encrypt them and send them to **Replace vault file**.\n4. **Change** — needs the emailed code (`purpose: change_vault_password`) and the old `verifier`; re-wrap the **same** vault key with the new password, so files stay readable.\n\nA forgotten password can't be recovered. Auto-lock is the user's `settings.vault.auto_lock_minutes`, returned in the status.",
       "item": [
         {
           "name": "List vault documents",
@@ -14127,7 +14127,7 @@
                 "documents"
               ]
             },
-            "description": "Requires portfolio **member**. Portfolio-level documents, not tied to a single asset or debt."
+            "description": "Requires the `vault` section. Every file in the portfolio's vault, whoever uploaded it, newest first, with `encrypted` and `encryption`."
           },
           "response": [
             {
@@ -14162,7 +14162,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"3ac9b8a8-d78e-49fa-9b08-b9c0d1e2f3a4\",\n      \"user_id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"file_name\": \"will-2026.pdf.enc\",\n      \"file_type\": \"application/octet-stream\",\n      \"file_size\": 190244,\n      \"uploaded_at\": \"2026-10-31T09:14:22.481203Z\"\n    }\n  ],\n  \"message\": \"documents\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"6244e197-3025-53fa-a76b-84a0e15fc047\",\n      \"user_id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"file_name\": \"will.pdf\",\n      \"file_type\": \"application/pdf\",\n      \"file_size\": 48213,\n      \"encrypted\": true,\n      \"encryption\": {\n        \"alg\": \"AES-GCM\",\n        \"iv\": \"5dQe9Lw2Hk0r8Vb1\",\n        \"key_version\": 1\n      },\n      \"uploaded_at\": \"2026-11-17T09:14:22.481203Z\"\n    }\n  ],\n  \"message\": \"documents\",\n  \"error\": null\n}"
             },
             {
               "name": "403 · Member without the vault section",
@@ -14217,7 +14217,7 @@
                 "documents"
               ]
             },
-            "description": "Requires portfolio **editor**. Multipart, field name `file`, max 50 MB.\n\nSaves `vaultDocID`.",
+            "description": "Requires portfolio **editor** and the `vault` section. Multipart: `file` (the encrypted bytes) and optional `encryption` (JSON text, e.g. `{\"alg\":\"AES-GCM\",\"iv\":\"…\",\"key_version\":1}`). Without `encryption` the file is stored as is (`encrypted: false`).",
             "body": {
               "mode": "formdata",
               "formdata": [
@@ -14226,6 +14226,11 @@
                   "type": "file",
                   "src": [],
                   "description": "Will, trust deed, insurance policy, …"
+                },
+                {
+                  "key": "encryption",
+                  "value": "{\"alg\":\"AES-GCM\",\"iv\":\"5dQe9Lw2Hk0r8Vb1\",\"key_version\":1}",
+                  "type": "text"
                 }
               ]
             }
@@ -14386,6 +14391,44 @@
           ]
         },
         {
+          "name": "Replace vault file",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/documents/{{vaultDocID}}/file",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "vault",
+                "documents",
+                "{{vaultDocID}}",
+                "file"
+              ]
+            },
+            "description": "Requires portfolio **editor**. Same form as **Upload vault document**; swaps the stored file (e.g. for its encrypted version) and deletes the old one. Returns the document.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "encryption",
+                  "value": "{\"alg\":\"AES-GCM\",\"iv\":\"5dQe9Lw2Hk0r8Vb1\",\"key_version\":1}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Get vault download URL",
           "request": {
             "method": "GET",
@@ -14404,7 +14447,7 @@
                 "download-url"
               ]
             },
-            "description": "Presigned URL. The response carries `url` and `expires_in` (3600s)."
+            "description": "Presigned URL. The response carries `url` and `expires_in` (3600s).\n\nAny member with the `vault` section (delete: editor), whoever uploaded the file."
           },
           "response": [
             {
@@ -14499,7 +14542,7 @@
                 "{{vaultDocID}}"
               ]
             },
-            "description": "Requires portfolio **editor**."
+            "description": "Requires portfolio **editor**.\n\nAny member with the `vault` section (delete: editor), whoever uploaded the file."
           },
           "response": [
             {
@@ -14571,6 +14614,494 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 401,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"vault\",\n    \"code\": \"UNAUTHORIZED\",\n    \"message\": \"You're not signed in. Please sign in to continue.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Vault status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "vault",
+                "status"
+              ]
+            },
+            "description": "Requires the `vault` section. Whether a password is set, the `salt` and `kdf` to derive keys, the caller's auto-lock minutes, and `locked_until` while unlocking is blocked."
+          },
+          "response": [
+            {
+              "name": "200 · Password set",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "status"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"password_set\": true,\n    \"salt\": \"q1rG7l5k0uJ7pZr0oQ3yXg==\",\n    \"kdf\": {\n      \"hash\": \"SHA-256\",\n      \"iterations\": 600000,\n      \"name\": \"PBKDF2\"\n    },\n    \"key_version\": 1,\n    \"auto_lock_minutes\": 15,\n    \"locked_until\": null\n  },\n  \"message\": \"vault status\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · No password yet",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/status",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "status"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"password_set\": false,\n    \"salt\": null,\n    \"kdf\": null,\n    \"key_version\": 0,\n    \"auto_lock_minutes\": 0,\n    \"locked_until\": null\n  },\n  \"message\": \"vault status\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Set vault password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "vault",
+                "password"
+              ]
+            },
+            "description": "Requires portfolio **owner**. First time only (409 `VAULT_PASSWORD_SET` after).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"wrapped_key\": \"kQ2x1JmZ3Yp8b4Nf0Gv7wL9tR6sE5dC2aB1nM8qW4yU3iO0pA7zX6cV5bN4mK1jH\",\n  \"salt\": \"q1rG7l5k0uJ7pZr0oQ3yXg==\",\n  \"kdf\": {\n    \"name\": \"PBKDF2\",\n    \"hash\": \"SHA-256\",\n    \"iterations\": 600000\n  },\n  \"verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 · Set",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "password"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"wrapped_key\": \"kQ2x1JmZ3Yp8b4Nf0Gv7wL9tR6sE5dC2aB1nM8qW4yU3iO0pA7zX6cV5bN4mK1jH\",\n  \"salt\": \"q1rG7l5k0uJ7pZr0oQ3yXg==\",\n  \"kdf\": {\n    \"name\": \"PBKDF2\",\n    \"hash\": \"SHA-256\",\n    \"iterations\": 600000\n  },\n  \"verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 201,\n  \"data\": null,\n  \"message\": \"vault password set\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "409 · Already set",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/password",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "password"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"wrapped_key\": \"kQ2x1JmZ3Yp8b4Nf0Gv7wL9tR6sE5dC2aB1nM8qW4yU3iO0pA7zX6cV5bN4mK1jH\",\n  \"salt\": \"q1rG7l5k0uJ7pZr0oQ3yXg==\",\n  \"kdf\": {\n    \"name\": \"PBKDF2\",\n    \"hash\": \"SHA-256\",\n    \"iterations\": 600000\n  },\n  \"verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 409,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"vault\",\n    \"code\": \"VAULT_PASSWORD_SET\",\n    \"message\": \"This vault already has a password. Change it instead.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Unlock vault",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/unlock",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "vault",
+                "unlock"
+              ]
+            },
+            "description": "Requires the `vault` section. Returns the `wrapped_key` when the `verifier` is right.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Unlocked",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/unlock",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "unlock"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"wrapped_key\": \"kQ2x1JmZ3Yp8b4Nf0Gv7wL9tR6sE5dC2aB1nM8qW4yU3iO0pA7zX6cV5bN4mK1jH\",\n    \"key_version\": 1\n  },\n  \"message\": \"vault unlocked\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · Wrong password",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/unlock",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "unlock"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"verifier\": \"wrong-verifier\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"vault\",\n    \"code\": \"INVALID_VAULT_PASSWORD\",\n    \"message\": \"That vault password isn't right.\"\n  }\n}"
+            },
+            {
+              "name": "429 · Too many wrong tries",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/unlock",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "unlock"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"verifier\": \"wrong-verifier\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 429,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"vault\",\n    \"code\": \"VAULT_LOCKED\",\n    \"message\": \"Your Vault has been temporarily locked due to too many failed attempts. Please try again later.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change vault password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/password/change",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "vault",
+                "password",
+                "change"
+              ]
+            },
+            "description": "Requires portfolio **owner**, the emailed `code` (Users → Send confirmation code, `purpose: change_vault_password`) and the old `old_verifier`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"000000\",\n  \"old_verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\",\n  \"wrapped_key\": \"pA7zX6cV5bN4mK1jHkQ2x1JmZ3Yp8b4Nf0Gv7wL9tR6sE5dC2aB1nM8qW4yU3iO0\",\n  \"salt\": \"Zm9vYmFyYmF6cXV4MTIzNA==\",\n  \"kdf\": {\n    \"name\": \"PBKDF2\",\n    \"hash\": \"SHA-256\",\n    \"iterations\": 600000\n  },\n  \"verifier\": \"1l9VgHBFB2OnMXzJ92XuJ12BdKE7qQRIUgmnMY9mFnc=\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Changed",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/password/change",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "password",
+                    "change"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"000000\",\n  \"old_verifier\": \"TFRYj0my+naJZXaKCG3+HCu87JgTDpsj2/HdnYb8Rsk=\",\n  \"wrapped_key\": \"pA7zX6cV5bN4mK1jHkQ2x1JmZ3Yp8b4Nf0Gv7wL9tR6sE5dC2aB1nM8qW4yU3iO0\",\n  \"salt\": \"Zm9vYmFyYmF6cXV4MTIzNA==\",\n  \"kdf\": {\n    \"name\": \"PBKDF2\",\n    \"hash\": \"SHA-256\",\n    \"iterations\": 600000\n  },\n  \"verifier\": \"1l9VgHBFB2OnMXzJ92XuJ12BdKE7qQRIUgmnMY9mFnc=\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"vault password changed\",\n  \"error\": null\n}"
             }
           ]
         }

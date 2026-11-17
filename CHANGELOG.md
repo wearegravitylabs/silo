@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Invite links: anyone with the link can ask to join; owners approve or decline (`/invite-links/:token`, `/access-requests`)
 - Section access per member (dashboard, insights, assets, debts, vault, projections); default everything but the vault
 - Public read-only links with chosen sections (never the vault), off while the owner requires viewers to sign up
+- Vault password per portfolio for browser-side encryption: status, set, unlock (5 wrong tries lock it for 15 minutes), change with the emailed code; the server stores only the wrapped key, salt, KDF and a verifier hash
+- Vault files record whether and how they were encrypted; `PUT /vault/documents/:id/file` replaces a file (e.g. with its encrypted version)
 
 ### Changed
 
@@ -93,6 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A folder in a request body, and an autopilot rule's `target_id`, must belong to the same portfolio
 - Snapshot and insight routes now require portfolio membership
 - An invited member who hasn't accepted can't open the portfolio
+- Vault files belong to the portfolio: members with the vault section can list and download every file (was uploader-only, and 401 for others)
 - Lot insertion during asset creation is now concurrent
 
 [Unreleased]: https://github.com/wearegravitylabs/silo/compare/HEAD
