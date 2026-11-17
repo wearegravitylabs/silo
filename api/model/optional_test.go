@@ -54,3 +54,20 @@ func TestRecordTime(t *testing.T) {
 		t.Error("future date: want not ok")
 	}
 }
+
+func TestNoteTags(t *testing.T) {
+	for _, in := range []string{`["tax","2026"]`, `{"list":["tax","2026"]}`} {
+		var tags NoteTags
+		if err := json.Unmarshal([]byte(in), &tags); err != nil || len(tags) != 2 || tags[0] != "tax" {
+			t.Errorf("%s: got %v %v", in, tags, err)
+		}
+	}
+	var tags NoteTags
+	if err := json.Unmarshal([]byte(`"tax"`), &tags); err == nil {
+		t.Error("a plain string: want an error")
+	}
+	out, _ := json.Marshal(NoteTags{"a"})
+	if string(out) != `["a"]` {
+		t.Errorf("marshal = %s, want [\"a\"]", out)
+	}
+}

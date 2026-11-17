@@ -40,6 +40,7 @@ func New(r *gin.RouterGroup, svc appDebt.Debt, noteSvc appNote.Note, docSvc appD
 	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("", h.list)
 	member.GET("/overview", h.overview) // must come before /:id
+	member.GET("/export", h.export)
 	member.GET("/:id", h.get)
 	member.GET("/:id/balance-history", h.balanceHistory)
 	member.GET("/:id/amortization", h.amortizationSchedule)
@@ -112,6 +113,20 @@ func (h *handler) create(c *gin.Context) {
 		return
 	}
 	apiModel.Created(c, messages.DebtCreated, debt)
+}
+
+// export downloads all debts as a CSV file.
+func (h *handler) export(c *gin.Context) {
+	portfolioID, ok := parsePortfolioID(c)
+	if !ok {
+		return
+	}
+	rows, err := h.svc.ExportRows(c.Request.Context(), portfolioID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.CSV(c, "debts", rows)
 }
 
 // overview returns the portfolio's debt totals in its base currency.

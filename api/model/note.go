@@ -16,7 +16,7 @@ type AssetNote struct {
 	PortfolioID uuid.UUID  `gorm:"type:uuid;not null;index"                          json:"portfolio_id"`
 	Title       string     `gorm:"not null;default:''"                               json:"title"`
 	Content     string     `gorm:"not null"                                          json:"content"`
-	Tags        JSONB      `gorm:"type:jsonb"                                        json:"tags,omitempty"`
+	Tags        NoteTags   `gorm:"type:jsonb"                                        json:"tags"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	DeletedAt   *time.Time `gorm:"index"                                             json:"-"`
@@ -24,15 +24,15 @@ type AssetNote struct {
 
 // CreateNoteRequest is the body accepted by the add-note endpoints.
 type CreateNoteRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content" binding:"required"`
-	Tags    JSONB  `json:"tags"`
+	Title   string   `json:"title"`
+	Content string   `json:"content" binding:"required"`
+	Tags    NoteTags `json:"tags"`
 }
 
 // UpdateNoteRequest is the body accepted by the edit-note endpoints.
 // All fields are optional — only non-nil values are applied.
 type UpdateNoteRequest struct {
-	Title   *string `json:"title"`
-	Content *string `json:"content"`
-	Tags    JSONB   `json:"tags"`
+	Title   *string  `json:"title"`
+	Content *string  `json:"content"`
+	Tags    NoteTags `json:"tags"`
 }

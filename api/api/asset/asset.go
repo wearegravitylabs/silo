@@ -43,6 +43,7 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, no
 
 	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("/overview", h.overview) // must come before /:id to avoid conflict
+	member.GET("/export", h.export)
 	member.GET("/ticker/search", h.tickerSearch)
 	member.GET("/ticker/preview", h.tickerPreview)
 	member.GET("", h.list)
@@ -311,6 +312,25 @@ func (h *handler) addLot(c *gin.Context) {
 }
 
 // sell removes sold units, oldest lots first, and records the sale proceeds.
+// export downloads all assets as a CSV file.
+func (h *handler) export(c *gin.Context) {
+	callerID, ok := mustCallerID(c)
+	if !ok {
+		return
+	}
+	portfolioID, err := uuid.Parse(c.Param("portfolioID"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+	rows, err := h.svc.ExportRows(c.Request.Context(), portfolioID, callerID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.CSV(c, "assets", rows)
+}
+
 func (h *handler) sell(c *gin.Context) {
 	assetID, ok := parseAssetID(c)
 	if !ok {

@@ -32,6 +32,7 @@ func New(r *gin.RouterGroup, svc appAutopilot.Autopilot, mid *middleware.Middlew
 
 	editor := g.Group("", mid.RequirePortfolioEditor(), owned)
 	editor.POST("/rules", h.createRule)
+	editor.PATCH("/rules/:id", h.updateRule)
 	editor.POST("/rules/:id/pause", h.pauseRule)
 	editor.POST("/rules/:id/resume", h.resumeRule)
 	editor.DELETE("/rules/:id", h.deleteRule)
@@ -98,12 +99,40 @@ func (h *handler) listRules(c *gin.Context) {
 	if !ok {
 		return
 	}
-	rules, err := h.svc.ListByPortfolio(c.Request.Context(), portfolioID)
+	// ?target_id= lists one asset's or debt's rules.
+	var filter model.ListAutopilotRulesFilter
+	if raw := c.Query("target_id"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+			return
+		}
+		filter.TargetID = &id
+	}
+	rules, err := h.svc.ListByPortfolio(c.Request.Context(), portfolioID, filter)
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
 	apiModel.OK(c, "rules", rules)
+}
+
+func (h *handler) updateRule(c *gin.Context) {
+	ruleID, ok := parseRuleID(c)
+	if !ok {
+		return
+	}
+	var req model.UpdateAutopilotRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+	rule, err := h.svc.UpdateRule(c.Request.Context(), ruleID, req)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "rule updated", rule)
 }
 
 func (h *handler) getRule(c *gin.Context) {

@@ -46,6 +46,25 @@ type AutopilotRule struct {
 	UpdatedAt time.Time        `json:"updated_at"`
 }
 
+// UpdateAutopilotRuleRequest is the input for PATCH /autopilot/rules/:id.
+// Everything but the target (target_id, target_type, action) can change.
+// After the change exactly one of amount, percentage and units must be set:
+// to switch from amount to percentage, send "amount": 0 with the percentage.
+type UpdateAutopilotRuleRequest struct {
+	Amount     *float64            `json:"amount"`
+	Percentage *float64            `json:"percentage"`
+	Units      Optional[float64]   `json:"units"`
+	Frequency  *PaymentFrequency   `json:"frequency"`
+	StartDate  *time.Time          `json:"start_date"`
+	EndDate    Optional[time.Time] `json:"end_date"`
+}
+
+// ListAutopilotRulesFilter narrows GET /autopilot/rules.
+type ListAutopilotRulesFilter struct {
+	// TargetID lists only the rules of one asset or debt.
+	TargetID *uuid.UUID
+}
+
 // CreateAutopilotRuleRequest is the input for creating an automation rule.
 type CreateAutopilotRuleRequest struct {
 	TargetID   uuid.UUID           `json:"target_id"   binding:"required"`

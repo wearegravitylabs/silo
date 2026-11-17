@@ -46,6 +46,8 @@ type Asset interface {
 	// Overview returns aggregated metrics for all assets in a portfolio.
 	// All monetary values are in the portfolio's base_currency.
 	Overview(ctx context.Context, portfolioID, callerID uuid.UUID) (model.AssetOverview, error)
+	// ExportRows returns all assets as spreadsheet rows, header first.
+	ExportRows(ctx context.Context, portfolioID, callerID uuid.UUID) ([][]string, error)
 	// ListByPortfolio returns assets for a portfolio with optional filters.
 	ListByPortfolio(ctx context.Context, portfolioID, callerID uuid.UUID, filter model.ListAssetsFilter) ([]model.Asset, error)
 	// Update applies partial changes to an asset. callerID is used for audit logging.

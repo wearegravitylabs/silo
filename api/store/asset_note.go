@@ -18,7 +18,7 @@ import (
 type NoteDatabase interface {
 	CreateNote(ctx context.Context, note model.AssetNote) (model.AssetNote, error)
 	GetNoteByID(ctx context.Context, id uuid.UUID) (model.AssetNote, error)
-	UpdateNote(ctx context.Context, id uuid.UUID, title, content string, tags model.JSONB) (model.AssetNote, error)
+	UpdateNote(ctx context.Context, id uuid.UUID, title, content string, tags model.NoteTags) (model.AssetNote, error)
 	// ListByAsset returns all non-deleted notes attached to a specific asset, newest first.
 	ListByAsset(ctx context.Context, assetID uuid.UUID) ([]model.AssetNote, error)
 	// ListByDebt returns all non-deleted notes attached to a specific debt, newest first.
@@ -57,7 +57,7 @@ func (n *noteStore) GetNoteByID(ctx context.Context, id uuid.UUID) (model.AssetN
 }
 
 // UpdateNote applies title and content changes to an existing note.
-func (n *noteStore) UpdateNote(ctx context.Context, id uuid.UUID, title, content string, tags model.JSONB) (model.AssetNote, error) {
+func (n *noteStore) UpdateNote(ctx context.Context, id uuid.UUID, title, content string, tags model.NoteTags) (model.AssetNote, error) {
 	result := n.storage.DB.WithContext(ctx).
 		Model(&model.AssetNote{}).
 		Where("id = ? AND deleted_at IS NULL", id).

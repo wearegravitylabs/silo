@@ -90,13 +90,16 @@ func (s *service) CreateScenario(ctx context.Context, portfolioID uuid.UUID, req
 
 // importAutopilotRules converts active autopilot rules into projection rules.
 func (s *service) importAutopilotRules(ctx context.Context, scenarioID, portfolioID uuid.UUID, now time.Time) []model.ProjectionRule {
-	apRules, err := s.dp.AutopilotStore.ListRulesByPortfolio(ctx, portfolioID)
+	apRules, err := s.dp.AutopilotStore.ListRulesByPortfolio(ctx, portfolioID, model.ListAutopilotRulesFilter{})
 	if err != nil || len(apRules) == 0 {
 		return nil
 	}
 
 	var imported []model.ProjectionRule
 	for _, ap := range apRules {
+		if !ap.IsActive {
+			continue
+		}
 		var ruleType model.ProjectionRuleType
 		config := model.JSONB{}
 

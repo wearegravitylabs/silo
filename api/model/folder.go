@@ -23,6 +23,7 @@ type Folder struct {
 	Name        string     `gorm:"not null"                                         json:"name"`
 	Icon        *string    `json:"icon"`      // emoji or short identifier, e.g. "📈"
 	ImageURL    *string    `json:"image_url"` // user-uploaded cover image
+	Color       *string    `json:"color"`     // any CSS colour, e.g. "#F59E0B"
 	Position    int        `gorm:"not null;default:0"                               json:"position"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -34,6 +35,7 @@ type CreateFolderRequest struct {
 	Name       string     `json:"name"        binding:"required,min=1,max=255"`
 	Icon       *string    `json:"icon"`
 	ImageURL   *string    `json:"image_url"`
+	Color      *string    `json:"color"`
 }
 
 // UpdateFolderRequest is the payload for PATCH /portfolios/:id/folders/:fid.
@@ -43,6 +45,8 @@ type UpdateFolderRequest struct {
 	// Icon and ImageURL are cleared by sending null.
 	Icon     Optional[string] `json:"icon"`
 	ImageURL Optional[string] `json:"image_url"`
+	// Color is any CSS colour; null clears it.
+	Color Optional[string] `json:"color"`
 }
 
 // FolderPosition is a single {id, position} pair used in a reorder request.

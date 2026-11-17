@@ -52,6 +52,7 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		Name:        req.Name,
 		Icon:        req.Icon,
 		ImageURL:    req.ImageURL,
+		Color:       req.Color,
 		Position:    maxPos + 1,
 	}
 
@@ -117,6 +118,9 @@ func (s *service) Update(ctx context.Context, folderID, callerID uuid.UUID, req 
 	}
 	if req.ImageURL.Set {
 		folder.ImageURL = req.ImageURL.Value
+	}
+	if req.Color.Set {
+		folder.Color = req.Color.Value
 	}
 
 	updated, err := s.dp.FolderStore.UpdateFolder(ctx, folder)

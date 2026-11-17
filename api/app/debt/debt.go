@@ -26,6 +26,8 @@ type Debt interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// AmortizationSchedule calculates the payment schedule for a scheduled debt.
 	AmortizationSchedule(ctx context.Context, debtID uuid.UUID) ([]AmortizationEntry, error)
+	// ExportRows returns all debts as spreadsheet rows, header first.
+	ExportRows(ctx context.Context, portfolioID uuid.UUID) ([][]string, error)
 	// Overview adds up a portfolio's debts in its base currency.
 	Overview(ctx context.Context, portfolioID uuid.UUID) (model.DebtSummary, error)
 	// ListBalanceHistory returns a debt's balances in [from, to], oldest first,

@@ -17,7 +17,9 @@ import (
 type AutopilotDatabase interface {
 	CreateRule(ctx context.Context, rule model.AutopilotRule) (model.AutopilotRule, error)
 	GetRuleByID(ctx context.Context, id uuid.UUID) (model.AutopilotRule, error)
-	ListRulesByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.AutopilotRule, error)
+	// ListRulesByPortfolio returns a portfolio's rules, paused ones included,
+	// oldest first.
+	ListRulesByPortfolio(ctx context.Context, portfolioID uuid.UUID, filter model.ListAutopilotRulesFilter) ([]model.AutopilotRule, error)
 	ListDueRules(ctx context.Context, before time.Time) ([]model.AutopilotRule, error)
 	UpdateRule(ctx context.Context, rule model.AutopilotRule) (model.AutopilotRule, error)
 	DeleteRule(ctx context.Context, id uuid.UUID) error
@@ -44,12 +46,17 @@ func (a *autopilotStore) GetRuleByID(ctx context.Context, id uuid.UUID) (model.A
 	return rule, err
 }
 
-func (a *autopilotStore) ListRulesByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.AutopilotRule, error) {
+func (a *autopilotStore) ListRulesByPortfolio(ctx context.Context, portfolioID uuid.UUID, filter model.ListAutopilotRulesFilter) ([]model.AutopilotRule, error) {
 	var rules []model.AutopilotRule
-	err := a.storage.DB.WithContext(ctx).
-		Where("portfolio_id = ? AND is_active = true", portfolioID).
-		Find(&rules).Error
-	return rules, err
+	q := a.storage.DB.WithContext(ctx).Where("portfolio_id = ?", portfolioID)
+	if filter.TargetID != nil {
+		q = q.Where("target_id = ?", *filter.TargetID)
+	}
+	err := q.Order("created_at ASC").Find(&rules).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	return rules, nil
 }
 
 func (a *autopilotStore) ListDueRules(ctx context.Context, before time.Time) ([]model.AutopilotRule, error) {

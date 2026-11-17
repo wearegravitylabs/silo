@@ -22,7 +22,9 @@ import (
 type Autopilot interface {
 	CreateRule(ctx context.Context, portfolioID uuid.UUID, req model.CreateAutopilotRuleRequest) (model.AutopilotRule, error)
 	GetRule(ctx context.Context, id uuid.UUID) (model.AutopilotRule, error)
-	ListByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.AutopilotRule, error)
+	ListByPortfolio(ctx context.Context, portfolioID uuid.UUID, filter model.ListAutopilotRulesFilter) ([]model.AutopilotRule, error)
+	// UpdateRule changes a rule's value, frequency or dates (not its target).
+	UpdateRule(ctx context.Context, id uuid.UUID, req model.UpdateAutopilotRuleRequest) (model.AutopilotRule, error)
 	PauseRule(ctx context.Context, id uuid.UUID) error
 	ResumeRule(ctx context.Context, id uuid.UUID) error
 	DeleteRule(ctx context.Context, id uuid.UUID) error
@@ -96,8 +98,50 @@ func (s *service) GetRule(ctx context.Context, id uuid.UUID) (model.AutopilotRul
 	return s.dp.AutopilotStore.GetRuleByID(ctx, id)
 }
 
-func (s *service) ListByPortfolio(ctx context.Context, portfolioID uuid.UUID) ([]model.AutopilotRule, error) {
-	return s.dp.AutopilotStore.ListRulesByPortfolio(ctx, portfolioID)
+func (s *service) ListByPortfolio(ctx context.Context, portfolioID uuid.UUID, filter model.ListAutopilotRulesFilter) ([]model.AutopilotRule, error) {
+	return s.dp.AutopilotStore.ListRulesByPortfolio(ctx, portfolioID, filter)
+}
+
+func (s *service) UpdateRule(ctx context.Context, id uuid.UUID, req model.UpdateAutopilotRuleRequest) (model.AutopilotRule, error) {
+	rule, err := s.dp.AutopilotStore.GetRuleByID(ctx, id)
+	if err != nil {
+		return model.AutopilotRule{}, err
+	}
+	if req.Amount != nil {
+		rule.Amount = *req.Amount
+	}
+	if req.Percentage != nil {
+		rule.Percentage = *req.Percentage
+	}
+	if req.Units.Set {
+		rule.Units = req.Units.Value
+	}
+	if req.Frequency != nil {
+		rule.Frequency = *req.Frequency
+	}
+	if req.EndDate.Set {
+		rule.EndDate = req.EndDate.Value
+	}
+	if req.StartDate != nil {
+		rule.StartDate = *req.StartDate
+		// A new start date in the future moves the next run to it.
+		if rule.StartDate.After(time.Now().UTC()) {
+			next := rule.StartDate
+			rule.NextRunAt = &next
+		}
+	}
+	// The rule must still be valid as a whole: exactly one value, a known frequency.
+	if err := validateRequest(model.CreateAutopilotRuleRequest{
+		TargetID: rule.TargetID, TargetType: rule.TargetType, Action: rule.Action,
+		Amount: rule.Amount, Percentage: rule.Percentage, Units: rule.Units, Frequency: rule.Frequency,
+	}); err != nil {
+		return model.AutopilotRule{}, err
+	}
+	if rule.EndDate != nil && rule.EndDate.Before(rule.StartDate) {
+		return model.AutopilotRule{}, siloErrors.ErrInvalidRequest
+	}
+	rule.UpdatedAt = time.Now().UTC()
+	return s.dp.AutopilotStore.UpdateRule(ctx, rule)
 }
 
 func (s *service) PauseRule(ctx context.Context, id uuid.UUID) error {
