@@ -263,7 +263,8 @@ Zero egress fees, S3-compatible, no server to run. Best choice for most deployme
 1. Create a bucket at **dash.cloudflare.com → R2**.
 2. Create an API token with object read/write permissions.
 3. Enable **Public access** on the public bucket to get a `pub-*.r2.dev` URL, or
-   attach a custom domain.
+   attach a custom domain. R2 ignores the bucket policy Silo sets at boot, so
+   without this step profile photos and folder covers return 403.
 
 ```bash
 STORAGE_PROVIDER=r2
@@ -292,6 +293,11 @@ STORAGE_PUBLIC_URL=https://silo.s3.amazonaws.com
 itself. The IAM user needs `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, and
 `s3:CreateBucket` if you want the buckets created automatically.
 
+Silo gives the public bucket a public-read **bucket policy** at boot; it sets no
+per-object ACL. New S3 buckets have **Block Public Access** turned on, which
+rejects that policy. Turn off "Block public policy" for the public bucket only
+(never for `STORAGE_PRIVATE_BUCKET`), or profile photos and folder covers return 403.
+
 ### MinIO
 
 MinIO is the default in `docker-compose.yml` and is fine for local development. Running
@@ -309,6 +315,7 @@ STORAGE_SECRET_KEY=<strong-random-value>
 STORAGE_BUCKET=silo
 STORAGE_PRIVATE_BUCKET=silo-docs
 STORAGE_PUBLIC_URL=https://storage.example.com/silo
+STORAGE_PUBLIC_ENDPOINT=https://storage.example.com  # address browsers use for document links
 ```
 
 - **Change the credentials.** `minioadmin` / `minioadmin` is a development default.
@@ -318,6 +325,10 @@ STORAGE_PUBLIC_URL=https://storage.example.com/silo
   behind a real hostname with TLS.
 - `STORAGE_ENDPOINT` (server-to-server) and `STORAGE_PUBLIC_URL` (browser-facing) are
   usually different addresses. That's expected.
+- **Set `STORAGE_PUBLIC_ENDPOINT` when `STORAGE_ENDPOINT` is an internal address.**
+  Document download links are signed for a specific host, so the API signs them for
+  this browser-facing address. Without it, links come back as `http://minio:9000/...`
+  and won't open.
 - Back up the MinIO volume. Nothing else does it for you.
 
 MinIO uses path-style addressing automatically (`ForcePathStyle: true`); R2 and S3 use
@@ -476,6 +487,9 @@ Take a database backup before any upgrade that includes migrations.
 | Deep links 404 on refresh | The static host isn't rewriting unknown paths to `index.html` |
 | Uploads "succeed" but files never appear | `STORAGE_PROVIDER` is empty, so the no-op stub is active |
 | Images return broken links | `STORAGE_PUBLIC_URL` isn't reachable from the browser — commonly still `localhost` |
+| Images return 403 | The public bucket isn't public: turn on R2 "Public access", or allow the bucket policy under S3 Block Public Access |
+| Document links point at `http://minio:9000` | `STORAGE_PUBLIC_ENDPOINT` is unset while `STORAGE_ENDPOINT` is an internal address |
+| Images download instead of opening | They were uploaded before content types were saved. Run `go run ./cmd/fix-content-types` from `api/` once |
 | No sign-in emails | `RESEND_API_KEY` unset, or `RESEND_FROM_EMAIL` is on a domain not verified in Resend |
 | Wrong totals in a second currency | `EXCHANGERATE_API_KEY` unset, so the FX cache is empty and conversion falls back to 1.0 |
 | Anyone can sign in with a fixed code | `IS_SANDBOX_MODE` is still `true`. Set it to `false` |
