@@ -243,6 +243,23 @@ Tests: a table of known cases, one per rule and frequency, with numbers worked o
 
 ## Phase 5: Sharing and invites (silo)
 
+> **Status (2026-11-17): done and pushed.** 38/38 live checks pass, and Phases 0–4 still pass.
+>
+> **Decided:**
+> - Email invites must be accepted first.
+> - The invite link creates a request that the owner approves.
+> - New members see everything except the vault, and the owner can change that per member.
+> - The public link shows the sections the owner picks, never the vault.
+> - "Viewers must sign up" turns public links off.
+> - Partner is the app's name for `editor`.
+>
+> **For the FE:**
+> - The app's links are `APP_BASE_URL/invites`, `/join/<token>`, `/share/<token>` and
+>   `/portfolios/<id>/members`, so the app needs those pages.
+>
+> **silo-cloud:** apply the seat limit when an invite is accepted or approved, and make the AI chat respect a
+> member's sections (it reads assets and debts directly). Both are done with the cloud bump.
+
 **Decided:** keep the API roles `owner / editor / viewer`. The app shows **"Partner" for `editor`**. No database change.
 
 Work:

@@ -46,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Emailed 6-digit codes for risky actions: `POST /users/me/confirmation-code`
 - Change email: `POST /users/me/email` sends a link to the new address, `POST /auth/confirm-email-change` completes it and notifies the old address; `GET /users/email-available`
 - User settings are checked: theme, accent colour, language, notifications, security, vault auto-lock, projections intro
+- Sharing: email invites that must be accepted (`invited` → `active`, `joined_at`), my invites / accept / decline, change a member's role and sections, resend an invite, leave a portfolio
+- Invite links: anyone with the link can ask to join; owners approve or decline (`/invite-links/:token`, `/access-requests`)
+- Section access per member (dashboard, insights, assets, debts, vault, projections); default everything but the vault
+- Public read-only links with chosen sections (never the vault), off while the owner requires viewers to sign up
 
 ### Changed
 
@@ -70,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Note `tags` are a plain array (the old `{"list": [...]}` shape is still accepted)
 - `DELETE /users/me` and `DELETE /portfolios/:id` need the emailed code (`{"code": "123456"}`), else `400 INVALID_CODE`
 - Replacing or removing the profile photo deletes the old file from storage
+- Inviting someone no longer needs them to have an account
 
 ### Fixed
 
@@ -87,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ids in the URL are checked against the portfolio in the URL. Before, a member of one portfolio could read or change another portfolio's assets, debts, notes, documents, autopilot rules, projections, folders and vault documents by id (`404 NOT_FOUND` now)
 - A folder in a request body, and an autopilot rule's `target_id`, must belong to the same portfolio
 - Snapshot and insight routes now require portfolio membership
+- An invited member who hasn't accepted can't open the portfolio
 - Lot insertion during asset creation is now concurrent
 
 [Unreleased]: https://github.com/wearegravitylabs/silo/compare/HEAD

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Silo API",
-    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG`, `INVALID_CODE`, `INVALID_LINK`, `INVALID_SETTINGS` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
+    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG`, `INVALID_CODE`, `INVALID_LINK`, `INVALID_SETTINGS` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION`, `SECTION_NOT_ALLOWED`, `PUBLIC_LINKS_DISABLED` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "silo-api-v1"
   },
@@ -110,6 +110,18 @@
       "key": "projectionRuleID",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "inviteToken",
+      "value": ""
+    },
+    {
+      "key": "publicToken",
+      "value": ""
+    },
+    {
+      "key": "requestID",
+      "value": ""
     }
   ],
   "item": [
@@ -3553,60 +3565,6 @@
           ]
         },
         {
-          "name": "List members",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "portfolios",
-                "{{portfolioID}}",
-                "members"
-              ]
-            },
-            "description": "Requires portfolio **member**."
-          },
-          "response": [
-            {
-              "name": "200 · Members",
-              "originalRequest": {
-                "method": "GET",
-                "header": [],
-                "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "portfolios",
-                    "{{portfolioID}}",
-                    "members"
-                  ]
-                }
-              },
-              "status": "OK",
-              "code": 200,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                },
-                {
-                  "key": "X-Request-Id",
-                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"user_id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"role\": \"owner\",\n      \"status\": \"accepted\",\n      \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"accepted_at\": null,\n      \"created_at\": \"2026-10-02T08:20:15.118734Z\"\n    },\n    {\n      \"id\": \"2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6e\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"user_id\": \"b7e4d1c2-9a3f-4e5b-8c6d-1f2a3b4c5d6e\",\n      \"role\": \"editor\",\n      \"status\": \"accepted\",\n      \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"invited_email\": \"teammate@example.com\",\n      \"accepted_at\": null,\n      \"created_at\": \"2026-10-05T14:02:51.330417Z\"\n    }\n  ],\n  \"message\": \"members\",\n  \"error\": null\n}"
-            }
-          ]
-        },
-        {
           "name": "Invite member",
           "request": {
             "method": "POST",
@@ -3627,10 +3585,10 @@
                 "members"
               ]
             },
-            "description": "Requires portfolio **owner**. The invitee must already have a Silo account, otherwise you get `INVITEE_NOT_FOUND` (422).",
+            "description": "Requires portfolio **owner**. Emails an invite; the person shows as `invited` until they accept. `sections` is optional (default everything but `vault`). Works for people without an account. 409 if they are already a member or invited.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"editor\"\n}",
+              "raw": "{\n  \"email\": \"grace@example.com\",\n  \"role\": \"editor\",\n  \"sections\": [\"dashboard\", \"insights\", \"assets\", \"debts\", \"projections\"]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3640,7 +3598,7 @@
           },
           "response": [
             {
-              "name": "200 · Added (no data returned)",
+              "name": "200 · Invited",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -3662,7 +3620,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"editor\"\n}",
+                  "raw": "{\n  \"email\": \"grace@example.com\",\n  \"role\": \"editor\",\n  \"sections\": [\"dashboard\", \"insights\", \"assets\", \"debts\", \"projections\"]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -3687,7 +3645,7 @@
               "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"Member added to the portfolio.\",\n  \"error\": null\n}"
             },
             {
-              "name": "422 · Email has no Silo account",
+              "name": "409 · Already a member or invited",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -3709,54 +3667,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"editor\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
-              },
-              "status": "Unprocessable Entity",
-              "code": 422,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                },
-                {
-                  "key": "X-Request-Id",
-                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"code\": 422,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"portfolio\",\n    \"code\": \"INVITEE_NOT_FOUND\",\n    \"message\": \"No Silo account found for that email address. Ask them to sign up first.\"\n  }\n}"
-            },
-            {
-              "name": "409 · Already a member",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "portfolios",
-                    "{{portfolioID}}",
-                    "members"
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"editor\"\n}",
+                  "raw": "{\n  \"email\": \"grace@example.com\",\n  \"role\": \"editor\",\n  \"sections\": [\"dashboard\", \"insights\", \"assets\", \"debts\", \"projections\"]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -3779,100 +3690,6 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 409,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"portfolio\",\n    \"code\": \"MEMBER_ALREADY_EXISTS\",\n    \"message\": \"This person already has access to the portfolio.\"\n  }\n}"
-            },
-            {
-              "name": "400 · Bad role",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "portfolios",
-                    "{{portfolioID}}",
-                    "members"
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"admin\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
-              },
-              "status": "Bad Request",
-              "code": 400,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                },
-                {
-                  "key": "X-Request-Id",
-                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"portfolio\",\n    \"code\": \"INVALID_REQUEST\",\n    \"message\": \"The request is missing required fields or contains invalid data. Please check and try again.\"\n  }\n}"
-            },
-            {
-              "name": "403 · Only an owner can invite",
-              "originalRequest": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
-                  "host": [
-                    "{{base_url}}"
-                  ],
-                  "path": [
-                    "portfolios",
-                    "{{portfolioID}}",
-                    "members"
-                  ]
-                },
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"editor\"\n}",
-                  "options": {
-                    "raw": {
-                      "language": "json"
-                    }
-                  }
-                }
-              },
-              "status": "Forbidden",
-              "code": 403,
-              "_postman_previewlanguage": "json",
-              "header": [
-                {
-                  "key": "Content-Type",
-                  "value": "application/json; charset=utf-8"
-                },
-                {
-                  "key": "X-Request-Id",
-                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
-                }
-              ],
-              "cookie": [],
-              "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"middleware\",\n    \"code\": \"INSUFFICIENT_PERMISSION\",\n    \"message\": \"You don't have permission to do that.\"\n  }\n}"
             }
           ]
         },
@@ -14346,6 +14163,40 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"3ac9b8a8-d78e-49fa-9b08-b9c0d1e2f3a4\",\n      \"user_id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"file_name\": \"will-2026.pdf.enc\",\n      \"file_type\": \"application/octet-stream\",\n      \"file_size\": 190244,\n      \"uploaded_at\": \"2026-10-31T09:14:22.481203Z\"\n    }\n  ],\n  \"message\": \"documents\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "403 · Member without the vault section",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/vault/documents",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "vault",
+                    "documents"
+                  ]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"middleware\",\n    \"code\": \"SECTION_NOT_ALLOWED\",\n    \"message\": \"You don't have access to this part of the portfolio.\"\n  }\n}"
             }
           ]
         },
@@ -15233,6 +15084,1406 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Sharing",
+      "item": [
+        {
+          "name": "List members",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "members"
+              ]
+            },
+            "description": "Requires portfolio **member**. Active and invited members with their user, `status` (`invited` / `active`), `joined_at` (null while invited) and `sections`."
+          },
+          "response": [
+            {
+              "name": "200 · One owner, one invited",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "members"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"9b1a6e74-cc83-5775-88c8-825574fceedb\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"user_id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"role\": \"owner\",\n      \"status\": \"active\",\n      \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"joined_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"sections\": [\n        \"dashboard\",\n        \"insights\",\n        \"assets\",\n        \"debts\",\n        \"vault\",\n        \"projections\"\n      ],\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"user\": {\n        \"id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n        \"email\": \"ada@example.com\",\n        \"first_name\": \"Ada\",\n        \"last_name\": \"Lovelace\",\n        \"phone_number\": \"8012345678\",\n        \"phone_country_code\": \"+234\",\n        \"avatar_url\": null,\n        \"date_of_birth\": null,\n        \"settings\": {},\n        \"is_email_verified\": true,\n        \"is_onboarded\": true,\n        \"portfolio_count\": 1,\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n        \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    },\n    {\n      \"id\": \"87057b61-f6e1-5cbd-93c6-5b4fa0bf7ca1\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"user_id\": \"4b1d0c9e-2f3a-4e5b-8c7d-6e5f4a3b2c1d\",\n      \"role\": \"editor\",\n      \"status\": \"active\",\n      \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"invited_email\": \"grace@example.com\",\n      \"joined_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"sections\": [\n        \"dashboard\",\n        \"insights\",\n        \"assets\",\n        \"debts\",\n        \"projections\"\n      ],\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"user\": {\n        \"id\": \"4b1d0c9e-2f3a-4e5b-8c7d-6e5f4a3b2c1d\",\n        \"email\": \"grace@example.com\",\n        \"first_name\": \"Ada\",\n        \"last_name\": \"Lovelace\",\n        \"phone_number\": \"8012345678\",\n        \"phone_country_code\": \"+234\",\n        \"avatar_url\": null,\n        \"date_of_birth\": null,\n        \"settings\": {},\n        \"is_email_verified\": true,\n        \"is_onboarded\": true,\n        \"portfolio_count\": 1,\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n        \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    },\n    {\n      \"id\": \"1c5f233a-b388-59eb-b380-1823577008b9\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"user_id\": \"fe1182f4-e131-5f85-81a0-01b936d06a97\",\n      \"role\": \"viewer\",\n      \"status\": \"invited\",\n      \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n      \"invited_email\": \"ada.jr@example.com\",\n      \"joined_at\": null,\n      \"sections\": [\n        \"dashboard\",\n        \"projections\"\n      ],\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"user\": {\n        \"id\": \"fe1182f4-e131-5f85-81a0-01b936d06a97\",\n        \"email\": \"ada.jr@example.com\",\n        \"first_name\": \"\",\n        \"last_name\": \"\",\n        \"phone_number\": null,\n        \"phone_country_code\": null,\n        \"avatar_url\": null,\n        \"date_of_birth\": null,\n        \"settings\": {},\n        \"is_email_verified\": false,\n        \"is_onboarded\": false,\n        \"portfolio_count\": 0,\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n        \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    }\n  ],\n  \"message\": \"members\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Update member",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/members/{{memberUserID}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "members",
+                "{{memberUserID}}"
+              ]
+            },
+            "description": "Requires portfolio **owner**. Change `role` and/or `sections`. The last owner can't be made something else (422 `LAST_OWNER`).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"viewer\",\n  \"sections\": [\n    \"dashboard\",\n    \"assets\",\n    \"vault\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Updated",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members/{{memberUserID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "members",
+                    "{{memberUserID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"viewer\",\n  \"sections\": [\n    \"dashboard\",\n    \"assets\",\n    \"vault\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"87057b61-f6e1-5cbd-93c6-5b4fa0bf7ca1\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"user_id\": \"4b1d0c9e-2f3a-4e5b-8c7d-6e5f4a3b2c1d\",\n    \"role\": \"viewer\",\n    \"status\": \"active\",\n    \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"invited_email\": \"grace@example.com\",\n    \"joined_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"sections\": [\n      \"dashboard\",\n      \"assets\",\n      \"vault\"\n    ],\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"member updated\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "422 · Last owner",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members/{{memberUserID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "members",
+                    "{{memberUserID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"viewer\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 422,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"sharing\",\n    \"code\": \"LAST_OWNER\",\n    \"message\": \"You can't remove the last owner of a portfolio.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Resend invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/members/{{memberUserID}}/resend",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "members",
+                "{{memberUserID}}",
+                "resend"
+              ]
+            },
+            "description": "Requires portfolio **owner**. Emails an `invited` member again (404 for active members)."
+          },
+          "response": [
+            {
+              "name": "200 · Sent",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/members/{{memberUserID}}/resend",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "members",
+                    "{{memberUserID}}",
+                    "resend"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"invite sent\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Leave portfolio",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/leave",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "leave"
+              ]
+            },
+            "description": "Requires portfolio **member**. Removes yourself. The last owner can't leave (422) — delete the portfolio or add another owner first."
+          },
+          "response": [
+            {
+              "name": "200 · Left",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/leave",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "leave"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"left portfolio\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "422 · Last owner",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/leave",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "leave"
+                  ]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 422,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"sharing\",\n    \"code\": \"LAST_OWNER\",\n    \"message\": \"You can't remove the last owner of a portfolio.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "My invites",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/invites",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "invites"
+              ]
+            },
+            "description": "Signed in (onboarding not needed). Invites waiting for the caller to accept."
+          },
+          "response": [
+            {
+              "name": "200 · One invite",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/users/me/invites",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "invites"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"portfolio_name\": \"Family\",\n      \"image_url\": null,\n      \"invited_by\": \"Ada Lovelace\",\n      \"role\": \"editor\",\n      \"sections\": [\n        \"dashboard\",\n        \"insights\",\n        \"assets\",\n        \"debts\",\n        \"projections\"\n      ],\n      \"invited_at\": \"2026-11-17T09:14:22.481203Z\"\n    }\n  ],\n  \"message\": \"invites\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Accept invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/invites/{{portfolioID}}/accept",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "invites",
+                "{{portfolioID}}",
+                "accept"
+              ]
+            },
+            "description": "The caller becomes an active member with the sections the owner chose."
+          },
+          "response": [
+            {
+              "name": "200 · Accepted",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/users/me/invites/{{portfolioID}}/accept",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "invites",
+                    "{{portfolioID}}",
+                    "accept"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"invite accepted\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Decline invite",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/me/invites/{{portfolioID}}/decline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "invites",
+                "{{portfolioID}}",
+                "decline"
+              ]
+            },
+            "description": "Removes the invite."
+          },
+          "response": [
+            {
+              "name": "200 · Declined",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/users/me/invites/{{portfolioID}}/decline",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "invites",
+                    "{{portfolioID}}",
+                    "decline"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"invite accepted\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create invite link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/invite-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "invite-link"
+              ]
+            },
+            "description": "Requires portfolio **owner**. Makes a link (`url` → `APP_BASE_URL/join/<token>`) people can open to ask to join with `role` (default `viewer`). Making a new one turns the old one off.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"viewer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 · Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/invite-link",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "invite-link"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"role\": \"viewer\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"token\": \"3e9a1f6c2b7d4e8a9c0b1d2e3f4a5b6c\",\n    \"role\": \"viewer\",\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"url\": \"http://localhost:5173/join/3e9a1f6c2b7d4e8a9c0b1d2e3f4a5b6c\"\n  },\n  \"message\": \"invite link created\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get invite link",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/invite-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "invite-link"
+              ]
+            },
+            "description": "Requires portfolio **owner**. The current link, or `data: null` when there is none."
+          },
+          "response": [
+            {
+              "name": "200 · Current link",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/invite-link",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "invite-link"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"token\": \"3e9a1f6c2b7d4e8a9c0b1d2e3f4a5b6c\",\n    \"role\": \"viewer\",\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"url\": \"http://localhost:5173/join/3e9a1f6c2b7d4e8a9c0b1d2e3f4a5b6c\"\n  },\n  \"message\": \"invite link\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Turn off invite link",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/invite-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "invite-link"
+              ]
+            },
+            "description": "Requires portfolio **owner**."
+          },
+          "response": [
+            {
+              "name": "200 · Off",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/invite-link",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "invite-link"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"invite link turned off\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Open invite link",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/invite-links/{{inviteToken}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "invite-links",
+                "{{inviteToken}}"
+              ]
+            },
+            "description": "No auth. What the join page shows: portfolio, who invited, role. 400 `INVALID_LINK` once it's off.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Preview",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/invite-links/{{inviteToken}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "invite-links",
+                    "{{inviteToken}}"
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"portfolio_name\": \"Family\",\n    \"image_url\": null,\n    \"invited_by\": \"Ada Lovelace\",\n    \"role\": \"viewer\",\n    \"invited_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"invite\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · Link turned off",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/invite-links/{{inviteToken}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "invite-links",
+                    "{{inviteToken}}"
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"sharing\",\n    \"code\": \"INVALID_LINK\",\n    \"message\": \"This link has expired or was already used. Please start again.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Request access",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/invite-links/{{inviteToken}}/request",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "invite-links",
+                "{{inviteToken}}",
+                "request"
+              ]
+            },
+            "description": "Signed in. Asks to join; the owners get an email. 409 if already a member or already asked."
+          },
+          "response": [
+            {
+              "name": "201 · Requested",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/invite-links/{{inviteToken}}/request",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "invite-links",
+                    "{{inviteToken}}",
+                    "request"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"95718fa3-dd7e-53f4-9596-185908701e49\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"user_id\": \"70388ce3-e25e-528e-b02d-2b11e961482c\",\n    \"role\": \"viewer\",\n    \"status\": \"pending\",\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"access requested\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "409 · Already asked",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/invite-links/{{inviteToken}}/request",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "invite-links",
+                    "{{inviteToken}}",
+                    "request"
+                  ]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 409,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"sharing\",\n    \"code\": \"MEMBER_ALREADY_EXISTS\",\n    \"message\": \"This person already has access to the portfolio.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List access requests",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "access-requests"
+              ]
+            },
+            "description": "Requires portfolio **owner**. Pending requests with who asked."
+          },
+          "response": [
+            {
+              "name": "200 · Pending requests",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "access-requests"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"95718fa3-dd7e-53f4-9596-185908701e49\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"user_id\": \"70388ce3-e25e-528e-b02d-2b11e961482c\",\n      \"role\": \"viewer\",\n      \"status\": \"pending\",\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"user\": {\n        \"id\": \"70388ce3-e25e-528e-b02d-2b11e961482c\",\n        \"email\": \"alan@example.com\",\n        \"first_name\": \"Ada\",\n        \"last_name\": \"Lovelace\",\n        \"phone_number\": \"8012345678\",\n        \"phone_country_code\": \"+234\",\n        \"avatar_url\": null,\n        \"date_of_birth\": null,\n        \"settings\": {},\n        \"is_email_verified\": true,\n        \"is_onboarded\": true,\n        \"portfolio_count\": 0,\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n        \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    }\n  ],\n  \"message\": \"access requests\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Approve access request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests/{{requestID}}/approve",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "access-requests",
+                "{{requestID}}",
+                "approve"
+              ]
+            },
+            "description": "Requires portfolio **owner**. Body optional: `role` (default the link's), `sections` (default everything but `vault`). The person gets an email.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sections\": [\n    \"dashboard\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Approved (returns the new member)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests/{{requestID}}/approve",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "access-requests",
+                    "{{requestID}}",
+                    "approve"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sections\": [\n    \"dashboard\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"1a4a7faf-3c36-5da2-b306-9a3b086ea006\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"user_id\": \"70388ce3-e25e-528e-b02d-2b11e961482c\",\n    \"role\": \"viewer\",\n    \"status\": \"active\",\n    \"invited_by\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"joined_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"sections\": [\n      \"dashboard\"\n    ],\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"access approved\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "403 · Approved member opening a section they don't have",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests/{{requestID}}/approve",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "access-requests",
+                    "{{requestID}}",
+                    "approve"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sections\": [\n    \"dashboard\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"middleware\",\n    \"code\": \"SECTION_NOT_ALLOWED\",\n    \"message\": \"You don't have access to this part of the portfolio.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Decline access request",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests/{{requestID}}/decline",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "access-requests",
+                "{{requestID}}",
+                "decline"
+              ]
+            },
+            "description": "Requires portfolio **owner**."
+          },
+          "response": [
+            {
+              "name": "200 · Declined",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/access-requests/{{requestID}}/decline",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "access-requests",
+                    "{{requestID}}",
+                    "decline"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"invite link turned off\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Create public link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/public-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "public-link"
+              ]
+            },
+            "description": "Requires portfolio **owner**. Read-only link (`url` → `APP_BASE_URL/share/<token>`) showing `sections` (any but `vault`). Replaces the old link. 403 `PUBLIC_LINKS_DISABLED` while viewers must sign up.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sections\": [\n    \"dashboard\",\n    \"assets\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "201 · Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/public-link",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "public-link"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sections\": [\n    \"dashboard\",\n    \"assets\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"token\": \"9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a\",\n    \"sections\": [\n      \"dashboard\",\n      \"assets\"\n    ],\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"url\": \"http://localhost:5173/share/9d8c7b6a5f4e3d2c1b0a9f8e7d6c5b4a\"\n  },\n  \"message\": \"public link created\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · Vault can't be public",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/public-link",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "public-link"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"sections\": [\n    \"dashboard\",\n    \"vault\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"sharing\",\n    \"code\": \"INVALID_REQUEST\",\n    \"message\": \"The request is missing required fields or contains invalid data. Please check and try again.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Turn off public link",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/public-link",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "public-link"
+              ]
+            },
+            "description": "Requires portfolio **owner**."
+          },
+          "response": [
+            {
+              "name": "200 · Off",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/public-link",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "public-link"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"public link turned off\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Open public link",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/public/{{publicToken}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "public",
+                "{{publicToken}}"
+              ]
+            },
+            "description": "No auth. The chosen sections, read-only: `dashboard` (1Y), `assets`, `debts`, `projections` (+ a 10-year chart each). Sections not chosen are absent.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Dashboard and assets (chart trimmed)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/public/{{publicToken}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "public",
+                    "{{publicToken}}"
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"portfolio_name\": \"Family\",\n    \"image_url\": null,\n    \"currency\": \"USD\",\n    \"sections\": [\n      \"dashboard\",\n      \"assets\"\n    ],\n    \"dashboard\": {\n      \"data_status\": \"ready\",\n      \"net_worth\": {\n        \"total\": 550000,\n        \"assets\": 550000,\n        \"debts\": 0,\n        \"currency\": \"USD\",\n        \"change_amount\": 100000,\n        \"change_pct\": 22.22\n      },\n      \"net_worth_by_currency\": [\n        {\n          \"currency\": \"USD\",\n          \"assets\": 550000,\n          \"debts\": 0,\n          \"net\": 550000,\n          \"assets_converted\": 550000,\n          \"debts_converted\": 0,\n          \"net_converted\": 550000,\n          \"pct\": 100\n        }\n      ],\n      \"chart\": {\n        \"period\": \"1Y\",\n        \"granularity\": \"daily\",\n        \"points\": [\n          {\n            \"date\": \"2025-11-17\",\n            \"value\": 450000\n          },\n          {\n            \"date\": \"2025-11-18\",\n            \"value\": 450000\n          },\n          {\n            \"date\": \"2026-11-16\",\n            \"value\": 450000\n          },\n          {\n            \"date\": \"2026-11-17\",\n            \"value\": 550000\n          }\n        ]\n      },\n      \"allocation\": {\n        \"assets\": [\n          {\n            \"key\": \"real_estate\",\n            \"label\": \"real_estate\",\n            \"value\": 550000,\n            \"pct\": 100,\n            \"count\": 1\n          }\n        ],\n        \"debts\": [],\n        \"by_type\": [\n          {\n            \"key\": \"real_estate\",\n            \"label\": \"real_estate\",\n            \"value\": 550000,\n            \"pct\": 100,\n            \"count\": 1\n          }\n        ],\n        \"by_currency\": [\n          {\n            \"key\": \"USD\",\n            \"label\": \"USD\",\n            \"value\": 550000,\n            \"pct\": 100,\n            \"count\": 1\n          }\n        ],\n        \"by_folder\": [\n          {\n            \"key\": \"91847edb-183c-5c07-a213-d85b9df0a789\",\n            \"label\": \"General\",\n            \"value\": 550000,\n            \"pct\": 100,\n            \"count\": 1\n          }\n        ]\n      },\n      \"top_movers\": {\n        \"window\": \"month\",\n        \"gainers\": [],\n        \"losers\": []\n      },\n      \"debts\": [],\n      \"debt_summary\": {\n        \"currency\": \"USD\",\n        \"count\": 0,\n        \"total\": 0,\n        \"change_amount_1m\": null,\n        \"change_pct_1m\": null,\n        \"scheduled_total\": 0,\n        \"unscheduled_total\": 0,\n        \"monthly_payments\": 0,\n        \"interest_paid_ytd\": 0,\n        \"debt_free_date\": null\n      },\n      \"last_synced_at\": \"2026-11-17T09:14:22.481203Z\"\n    },\n    \"assets\": [\n      {\n        \"id\": \"0c84b85e-674d-50a1-b744-c297368517ee\",\n        \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n        \"folder_id\": \"91847edb-183c-5c07-a213-d85b9df0a789\",\n        \"name\": \"123 Main Street\",\n        \"asset_type\": \"real_estate\",\n        \"ticker\": \"\",\n        \"quantity\": 1,\n        \"purchase_price\": 450000,\n        \"current_price\": 550000,\n        \"currency\": \"USD\",\n        \"ownership_pct\": 100,\n        \"investability\": \"non_investable\",\n        \"asset_class\": \"real_estate\",\n        \"subtype\": \"\",\n        \"country\": \"\",\n        \"logo_url\": \"\",\n        \"total_cash_in\": 0,\n        \"total_cash_out\": 0,\n        \"location\": \"\",\n        \"last_price_sync\": null,\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n        \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n        \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n        \"investability_editable\": false,\n        \"total_value\": 550000,\n        \"owned_value\": 550000,\n        \"owned_value_converted\": 550000,\n        \"total_cash_in_converted\": 0,\n        \"total_cash_out_converted\": 0,\n        \"converted_currency\": \"USD\",\n        \"exchange_rate\": 1,\n        \"invested\": 450000,\n        \"gain\": 100000,\n        \"gain_pct\": 22.22,\n        \"change_amount_1m\": null,\n        \"change_pct_1m\": null\n      }\n    ]\n  },\n  \"message\": \"public portfolio\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "403 · Owner requires viewers to sign up",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/public/{{publicToken}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "public",
+                    "{{publicToken}}"
+                  ]
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"sharing\",\n    \"code\": \"PUBLIC_LINKS_DISABLED\",\n    \"message\": \"Public links are turned off for this portfolio. Viewers need a Silo account.\"\n  }\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Who can see a portfolio, and how they get in. The app calls the `editor` role **Partner**.\n\n- **Email invite** (Portfolios → Invite member): the person shows as `invited` and sees nothing until they accept (**My invites** → **Accept invite**). People without an account sign up first with that email.\n- **Invite link**: anyone with it can ask to join; an owner approves or declines.\n- **Sections**: a member opens only their `sections` (`dashboard`, `insights`, `assets`, `debts`, `vault`, `projections`); default everything but `vault`. Owners open everything. Others get 403 `SECTION_NOT_ALLOWED`.\n- **Public link**: read-only, chosen sections (never the vault), no account needed. Off while the owner's `settings.security.viewers_must_sign_up` is true (403 `PUBLIC_LINKS_DISABLED`).\n\nOwner-only: change members, resend, invite link, access requests, public link."
     }
   ]
 }
