@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GET /debts/overview`: total, 1-month change, scheduled / unscheduled totals, monthly payments, interest paid this year, debt-free date
 - Debts: `icon`, `metadata`, `owned_balance_converted`, `monthly_payment`, 1-month change; updates take `owned_balance`, `balance_date`, `balance_note`
 - Dashboard: periods `1D`, `1M`, `3M`, `YTD`, `1Y`, `ALL`; `?movers=today|week|month`; `net_worth_by_currency`; allocation `by_type`, `by_currency`, `by_folder`; `debt_summary`
+- Projections: `value_change` rule (category growth for investable assets, stocks, non-investable assets, debts); a projected `cash` line and `net_worth_with_cash`; scenario `color`; `warnings`
+- Every new portfolio gets the default "Scenario A"; existing portfolios without a scenario get it too
+- Users: `date_of_birth` (for "until age" income) and `settings` (merged on PATCH, e.g. `projections_intro_seen`)
 
 ### Changed
 
@@ -52,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An unknown dashboard period is `400 INVALID_PERIOD` instead of silently returning 1M
 - Asset and debt create/update responses carry lots and converted fields (they were zero)
 - The amortization schedule starts today from the current balance, allows 0% loans, and handles `biannual`
+- The projection engine was rewritten (one engine for compute and chart, tested against hand-worked numbers). Rates compound per their frequency and amounts are spread by it; growth rules apply only to what they target, most specific first; debt and fee rules apply only to their debt or asset; income and expenses go through cash and debt payments come from it; debt-free goals and target values move gradually; starting values are in the base currency; inflation raises expenses only
+- `/chart` returns monthly points for any horizon, with `change_amount` / `change_pct` from today
+- Projection rules are checked on save (`400 INVALID_RULE_CONFIG`)
+- Creating a scenario no longer imports fixed-amount autopilot buys as income
 
 ### Fixed
 

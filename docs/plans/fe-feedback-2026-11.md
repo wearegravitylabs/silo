@@ -119,6 +119,31 @@ Most of the dashboard, asset and debt items share one root cause: **nothing is c
 
 ## Phase 2: Rebuild the projections engine (silo)
 
+> **Status (2026-11-17): done in silo, not yet committed.** The engine is one shared, pure function with 17
+> tests checked by hand; the live run passes 21/21, and Phase 0 (28/28) and Phase 1 (45/45) still pass.
+>
+> **Decided:**
+> - Inflation raises expenses only.
+> - When growth rules overlap, the most specific one wins: asset, then type, then category, then portfolio.
+> - Debts change only through rules.
+> - Projected cash can go below 0.
+>
+> **Also done:**
+> - Date of birth on the user, so "until age" works. Without it, the chart returns the warning
+>   `date_of_birth_missing`.
+> - A user `settings` object that PATCH merges into (used for `projections_intro_seen`). Phase 4 can store
+>   the other preferences there too.
+>
+> **For the FE:**
+> - They can drop the client-side "seed Scenario A" code, since the API now creates it.
+> - The `color:` prefix kept in `description` has been moved into the new `color` field.
+> - Rule writes return the rule now, so the `PORTFOLIO_NOT_FOUND` workaround can go.
+> - Every rule type and its config keys are listed in the Postman Projections folder.
+>
+> **Export (PDF/JPEG):** left to the FE, which can draw it from `/chart`.
+>
+> **silo-cloud:** nothing new to wire. The `Projection` interface is unchanged.
+
 The problems are all in one engine, so it is cleaner to rewrite the monthly loop than to patch it piece by piece.
 
 **Wrong maths**
