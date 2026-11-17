@@ -26,6 +26,14 @@ type AssetValueHistory struct {
 	Currency   currency.Code      `gorm:"not null;default:'USD'"                           json:"currency"`
 	Source     ValueHistorySource `gorm:"not null;default:'manual'"                        json:"source"`
 	RecordedAt time.Time          `gorm:"not null"                                         json:"recorded_at"`
+
+	// ── Computed for the API (not stored) ──
+	// OwnedValueConverted is the owned share in the portfolio's base currency.
+	OwnedValueConverted float64       `gorm:"-" json:"owned_value_converted"`
+	ConvertedCurrency   currency.Code `gorm:"-" json:"converted_currency"`
+	// ChangeAmount / ChangePct compare with the previous entry (null on the first).
+	ChangeAmount *float64 `gorm:"-" json:"change_amount"`
+	ChangePct    *float64 `gorm:"-" json:"change_pct"`
 }
 
 // TableName pins the table name; GORM would otherwise look for

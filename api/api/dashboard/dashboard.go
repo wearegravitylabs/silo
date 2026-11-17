@@ -35,7 +35,8 @@ func (h *handler) get(c *gin.Context) {
 
 	period := c.DefaultQuery("period", "1M")
 
-	result, err := h.svc.Get(c.Request.Context(), portfolioID, callerID, period)
+	result, err := h.svc.Get(c.Request.Context(), portfolioID, callerID, period,
+		appDashboard.Options{MoversWindow: c.Query("movers")})
 	if err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return

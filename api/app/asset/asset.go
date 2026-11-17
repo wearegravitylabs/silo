@@ -4,8 +4,10 @@ package asset
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/wearegravitylabs/silo/api/app"
+	"github.com/wearegravitylabs/silo/api/app/fx"
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
 	"github.com/wearegravitylabs/silo/api/pkg/assetclass"
@@ -55,6 +58,9 @@ type Asset interface {
 	ListLots(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetLot, error)
 	// DeleteLot removes a lot and updates the asset's total quantity.
 	DeleteLot(ctx context.Context, assetID, callerID, lotID uuid.UUID) error
+	// Sell removes sold units from the oldest lots first, records the money as
+	// a sale_proceeds cash flow and the remaining value on the sale date.
+	Sell(ctx context.Context, assetID uuid.UUID, req model.SellAssetRequest) (model.SellAssetResult, error)
 	// RefreshAllPrices updates the current price of every stock_ticker asset in
 	// every portfolio from the market data provider and records a value-history
 	// point for each. Run daily by the scheduler; a no-op without a provider.
@@ -295,12 +301,15 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 			lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
 
 			// Backfill a history entry per lot at the acquisition date, so the
-			// value chart shows the asset's cost basis going back to purchase.
+			// value chart goes back to purchase: everything held that day,
+			// valued at that lot's price.
+			var held float64
 			for _, lot := range lots {
+				held += lot.Quantity
 				if lot.AcquisitionPrice != nil && *lot.AcquisitionPrice > 0 {
 					entry := model.AssetValueHistory{
 						AssetID:    asset.ID,
-						Value:      *lot.AcquisitionPrice * lot.Quantity,
+						Value:      *lot.AcquisitionPrice * held,
 						Currency:   asset.Currency,
 						Source:     model.SourceManual,
 						RecordedAt: lot.AcquisitionDate,
@@ -338,10 +347,7 @@ func (s *service) Create(ctx context.Context, portfolioID, callerID uuid.UUID, r
 		log.Error().Err(err).Msg("failed to fetch asset after creation")
 		return model.Asset{}, err
 	}
-	lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
-	result.Lots = lots
-	enrich(&result)
-	return result, nil
+	return s.present(ctx, result)
 }
 
 // upsertStockAsset creates a stock asset row or returns the ID of an existing one
@@ -606,6 +612,129 @@ func (s *service) addLotInternal(
 	return s.dp.AssetLotStore.CreateLot(ctx, lot)
 }
 
+// Sell removes sold units from the asset's lots, oldest first (FIFO).
+func (s *service) Sell(ctx context.Context, assetID uuid.UUID, req model.SellAssetRequest) (model.SellAssetResult, error) {
+	log := siloLogger.FromCtx(ctx).With().
+		Str(siloLogger.LogStrKeyMethod, "asset.Sell").
+		Str("asset_id", assetID.String()).
+		Logger()
+
+	at, err := pastOrToday(&req.Date)
+	if err != nil {
+		return model.SellAssetResult{}, err
+	}
+	a, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+	if err != nil {
+		return model.SellAssetResult{}, err
+	}
+	lots, err := s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
+	if err != nil {
+		return model.SellAssetResult{}, err
+	}
+	var held float64
+	for _, l := range lots {
+		held += l.Quantity
+	}
+	// Small tolerance so selling "everything" never fails on float rounding.
+	if req.Quantity > held+1e-9 {
+		return model.SellAssetResult{}, siloErrors.ErrSellExceedsHolding
+	}
+
+	price, err := s.salePrice(ctx, a, req)
+	if err != nil {
+		return model.SellAssetResult{}, err
+	}
+
+	// Take the units from the oldest lots first.
+	left, cost := req.Quantity, 0.0
+	for _, l := range lots {
+		if left <= 1e-9 {
+			break
+		}
+		take := math.Min(l.Quantity, left)
+		if l.AcquisitionPrice != nil {
+			cost += take * *l.AcquisitionPrice
+		}
+		if l.Quantity-take <= 1e-9 {
+			err = s.dp.AssetLotStore.DeleteLot(ctx, l.ID)
+		} else {
+			err = s.dp.AssetLotStore.UpdateLotQuantity(ctx, l.ID, l.Quantity-take)
+		}
+		if err != nil {
+			log.Error().Err(err).Msg("failed to reduce lot")
+			return model.SellAssetResult{}, err
+		}
+		left -= take
+	}
+	if err := s.syncQuantity(ctx, assetID); err != nil {
+		return model.SellAssetResult{}, err
+	}
+
+	proceeds := round2(req.Quantity * price)
+	notes := req.Notes
+	if notes == "" {
+		notes = fmt.Sprintf("Sold %s units", strconv.FormatFloat(req.Quantity, 'f', -1, 64))
+	}
+	if _, err := s.dp.AssetCashFlowStore.CreateCashFlow(ctx, model.AssetCashFlow{
+		AssetID:  assetID,
+		FlowType: model.CashFlowIn,
+		Category: model.CategorySaleProceeds,
+		Amount:   proceeds,
+		Currency: a.Currency,
+		FlowDate: model.StartOfDay(at),
+		Notes:    notes,
+	}); err != nil {
+		log.Error().Err(err).Msg("failed to record sale proceeds")
+		return model.SellAssetResult{}, err
+	}
+
+	// What is left, valued at the sale price on the sale date.
+	updated, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+	if err != nil {
+		return model.SellAssetResult{}, err
+	}
+	if s.isNewest(ctx, assetID, at) && updated.CurrentPrice != price {
+		updated.CurrentPrice = price
+		if updated, err = s.dp.AssetStore.UpdateAsset(ctx, updated); err != nil {
+			return model.SellAssetResult{}, err
+		}
+	}
+	s.recordValueAt(ctx, updated, price, at)
+
+	presented, err := s.present(ctx, updated)
+	if err != nil {
+		return model.SellAssetResult{}, err
+	}
+	log.Info().Float64("quantity", req.Quantity).Msg("asset units sold")
+	return model.SellAssetResult{
+		Asset:        presented,
+		Proceeds:     proceeds,
+		CostOfSold:   round2(cost),
+		RealizedGain: round2(proceeds - cost),
+		Currency:     a.Currency,
+	}, nil
+}
+
+// salePrice is the price per unit of a sale: the one sent, or for a
+// stock_ticker the market price on the sale date.
+func (s *service) salePrice(ctx context.Context, a model.Asset, req model.SellAssetRequest) (float64, error) {
+	if req.Price != nil {
+		if *req.Price < 0 {
+			return 0, siloErrors.ErrInvalidRequest
+		}
+		return *req.Price, nil
+	}
+	if a.AssetType != model.AssetTypeStockTicker || s.dp.Stocks == nil {
+		return 0, siloErrors.ErrAcquisitionPriceRequired
+	}
+	price, _, err := s.stockLotPrice(ctx, stocks.CountryOrDefault(a.Country), a.Ticker,
+		model.CreateLotRequest{Quantity: req.Quantity, AcquisitionDate: req.Date})
+	if err != nil {
+		return 0, err
+	}
+	return *price, nil
+}
+
 // ListLots returns all lots for an asset.
 func (s *service) ListLots(ctx context.Context, assetID, callerID uuid.UUID) ([]model.AssetLot, error) {
 	return s.dp.AssetLotStore.ListLotsByAsset(ctx, assetID)
@@ -663,22 +792,23 @@ func (s *service) GetByID(ctx context.Context, id, callerID uuid.UUID) (model.As
 		log.Error().Err(err).Msg("failed to fetch asset")
 		return model.Asset{}, err
 	}
+	return s.present(ctx, a)
+}
 
-	lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, id)
-	a.Lots = lots
-	enrich(&a)
-
-	// Fetch portfolio base_currency for FX conversion.
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, a.PortfolioID, callerID)
+// present returns one asset as the API shows it: with its lots, converted to
+// the portfolio's base currency, and with gain and 1-month change filled in.
+func (s *service) present(ctx context.Context, a model.Asset) (model.Asset, error) {
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, a.PortfolioID)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to fetch portfolio for FX conversion")
-		// Non-fatal — return asset without conversion.
-		return a, nil
+		return model.Asset{}, err
 	}
-
-	rateMap := s.fetchRateMap(ctx, []currency.Code{a.Currency}, portfolio.BaseCurrency)
-	enrichWithFX(&a, portfolio.BaseCurrency, rateMap)
-	return a, nil
+	list := []model.Asset{a}
+	if err := s.enrichAll(ctx, list, fx.New(s.dp, portfolio.BaseCurrency)); err != nil {
+		return model.Asset{}, err
+	}
+	lots, _ := s.dp.AssetLotStore.ListLotsByAsset(ctx, a.ID)
+	list[0].Lots = lots
+	return list[0], nil
 }
 
 // ListByPortfolio returns assets for a portfolio with FX conversion applied.
@@ -688,8 +818,7 @@ func (s *service) ListByPortfolio(ctx context.Context, portfolioID, callerID uui
 		Str("portfolio_id", portfolioID.String()).
 		Logger()
 
-	// Fetch portfolio for base_currency.
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, callerID)
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, portfolioID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to fetch portfolio for FX conversion")
 		return nil, err
@@ -700,72 +829,76 @@ func (s *service) ListByPortfolio(ctx context.Context, portfolioID, callerID uui
 		log.Error().Err(err).Msg("failed to list assets")
 		return nil, err
 	}
-
-	// Collect unique native currencies and batch-fetch FX rates.
-	nativeCurrencies := make([]currency.Code, 0, len(assets))
-	seen := map[currency.Code]bool{}
-	for _, a := range assets {
-		if !seen[a.Currency] {
-			nativeCurrencies = append(nativeCurrencies, a.Currency)
-			seen[a.Currency] = true
-		}
-	}
-	rateMap := s.fetchRateMap(ctx, nativeCurrencies, portfolio.BaseCurrency)
-
-	for i := range assets {
-		enrich(&assets[i])
-		enrichWithFX(&assets[i], portfolio.BaseCurrency, rateMap)
+	if err := s.enrichAll(ctx, assets, fx.New(s.dp, portfolio.BaseCurrency)); err != nil {
+		return nil, err
 	}
 	return assets, nil
 }
 
-// fetchRateMap concurrently fetches FX rates for all provided native currencies
-// to the target currency. Returns a map keyed as "FROM:TO".
-func (s *service) fetchRateMap(ctx context.Context, from []currency.Code, to currency.Code) map[string]float64 {
-	log := siloLogger.FromCtx(ctx)
-	rateMap := make(map[string]float64, len(from))
+// EnrichAll fills the computed fields on assets loaded straight from the
+// store (see enrichAll). The dashboard uses it so both show the same numbers.
+func EnrichAll(ctx context.Context, dp app.Dependency, assets []model.Asset, conv *fx.Converter) error {
+	return (&service{dp: dp}).enrichAll(ctx, assets, conv)
+}
 
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	for _, f := range from {
-		if strings.EqualFold(f, to) {
-			rateMap[f+":"+to] = 1.0
-			continue
-		}
-		wg.Add(1)
-		go func(fromCur currency.Code) {
-			defer wg.Done()
-			// Prefer the daily-cached rate (app/exchangerate) — no external call
-			// on the request path. Fall back to a live lookup if the cache has
-			// nothing for this pair yet (e.g. before the first refresh), then to
-			// 1.0 if even that fails, same as the old behavior.
-			rate, err := s.dp.ExchangeRateStore.GetRate(ctx, fromCur, to)
-			if err != nil {
-				rate, err = s.dp.StockMarket.GetExchangeRate(ctx, fromCur, to)
-			}
-			if err != nil {
-				log.Warn().Err(err).
-					Str("from", fromCur).Str("to", to).
-					Msg("FX rate lookup failed — falling back to 1.0")
-				rate = 1.0
-			}
-			mu.Lock()
-			rateMap[fromCur+":"+to] = rate
-			mu.Unlock()
-		}(f)
+// enrichAll fills every computed field on the assets in place: values, the
+// base-currency conversion, invested / gain, and the 1-month change. Lots and
+// history are loaded in two queries for the whole list.
+func (s *service) enrichAll(ctx context.Context, assets []model.Asset, conv *fx.Converter) error {
+	ids := make([]uuid.UUID, len(assets))
+	for i := range assets {
+		ids[i] = assets[i].ID
 	}
-	wg.Wait()
-	return rateMap
+	lotsByAsset, err := s.dp.AssetLotStore.ListLotsByAssets(ctx, ids)
+	if err != nil {
+		return err
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -30)
+	monthAgo, err := s.dp.AssetValueHistStore.LatestBefore(ctx, ids, cutoff)
+	if err != nil {
+		return err
+	}
+
+	for i := range assets {
+		a := &assets[i]
+		enrich(a)
+		rate := conv.Rate(ctx, a.Currency)
+		enrichWithFX(a, conv.To(), rate)
+
+		if invested, ok := costBasis(lotsByAsset[a.ID]); ok {
+			owned := round2(invested * a.OwnershipPct / 100 * rate)
+			gain := round2(a.OwnedValueConverted - owned)
+			a.Invested, a.Gain = &owned, &gain
+			a.GainPct = fx.ChangePct(owned, a.OwnedValueConverted)
+		}
+		// Only for assets already in Silo 30 days ago: one added since only
+		// has its purchase price from back then, and the jump from that to
+		// today's value isn't a change "this month".
+		if old, ok := monthAgo[a.ID]; ok && a.CreatedAt.Before(cutoff) {
+			then := round2(old.Value * a.OwnershipPct / 100 * rate)
+			change := round2(a.OwnedValueConverted - then)
+			a.ChangeAmount1M = &change
+			a.ChangePct1M = fx.ChangePct(then, a.OwnedValueConverted)
+		}
+	}
+	return nil
+}
+
+// costBasis is what the lots cost in the asset's currency (whole asset, not
+// the owned share). ok is false when no lot has a price.
+func costBasis(lots []model.AssetLot) (cost float64, ok bool) {
+	for _, l := range lots {
+		if l.AcquisitionPrice != nil && *l.AcquisitionPrice > 0 {
+			cost += l.Quantity * *l.AcquisitionPrice
+			ok = true
+		}
+	}
+	return cost, ok
 }
 
 // enrichWithFX populates the FX conversion fields on an asset.
-func enrichWithFX(a *model.Asset, baseCurrency currency.Code, rateMap map[string]float64) {
-	rate := rateMap[a.Currency+":"+baseCurrency]
-	if rate == 0 {
-		rate = 1.0 // fallback: show in native currency
-	}
-	a.OwnedValueConverted = a.OwnedValue * rate
+func enrichWithFX(a *model.Asset, baseCurrency currency.Code, rate float64) {
+	a.OwnedValueConverted = round2(a.OwnedValue * rate)
 	a.TotalCashInConverted = round2(a.TotalCashIn * rate)
 	a.TotalCashOutConverted = round2(a.TotalCashOut * rate)
 	a.ConvertedCurrency = baseCurrency
@@ -781,42 +914,28 @@ func (s *service) Overview(ctx context.Context, portfolioID, callerID uuid.UUID)
 		Str("portfolio_id", portfolioID.String()).
 		Logger()
 
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, callerID)
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, portfolioID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to fetch portfolio for overview")
 		return model.AssetOverview{}, err
 	}
-	baseCurrency := portfolio.BaseCurrency
 
 	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID, model.ListAssetsFilter{})
 	if err != nil {
 		log.Error().Err(err).Msg("failed to list assets for overview")
 		return model.AssetOverview{}, err
 	}
+	if err := s.enrichAll(ctx, assets, fx.New(s.dp, portfolio.BaseCurrency)); err != nil {
+		return model.AssetOverview{}, err
+	}
 
-	// Collect unique native currencies and batch-fetch FX rates once.
-	nativeCurrencies := uniqueCurrencies(assets)
-	rateMap := s.fetchRateMap(ctx, nativeCurrencies, baseCurrency)
-
-	// Enrich assets and aggregate buckets.
 	var (
-		totalValue    float64
-		investable    float64
-		nonInvestable float64
-		investCount   int
-		nonInvCount   int
+		totalValue, investable, nonInvestable float64
+		investCount, nonInvCount              int
+		monthAgo                              float64
 	)
-
-	cutoff := time.Now().UTC().AddDate(0, 0, -30)
-	var historical30d float64
-
-	for i := range assets {
-		enrich(&assets[i])
-		enrichWithFX(&assets[i], baseCurrency, rateMap)
-		a := &assets[i]
-
+	for _, a := range assets {
 		totalValue += a.OwnedValueConverted
-
 		switch a.Investability {
 		case model.InvestabilityCash, model.InvestabilityInvestable:
 			investable += a.OwnedValueConverted
@@ -825,83 +944,28 @@ func (s *service) Overview(ctx context.Context, portfolioID, callerID uuid.UUID)
 			nonInvestable += a.OwnedValueConverted
 			nonInvCount++
 		}
-
-		// Historical value for 30d growth.
-		historical30d += s.historicalValue(ctx, a, cutoff, rateMap)
+		// An asset added in the last 30 days counts as unchanged, so adding
+		// something isn't shown as growth.
+		if a.ChangeAmount1M != nil {
+			monthAgo += a.OwnedValueConverted - *a.ChangeAmount1M
+		} else {
+			monthAgo += a.OwnedValueConverted
+		}
 	}
 
-	growth := totalValue - historical30d
+	growth := totalValue - monthAgo
 	var growthPct float64
-	if historical30d > 0 {
-		growthPct = (growth / historical30d) * 100
+	if monthAgo > 0 {
+		growthPct = growth / monthAgo * 100
 	}
 
 	return model.AssetOverview{
-		Currency: baseCurrency,
-		TotalAssets: model.OverviewBucket{
-			Value: round2(totalValue),
-			Count: len(assets),
-		},
-		Growth30d: model.OverviewGrowth{
-			Amount:     round2(growth),
-			Percentage: round2(growthPct),
-		},
-		Investable: model.OverviewBucket{
-			Value: round2(investable),
-			Count: investCount,
-		},
-		NonInvestable: model.OverviewBucket{
-			Value: round2(nonInvestable),
-			Count: nonInvCount,
-		},
+		Currency:      portfolio.BaseCurrency,
+		TotalAssets:   model.OverviewBucket{Value: round2(totalValue), Count: len(assets)},
+		Growth30d:     model.OverviewGrowth{Amount: round2(growth), Percentage: round2(growthPct)},
+		Investable:    model.OverviewBucket{Value: round2(investable), Count: investCount},
+		NonInvestable: model.OverviewBucket{Value: round2(nonInvestable), Count: nonInvCount},
 	}, nil
-}
-
-// historicalValue returns the best estimate of an asset's owned_value 30 days ago,
-// converted to the display currency using today's FX rates.
-// Priority: (1) asset_value_history, (2) cost basis from lots, (3) 0.
-func (s *service) historicalValue(ctx context.Context, a *model.Asset, before time.Time, rateMap map[string]float64) float64 {
-	// Try value history first.
-	hist, err := s.dp.AssetValueHistStore.LatestByAssetBefore(ctx, a.ID, before)
-	if err == nil {
-		ownedNative := hist.Value * (a.OwnershipPct / 100.0)
-		rate := rateMap[a.Currency+":"+a.ConvertedCurrency]
-		if rate == 0 {
-			rate = 1.0
-		}
-		return ownedNative * rate
-	}
-
-	// Fall back to cost basis (total acquisition cost from lots).
-	lots, err := s.dp.AssetLotStore.ListLotsByAsset(ctx, a.ID)
-	if err != nil || len(lots) == 0 {
-		return 0
-	}
-	var costBasis float64
-	for _, lot := range lots {
-		if lot.AcquisitionPrice != nil {
-			costBasis += lot.Quantity * *lot.AcquisitionPrice
-		}
-	}
-	ownedCostBasis := costBasis * (a.OwnershipPct / 100.0)
-	rate := rateMap[a.Currency+":"+a.ConvertedCurrency]
-	if rate == 0 {
-		rate = 1.0
-	}
-	return ownedCostBasis * rate
-}
-
-// uniqueCurrencies extracts the set of distinct currency codes from a slice of assets.
-func uniqueCurrencies(assets []model.Asset) []currency.Code {
-	seen := map[currency.Code]bool{}
-	out := make([]currency.Code, 0)
-	for _, a := range assets {
-		if !seen[a.Currency] {
-			out = append(out, a.Currency)
-			seen[a.Currency] = true
-		}
-	}
-	return out
 }
 
 // round2 rounds a float64 to 2 decimal places.
@@ -931,12 +995,29 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 	if req.Name != nil {
 		a.Name = *req.Name
 	}
-	priceChanged := req.CurrentPrice != nil && *req.CurrentPrice != a.CurrentPrice
-	if req.CurrentPrice != nil {
-		a.CurrentPrice = *req.CurrentPrice
-	}
 	if req.OwnershipPct != nil {
 		a.OwnershipPct = *req.OwnershipPct
+	}
+
+	// A new price comes either as a price per unit (current_price) or as the
+	// owned share's value in the base currency (owned_value), never both.
+	newPrice, err := s.priceFromRequest(ctx, a, req)
+	if err != nil {
+		return model.Asset{}, err
+	}
+	priceAt, err := pastOrToday(req.PriceDate)
+	if err != nil {
+		return model.Asset{}, err
+	}
+	if req.PriceDate != nil && newPrice == nil {
+		return model.Asset{}, siloErrors.ErrInvalidRequest
+	}
+	// A back-dated price only fills in history; current_price follows the
+	// newest value.
+	priceChanged := false
+	if newPrice != nil && s.isNewest(ctx, a.ID, priceAt) {
+		priceChanged = *newPrice != a.CurrentPrice
+		a.CurrentPrice = *newPrice
 	}
 	if req.Location != nil {
 		a.Location = *req.Location
@@ -954,13 +1035,53 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 		return model.Asset{}, err
 	}
 
-	// Auto-record a value history entry whenever the user manually changes the price.
-	if priceChanged {
-		s.recordValueHistory(ctx, updated, model.SourceManual)
+	// Record the value whenever a price was sent with a date, or the price changed.
+	if newPrice != nil && (req.PriceDate != nil || priceChanged) {
+		s.recordValueAt(ctx, updated, *newPrice, priceAt)
 	}
 
-	enrich(&updated)
-	return updated, nil
+	return s.present(ctx, updated)
+}
+
+// priceFromRequest returns the new price per unit an update asks for, or nil.
+func (s *service) priceFromRequest(ctx context.Context, a model.Asset, req model.UpdateAssetRequest) (*float64, error) {
+	switch {
+	case req.CurrentPrice != nil && req.OwnedValue != nil:
+		return nil, siloErrors.ErrInvalidRequest
+	case req.CurrentPrice != nil:
+		return req.CurrentPrice, nil
+	case req.OwnedValue != nil:
+		if a.Quantity <= 0 || a.OwnershipPct <= 0 || *req.OwnedValue < 0 {
+			return nil, siloErrors.ErrInvalidRequest
+		}
+		portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, a.PortfolioID)
+		if err != nil {
+			return nil, err
+		}
+		rate := fx.New(s.dp, portfolio.BaseCurrency).Rate(ctx, a.Currency)
+		price := *req.OwnedValue / rate / (a.OwnershipPct / 100) / a.Quantity
+		return &price, nil
+	}
+	return nil, nil
+}
+
+// isNewest reports whether a value dated at is at least as new as the asset's
+// latest value-history entry (so it should become the current price).
+func (s *service) isNewest(ctx context.Context, assetID uuid.UUID, at time.Time) bool {
+	latest, err := s.dp.AssetValueHistStore.LatestByAsset(ctx, assetID)
+	if err != nil {
+		return true
+	}
+	return !at.Before(model.StartOfDay(latest.RecordedAt))
+}
+
+// pastOrToday is model.RecordTime with a future date refused.
+func pastOrToday(d *model.DateOnly) (time.Time, error) {
+	t, ok := model.RecordTime(d)
+	if !ok {
+		return time.Time{}, siloErrors.ErrDateInFuture
+	}
+	return t, nil
 }
 
 // Delete soft-deletes an asset.
@@ -1190,8 +1311,40 @@ func (s *service) DeleteCashFlow(ctx context.Context, assetID, callerID, flowID 
 // ─── Value history ────────────────────────────────────────────────────────────
 
 // ListValueHistory returns per-asset value snapshots within the time range.
+// Each entry also carries the owned share in the portfolio's base currency and
+// the change from the entry before it.
 func (s *service) ListValueHistory(ctx context.Context, assetID, callerID uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error) {
-	return s.dp.AssetValueHistStore.ListByAsset(ctx, assetID, from, to)
+	a, err := s.dp.AssetStore.GetAssetByID(ctx, assetID)
+	if err != nil {
+		return nil, err
+	}
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, a.PortfolioID)
+	if err != nil {
+		return nil, err
+	}
+	entries, err := s.dp.AssetValueHistStore.ListByAsset(ctx, assetID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
+	conv := fx.New(s.dp, portfolio.BaseCurrency)
+	// The entry just before the range, so the first point in it has a change too.
+	prev, hasPrev := 0.0, false
+	if before, err := s.dp.AssetValueHistStore.LatestByAssetBefore(ctx, assetID, from.Add(-time.Nanosecond)); err == nil {
+		prev, hasPrev = round2(conv.Convert(ctx, before.Value, before.Currency)*a.OwnershipPct/100), true
+	}
+	for i := range entries {
+		e := &entries[i]
+		e.OwnedValueConverted = round2(conv.Convert(ctx, e.Value, e.Currency) * a.OwnershipPct / 100)
+		e.ConvertedCurrency = conv.To()
+		if hasPrev {
+			change := round2(e.OwnedValueConverted - prev)
+			e.ChangeAmount = &change
+			e.ChangePct = fx.ChangePct(prev, e.OwnedValueConverted)
+		}
+		prev, hasPrev = e.OwnedValueConverted, true
+	}
+	return entries, nil
 }
 
 // checkFolder makes sure an asset is being put in an asset folder of its own
@@ -1210,12 +1363,21 @@ func (s *service) checkFolder(ctx context.Context, folderID, portfolioID uuid.UU
 // recordValueHistory writes a value history snapshot for an asset.
 // Called automatically when current_price is updated manually.
 func (s *service) recordValueHistory(ctx context.Context, a model.Asset, src model.ValueHistorySource) {
+	s.recordValue(ctx, a, a.CurrentPrice, time.Now().UTC(), src)
+}
+
+// recordValueAt writes a manual value-history entry for a price on a day.
+func (s *service) recordValueAt(ctx context.Context, a model.Asset, price float64, at time.Time) {
+	s.recordValue(ctx, a, price, at, model.SourceManual)
+}
+
+func (s *service) recordValue(ctx context.Context, a model.Asset, price float64, at time.Time, src model.ValueHistorySource) {
 	entry := model.AssetValueHistory{
 		AssetID:    a.ID,
-		Value:      a.CurrentPrice * a.Quantity,
+		Value:      price * a.Quantity,
 		Currency:   a.Currency,
 		Source:     src,
-		RecordedAt: time.Now().UTC(),
+		RecordedAt: at,
 	}
 	if _, err := s.dp.AssetValueHistStore.Create(ctx, entry); err != nil {
 		log := siloLogger.FromCtx(ctx)

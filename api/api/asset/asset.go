@@ -62,6 +62,7 @@ func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, no
 	editor.DELETE("/:id", h.delete)
 	editor.POST("/:id/lots", h.addLot)
 	editor.DELETE("/:id/lots/:lotID", h.deleteLot)
+	editor.POST("/:id/sell", h.sell)
 	editor.POST("/:id/cash-flows", h.addCashFlow)
 	editor.DELETE("/:id/cash-flows/:flowID", h.deleteCashFlow)
 	// Documents — write
@@ -307,6 +308,25 @@ func (h *handler) addLot(c *gin.Context) {
 		return
 	}
 	apiModel.Created(c, "lot added", lot)
+}
+
+// sell removes sold units, oldest lots first, and records the sale proceeds.
+func (h *handler) sell(c *gin.Context) {
+	assetID, ok := parseAssetID(c)
+	if !ok {
+		return
+	}
+	var req model.SellAssetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+	result, err := h.svc.Sell(c.Request.Context(), assetID, req)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "units sold", result)
 }
 
 func (h *handler) deleteLot(c *gin.Context) {

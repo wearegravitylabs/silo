@@ -3,6 +3,7 @@ package debt
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -38,7 +39,9 @@ func New(r *gin.RouterGroup, svc appDebt.Debt, noteSvc appNote.Note, docSvc appD
 
 	member := g.Group("", mid.RequirePortfolioMember(), owned)
 	member.GET("", h.list)
+	member.GET("/overview", h.overview) // must come before /:id
 	member.GET("/:id", h.get)
+	member.GET("/:id/balance-history", h.balanceHistory)
 	member.GET("/:id/amortization", h.amortizationSchedule)
 	// Notes — read
 	member.GET("/:id/notes", h.listNotes)
@@ -109,6 +112,54 @@ func (h *handler) create(c *gin.Context) {
 		return
 	}
 	apiModel.Created(c, messages.DebtCreated, debt)
+}
+
+// overview returns the portfolio's debt totals in its base currency.
+func (h *handler) overview(c *gin.Context) {
+	portfolioID, ok := parsePortfolioID(c)
+	if !ok {
+		return
+	}
+	summary, err := h.svc.Overview(c.Request.Context(), portfolioID)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "debts overview", summary)
+}
+
+// balanceHistory returns a debt's balances between ?from and ?to (RFC 3339).
+// Defaults to the last year.
+func (h *handler) balanceHistory(c *gin.Context) {
+	debtID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+	to := time.Now().UTC()
+	from := to.AddDate(-1, 0, 0)
+	if raw := c.Query("from"); raw != "" {
+		t, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+			return
+		}
+		from = t
+	}
+	if raw := c.Query("to"); raw != "" {
+		t, err := time.Parse(time.RFC3339, raw)
+		if err != nil {
+			apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+			return
+		}
+		to = t
+	}
+	history, err := h.svc.ListBalanceHistory(c.Request.Context(), debtID, from, to)
+	if err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "balance history", history)
 }
 
 func (h *handler) list(c *gin.Context) {

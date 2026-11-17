@@ -4,12 +4,12 @@ package snapshot
 import (
 	"context"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/wearegravitylabs/silo/api/app"
+	"github.com/wearegravitylabs/silo/api/app/fx"
 	"github.com/wearegravitylabs/silo/api/model"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 )
@@ -50,25 +50,8 @@ func (s *service) Capture(ctx context.Context, portfolioID uuid.UUID) (model.Sna
 		return model.Snapshot{}, err
 	}
 
-	base := portfolio.BaseCurrency
-	rates := map[string]float64{}
-	toBase := func(amount float64, from string) float64 {
-		if from == "" || strings.EqualFold(from, base) {
-			return amount
-		}
-		rate, ok := rates[from]
-		if !ok {
-			rate, err = s.dp.ExchangeRateStore.GetRate(ctx, from, base)
-			if err != nil {
-				log := siloLogger.FromCtx(ctx)
-				log.Warn().Err(err).Str("from", from).Str("to", base).
-					Msg("no FX rate for snapshot — counting at 1.0")
-				rate = 1.0
-			}
-			rates[from] = rate
-		}
-		return amount * rate
-	}
+	conv := fx.New(s.dp, portfolio.BaseCurrency)
+	toBase := func(amount float64, from string) float64 { return conv.Convert(ctx, amount, from) }
 
 	var totalAssets, totalDebts float64
 	byClass := map[string]float64{}
@@ -90,7 +73,7 @@ func (s *service) Capture(ctx context.Context, portfolioID uuid.UUID) (model.Sna
 		TotalAssets: round2(totalAssets),
 		TotalDebts:  round2(totalDebts),
 		NetWorth:    round2(totalAssets - totalDebts),
-		Currency:    base,
+		Currency:    conv.To(),
 		Allocation:  allocation,
 		SnappedAt:   time.Now().UTC(),
 	})

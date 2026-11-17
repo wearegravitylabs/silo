@@ -31,22 +31,23 @@ type Dependency struct {
 	Env    *environment.Env
 
 	// Store layer
-	UserStore           store.UserDatabase
-	PortfolioStore      store.PortfolioDatabase
-	AssetStore          store.AssetDatabase
-	AssetLotStore       store.AssetLotDatabase
-	AssetCashFlowStore  store.AssetCashFlowDatabase
-	AssetValueHistStore store.AssetValueHistoryDatabase
-	AssetDocumentStore  store.DocumentDatabase
-	AssetNoteStore      store.NoteDatabase
-	VaultStore          store.VaultDatabase
-	DebtStore           store.DebtDatabase
-	AutopilotStore      store.AutopilotDatabase
-	ProjectionStore     store.ProjectionDatabase
-	SnapshotStore       store.SnapshotDatabase
-	RefreshTokenStore   store.RefreshTokenDatabase
-	FolderStore         store.FolderDatabase
-	ExchangeRateStore   store.ExchangeRateDatabase
+	UserStore            store.UserDatabase
+	PortfolioStore       store.PortfolioDatabase
+	AssetStore           store.AssetDatabase
+	AssetLotStore        store.AssetLotDatabase
+	AssetCashFlowStore   store.AssetCashFlowDatabase
+	AssetValueHistStore  store.AssetValueHistoryDatabase
+	DebtBalanceHistStore store.DebtBalanceHistoryDatabase
+	AssetDocumentStore   store.DocumentDatabase
+	AssetNoteStore       store.NoteDatabase
+	VaultStore           store.VaultDatabase
+	DebtStore            store.DebtDatabase
+	AutopilotStore       store.AutopilotDatabase
+	ProjectionStore      store.ProjectionDatabase
+	SnapshotStore        store.SnapshotDatabase
+	RefreshTokenStore    store.RefreshTokenDatabase
+	FolderStore          store.FolderDatabase
+	ExchangeRateStore    store.ExchangeRateDatabase
 
 	// Storage bucket names (read from env, used by services that handle file I/O)
 	StoragePublicBucket  string
@@ -109,22 +110,23 @@ func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependenc
 		Env:    env,
 
 		// Store layer
-		UserStore:           store.NewUserStore(s),
-		PortfolioStore:      store.NewPortfolioStore(s),
-		AssetStore:          store.NewAssetStore(s),
-		AssetLotStore:       store.NewAssetLotStore(s),
-		AssetCashFlowStore:  store.NewAssetCashFlowStore(s),
-		AssetValueHistStore: store.NewAssetValueHistoryStore(s),
-		AssetDocumentStore:  store.NewAssetDocumentStore(s),
-		AssetNoteStore:      store.NewAssetNoteStore(s),
-		VaultStore:          store.NewVaultStore(s),
-		DebtStore:           store.NewDebtStore(s),
-		AutopilotStore:      store.NewAutopilotStore(s),
-		ProjectionStore:     store.NewProjectionStore(s),
-		SnapshotStore:       store.NewSnapshotStore(s),
-		RefreshTokenStore:   store.NewRefreshTokenStore(s),
-		FolderStore:         store.NewFolderStore(s),
-		ExchangeRateStore:   store.NewExchangeRateStore(s),
+		UserStore:            store.NewUserStore(s),
+		PortfolioStore:       store.NewPortfolioStore(s),
+		AssetStore:           store.NewAssetStore(s),
+		AssetLotStore:        store.NewAssetLotStore(s),
+		AssetCashFlowStore:   store.NewAssetCashFlowStore(s),
+		AssetValueHistStore:  store.NewAssetValueHistoryStore(s),
+		DebtBalanceHistStore: store.NewDebtBalanceHistoryStore(s),
+		AssetDocumentStore:   store.NewAssetDocumentStore(s),
+		AssetNoteStore:       store.NewAssetNoteStore(s),
+		VaultStore:           store.NewVaultStore(s),
+		DebtStore:            store.NewDebtStore(s),
+		AutopilotStore:       store.NewAutopilotStore(s),
+		ProjectionStore:      store.NewProjectionStore(s),
+		SnapshotStore:        store.NewSnapshotStore(s),
+		RefreshTokenStore:    store.NewRefreshTokenStore(s),
+		FolderStore:          store.NewFolderStore(s),
+		ExchangeRateStore:    store.NewExchangeRateStore(s),
 
 		StoragePublicBucket:  env.GetWithDefault(modelEnv.StorageBucket, "silo"),
 		StoragePrivateBucket: env.GetWithDefault(modelEnv.StoragePrivateBucket, env.GetWithDefault(modelEnv.StorageBucket, "silo")+"-docs"),

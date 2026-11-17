@@ -1,355 +1,512 @@
-// Package dashboard aggregates all data needed for the portfolio dashboard screen.
+// Package dashboard builds the portfolio dashboard: net worth, the net-worth
+// chart, allocation breakdowns, top movers and the debts summary.
 package dashboard
 
 import (
 	"context"
-	"math"
 	"sort"
-	"sync"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/wearegravitylabs/silo/api/app"
+	appAsset "github.com/wearegravitylabs/silo/api/app/asset"
+	appDebt "github.com/wearegravitylabs/silo/api/app/debt"
+	"github.com/wearegravitylabs/silo/api/app/fx"
+	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
 	siloLogger "github.com/wearegravitylabs/silo/api/pkg/logger"
 )
 
-// Dashboard aggregates the portfolio dashboard response.
+//go:generate mockgen -source dashboard.go -destination ../mock/dashboard/mock_dashboard.go -package dashboard Dashboard
+
+// Dashboard builds the dashboard payload.
 type Dashboard interface {
-	Get(ctx context.Context, portfolioID, callerID uuid.UUID, period string) (model.DashboardResponse, error)
+	// Get builds the dashboard for a chart period (1D, 1M, 3M, YTD, 1Y, ALL;
+	// W and 6M also work). An unknown period is ErrInvalidPeriod.
+	Get(ctx context.Context, portfolioID, callerID uuid.UUID, period string, opts ...Options) (model.DashboardResponse, error)
+}
+
+// Options are the optional dashboard settings.
+type Options struct {
+	// MoversWindow is the top-movers window: today, week or month (default).
+	MoversWindow string
 }
 
 type service struct{ dp app.Dependency }
 
+// New returns a Dashboard service.
 func New(dp app.Dependency) Dashboard { return &service{dp: dp} }
 
-// periodDays maps period strings to the number of past days to include.
-var periodDays = map[string]int{
-	"W":  7,
-	"1M": 30,
-	"3M": 90,
-	"6M": 180,
-	"1Y": 365,
+// periodStart returns where a chart period begins. ok is false for an
+// unknown period. ALL returns the zero time; the caller uses the first point
+// of history instead.
+func periodStart(period string, now time.Time) (time.Time, bool) {
+	switch period {
+	case "1D":
+		return now.AddDate(0, 0, -1), true
+	case "W":
+		return now.AddDate(0, 0, -7), true
+	case "1M":
+		return now.AddDate(0, -1, 0), true
+	case "3M":
+		return now.AddDate(0, -3, 0), true
+	case "6M":
+		return now.AddDate(0, -6, 0), true
+	case "YTD":
+		return time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC), true
+	case "1Y":
+		return now.AddDate(-1, 0, 0), true
+	case "ALL":
+		return time.Time{}, true
+	}
+	return time.Time{}, false
 }
 
-func (s *service) Get(ctx context.Context, portfolioID, callerID uuid.UUID, period string) (model.DashboardResponse, error) {
+// moversStart returns where a top-movers window begins.
+func moversStart(window string, now time.Time) (time.Time, bool) {
+	switch window {
+	case "today":
+		return model.StartOfDay(now), true
+	case "week":
+		return now.AddDate(0, 0, -7), true
+	case "month":
+		return now.AddDate(0, -1, 0), true
+	}
+	return time.Time{}, false
+}
+
+func (s *service) Get(ctx context.Context, portfolioID, callerID uuid.UUID, period string, opts ...Options) (model.DashboardResponse, error) {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "dashboard.Get").
 		Str("portfolio_id", portfolioID.String()).
 		Logger()
 
-	days, ok := periodDays[period]
-	if !ok {
+	now := time.Now().UTC()
+	period = strings.ToUpper(strings.TrimSpace(period))
+	if period == "" {
 		period = "1M"
-		days = 30
+	}
+	from, ok := periodStart(period, now)
+	if !ok {
+		return model.DashboardResponse{}, siloErrors.ErrInvalidPeriod
+	}
+	window := "month"
+	if len(opts) > 0 && opts[0].MoversWindow != "" {
+		window = strings.ToLower(opts[0].MoversWindow)
+	}
+	moversFrom, ok := moversStart(window, now)
+	if !ok {
+		return model.DashboardResponse{}, siloErrors.ErrInvalidPeriod
 	}
 
-	// ── Fetch portfolio for base currency ──────────────────────────────────────
-	portfolio, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, portfolioID, callerID)
+	portfolio, err := s.dp.PortfolioStore.GetPortfolio(ctx, portfolioID)
 	if err != nil {
 		return model.DashboardResponse{}, err
 	}
-	currency := string(portfolio.BaseCurrency)
+	conv := fx.New(s.dp, portfolio.BaseCurrency)
 
-	// ── Parallel fetch: assets + debts ─────────────────────────────────────────
-	var (
-		assets   []model.Asset
-		debts    []model.Debt
-		mu       sync.Mutex
-		wg       sync.WaitGroup
-		fetchErr error
-	)
-
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		a, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID, model.ListAssetsFilter{})
-		mu.Lock()
-		defer mu.Unlock()
-		if err != nil {
-			fetchErr = err
-			return
-		}
-		for i := range a {
-			enrich(&a[i])
-		}
-		assets = a
-	}()
-	go func() {
-		defer wg.Done()
-		d, err := s.dp.DebtStore.ListDebtsByPortfolio(ctx, portfolioID, model.ListDebtsFilter{})
-		mu.Lock()
-		defer mu.Unlock()
-		if err != nil {
-			fetchErr = err
-			return
-		}
-		for i := range d {
-			enrichDebt(&d[i])
-		}
-		debts = d
-	}()
-	wg.Wait()
-
-	if fetchErr != nil {
-		return model.DashboardResponse{}, fetchErr
+	assets, err := s.dp.AssetStore.ListAssetsByPortfolio(ctx, portfolioID, model.ListAssetsFilter{})
+	if err != nil {
+		return model.DashboardResponse{}, err
+	}
+	if err := appAsset.EnrichAll(ctx, s.dp, assets, conv); err != nil {
+		return model.DashboardResponse{}, err
+	}
+	debts, err := s.dp.DebtStore.ListDebtsByPortfolio(ctx, portfolioID, model.ListDebtsFilter{})
+	if err != nil {
+		return model.DashboardResponse{}, err
+	}
+	if err := appDebt.Enrich(ctx, s.dp, debts, conv); err != nil {
+		return model.DashboardResponse{}, err
+	}
+	debtSummary, err := appDebt.Summarize(ctx, s.dp, debts, conv)
+	if err != nil {
+		return model.DashboardResponse{}, err
 	}
 
-	// ── Empty state ────────────────────────────────────────────────────────────
-	if len(assets) == 0 && len(debts) == 0 {
-		return model.DashboardResponse{
-			DataStatus:   model.DashboardStatusEmpty,
-			NetWorth:     model.DashboardNetWorth{Currency: currency},
-			Chart:        model.DashboardChart{Period: period, Points: []model.DashboardChartPoint{}},
-			Allocation:   model.DashboardAllocation{Assets: []model.DashboardAllocItem{}, Debts: []model.DashboardAllocItem{}},
-			TopMovers:    model.DashboardTopMovers{Gainers: []model.DashboardMover{}, Losers: []model.DashboardMover{}},
-			Debts:        []model.DashboardDebt{},
-			LastSyncedAt: time.Now().UTC(),
-		}, nil
-	}
-
-	// ── Current net worth ──────────────────────────────────────────────────────
 	var totalAssets, totalDebts float64
 	for _, a := range assets {
-		totalAssets += a.OwnedValue
+		totalAssets += a.OwnedValueConverted
 	}
 	for _, d := range debts {
-		totalDebts += d.OwnedBalance
+		totalDebts += d.OwnedBalanceConverted
 	}
-	totalAssets = round2(totalAssets)
-	totalDebts = round2(totalDebts)
-	currentNW := round2(totalAssets - totalDebts)
-
-	// ── Value history chart ────────────────────────────────────────────────────
-	now := time.Now().UTC()
-	from := now.AddDate(0, 0, -days)
-
-	// Fetch value history for all assets and sum per day.
-	dailyValues := map[string]float64{} // date string → summed net worth
-	for _, a := range assets {
-		entries, err := s.dp.AssetValueHistStore.ListByAsset(ctx, a.ID, from, now)
-		if err != nil {
-			log.Warn().Err(err).Str("asset_id", a.ID.String()).Msg("failed to fetch value history")
-			continue
-		}
-		for _, e := range entries {
-			key := e.RecordedAt.Format("2006-01-02")
-			dailyValues[key] += e.Value
-		}
-	}
-
-	// Sort dates and build chart points.
-	var chartPoints []model.DashboardChartPoint
-	dates := make([]string, 0, len(dailyValues))
-	for d := range dailyValues {
-		dates = append(dates, d)
-	}
-	sort.Strings(dates)
-	for _, d := range dates {
-		chartPoints = append(chartPoints, model.DashboardChartPoint{
-			Date:  d,
-			Value: round2(dailyValues[d]),
-		})
-	}
-
-	// ── Insufficient history ───────────────────────────────────────────────────
-	if len(chartPoints) == 0 {
-		nw := model.DashboardNetWorth{
-			Total:    currentNW,
-			Assets:   totalAssets,
-			Debts:    totalDebts,
-			Currency: currency,
-		}
-		return model.DashboardResponse{
-			DataStatus:   model.DashboardStatusInsufficientHistory,
-			NetWorth:     nw,
-			Chart:        model.DashboardChart{Period: period, Points: []model.DashboardChartPoint{}},
-			Allocation:   buildAllocation(assets, debts),
-			TopMovers:    model.DashboardTopMovers{Gainers: []model.DashboardMover{}, Losers: []model.DashboardMover{}},
-			Debts:        buildDebts(debts),
-			LastSyncedAt: now,
-		}, nil
-	}
-
-	// ── Change vs period start ─────────────────────────────────────────────────
-	oldestNW := chartPoints[0].Value
-	changeAmt := round2(currentNW - oldestNW)
-	changePct := 0.0
-	if oldestNW != 0 {
-		changePct = round2((changeAmt / math.Abs(oldestNW)) * 100)
-	}
-
 	nw := model.DashboardNetWorth{
-		Total:        currentNW,
-		Assets:       totalAssets,
-		Debts:        totalDebts,
-		Currency:     currency,
-		ChangeAmount: &changeAmt,
-		ChangePct:    &changePct,
+		Total:    fx.Round2(totalAssets - totalDebts),
+		Assets:   fx.Round2(totalAssets),
+		Debts:    fx.Round2(totalDebts),
+		Currency: conv.To(),
 	}
 
-	// ── Top movers ─────────────────────────────────────────────────────────────
-	gainers, losers := buildTopMovers(ctx, s, assets, from, now)
+	folders, err := s.dp.FolderStore.ListFoldersByPortfolio(ctx, portfolioID, model.FolderTypeAsset)
+	if err != nil {
+		log.Warn().Err(err).Msg("failed to list folders for allocation")
+	}
 
-	// ── Build full response ────────────────────────────────────────────────────
-	return model.DashboardResponse{
-		DataStatus:   model.DashboardStatusReady,
-		NetWorth:     nw,
-		Chart:        model.DashboardChart{Period: period, Points: chartPoints},
-		Allocation:   buildAllocation(assets, debts),
-		TopMovers:    model.DashboardTopMovers{Gainers: gainers, Losers: losers},
-		Debts:        buildDebts(debts),
-		LastSyncedAt: now,
-	}, nil
+	resp := model.DashboardResponse{
+		DataStatus:         model.DashboardStatusReady,
+		NetWorth:           nw,
+		NetWorthByCurrency: byCurrency(assets, debts),
+		Chart:              model.DashboardChart{Period: period, Granularity: "daily", Points: []model.DashboardChartPoint{}},
+		Allocation:         buildAllocation(assets, debts, folders),
+		TopMovers:          model.DashboardTopMovers{Window: window, Gainers: []model.DashboardMover{}, Losers: []model.DashboardMover{}},
+		Debts:              buildDebts(debts),
+		DebtSummary:        debtSummary,
+		LastSyncedAt:       now,
+	}
+	if len(assets) == 0 && len(debts) == 0 {
+		resp.DataStatus = model.DashboardStatusEmpty
+		return resp, nil
+	}
+
+	chart, err := s.netWorthSeries(ctx, conv, assets, debts, from, now)
+	if err != nil {
+		return model.DashboardResponse{}, err
+	}
+	resp.Chart.Granularity = chart.granularity
+	gainers, losers, err := s.topMovers(ctx, conv, assets, moversFrom)
+	if err != nil {
+		return model.DashboardResponse{}, err
+	}
+	resp.TopMovers.Gainers, resp.TopMovers.Losers = gainers, losers
+
+	// Ready only when something had a value before today; otherwise there is
+	// no change to show yet.
+	if !chart.hasPast {
+		resp.DataStatus = model.DashboardStatusInsufficientHistory
+		return resp, nil
+	}
+	resp.Chart.Points = chart.points
+	change := fx.Round2(nw.Total - chart.baseline)
+	resp.NetWorth.ChangeAmount = &change
+	resp.NetWorth.ChangePct = fx.ChangePct(chart.baseline, nw.Total)
+	return resp, nil
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Net-worth chart ─────────────────────────────────────────────────────────
 
-func buildAllocation(assets []model.Asset, debts []model.Debt) model.DashboardAllocation {
-	// Assets grouped by asset_class.
-	assetByClass := map[string]model.DashboardAllocItem{}
-	var totalAssetVal float64
+type series struct {
+	points      []model.DashboardChartPoint
+	granularity string
+	// baseline is net worth at the first point where anything existed.
+	baseline float64
+	// hasPast is true when some asset or debt had a value before today.
+	hasPast bool
+}
+
+// netWorthSeries rebuilds net worth day by day (or week by week) from asset
+// value history and debt balance history: at the end of each day, every
+// asset counts at its latest known value and every debt at its latest known
+// balance (owned share, base currency). Something with no history yet on a
+// day counts as 0 that day. The last point is today's live net worth.
+func (s *service) netWorthSeries(ctx context.Context, conv *fx.Converter, assets []model.Asset, debts []model.Debt, from, now time.Time) (series, error) {
+	assetIDs := make([]uuid.UUID, len(assets))
+	ownAsset := map[uuid.UUID]float64{}
+	for i, a := range assets {
+		assetIDs[i] = a.ID
+		ownAsset[a.ID] = a.OwnershipPct / 100
+	}
+	debtIDs := make([]uuid.UUID, len(debts))
+	ownDebt := map[uuid.UUID]float64{}
+	for i, d := range debts {
+		debtIDs[i] = d.ID
+		ownDebt[d.ID] = d.OwnershipPct / 100
+	}
+
+	if from.IsZero() { // ALL: from the earliest history entry.
+		from = now
+		for _, e := range s.firstEntries(ctx, assetIDs, debtIDs) {
+			if e.Before(from) {
+				from = e
+			}
+		}
+	}
+	start := model.StartOfDay(from)
+	today := model.StartOfDay(now)
+
+	assetBefore, err := s.dp.AssetValueHistStore.LatestBefore(ctx, assetIDs, start.Add(-time.Nanosecond))
+	if err != nil {
+		return series{}, err
+	}
+	assetEntries, err := s.dp.AssetValueHistStore.ListByAssets(ctx, assetIDs, start, now)
+	if err != nil {
+		return series{}, err
+	}
+	debtBefore, err := s.dp.DebtBalanceHistStore.LatestBefore(ctx, debtIDs, start.Add(-time.Nanosecond))
+	if err != nil {
+		return series{}, err
+	}
+	debtEntries, err := s.dp.DebtBalanceHistStore.ListByDebts(ctx, debtIDs, start, now)
+	if err != nil {
+		return series{}, err
+	}
+
+	// Current owned, converted value of each asset and debt as we walk forward.
+	assetVal := map[uuid.UUID]float64{}
+	for id, e := range assetBefore {
+		assetVal[id] = conv.Convert(ctx, e.Value, e.Currency) * ownAsset[id]
+	}
+	debtVal := map[uuid.UUID]float64{}
+	for id, e := range debtBefore {
+		debtVal[id] = conv.Convert(ctx, e.Balance, e.Currency) * ownDebt[id]
+	}
+	out := series{granularity: "daily", hasPast: len(assetBefore)+len(debtBefore) > 0}
+
+	step := 1
+	if today.Sub(start) > 2*365*24*time.Hour {
+		step, out.granularity = 7, "weekly"
+	}
+
+	ai, di := 0, 0
+	baselineSet := false
+	for day := start; !day.After(today); day = day.AddDate(0, 0, step) {
+		end := day.AddDate(0, 0, step)
+		if day.AddDate(0, 0, step).After(today) {
+			end = today.AddDate(0, 0, 1)
+		}
+		for ; ai < len(assetEntries) && assetEntries[ai].RecordedAt.Before(end); ai++ {
+			e := assetEntries[ai]
+			assetVal[e.AssetID] = conv.Convert(ctx, e.Value, e.Currency) * ownAsset[e.AssetID]
+			if e.RecordedAt.Before(today) {
+				out.hasPast = true
+			}
+		}
+		for ; di < len(debtEntries) && debtEntries[di].RecordedAt.Before(end); di++ {
+			e := debtEntries[di]
+			debtVal[e.DebtID] = conv.Convert(ctx, e.Balance, e.Currency) * ownDebt[e.DebtID]
+			if e.RecordedAt.Before(today) {
+				out.hasPast = true
+			}
+		}
+
+		var net float64
+		for _, v := range assetVal {
+			net += v
+		}
+		for _, v := range debtVal {
+			net -= v
+		}
+		date := day
+		if !day.Before(today) || end.After(today) {
+			// Today: use live values so the last point matches the headline,
+			// and date it today (in weekly mode its week started earlier).
+			date = today
+			net = 0
+			for _, a := range assets {
+				net += a.OwnedValueConverted
+			}
+			for _, d := range debts {
+				net -= d.OwnedBalanceConverted
+			}
+		}
+		if !baselineSet && len(assetVal)+len(debtVal) > 0 {
+			out.baseline, baselineSet = fx.Round2(net), true
+		}
+		out.points = append(out.points, model.DashboardChartPoint{Date: date.Format("2006-01-02"), Value: fx.Round2(net)})
+	}
+	return out, nil
+}
+
+// firstEntries returns when each asset's and debt's history begins.
+func (s *service) firstEntries(ctx context.Context, assetIDs, debtIDs []uuid.UUID) []time.Time {
+	var out []time.Time
+	epoch := time.Date(1900, 1, 1, 0, 0, 0, 0, time.UTC)
+	if entries, err := s.dp.AssetValueHistStore.ListByAssets(ctx, assetIDs, epoch, time.Now().UTC()); err == nil && len(entries) > 0 {
+		out = append(out, entries[0].RecordedAt)
+	}
+	if entries, err := s.dp.DebtBalanceHistStore.ListByDebts(ctx, debtIDs, epoch, time.Now().UTC()); err == nil && len(entries) > 0 {
+		out = append(out, entries[0].RecordedAt)
+	}
+	return out
+}
+
+// ─── Top movers ──────────────────────────────────────────────────────────────
+
+// topMovers compares each asset's owned value (base currency) now with its
+// value at the start of the window. Assets added to Silo since the window
+// started are left out.
+func (s *service) topMovers(ctx context.Context, conv *fx.Converter, assets []model.Asset, from time.Time) (gainers, losers []model.DashboardMover, err error) {
+	ids := make([]uuid.UUID, len(assets))
+	for i, a := range assets {
+		ids[i] = a.ID
+	}
+	then, err := s.dp.AssetValueHistStore.LatestBefore(ctx, ids, from)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var movers []model.DashboardMover
 	for _, a := range assets {
-		totalAssetVal += a.OwnedValue
-		item := assetByClass[a.AssetClass]
-		item.Label = a.AssetClass
-		item.Value = round2(item.Value + a.OwnedValue)
-		item.Count++
-		assetByClass[a.AssetClass] = item
-	}
-	assetItems := make([]model.DashboardAllocItem, 0, len(assetByClass))
-	for _, item := range assetByClass {
-		if totalAssetVal > 0 {
-			item.Pct = round2((item.Value / totalAssetVal) * 100)
+		// Assets added during the window have no real "before" to compare.
+		e, ok := then[a.ID]
+		if !ok || !a.CreatedAt.Before(from) {
+			continue
 		}
-		assetItems = append(assetItems, item)
+		old := conv.Convert(ctx, e.Value, e.Currency) * a.OwnershipPct / 100
+		pct := fx.ChangePct(old, a.OwnedValueConverted)
+		if pct == nil || *pct == 0 {
+			continue
+		}
+		change := fx.Round2(a.OwnedValueConverted - old)
+		movers = append(movers, model.DashboardMover{
+			AssetID:               a.ID,
+			Name:                  a.Name,
+			Ticker:                a.Ticker,
+			LogoURL:               a.LogoURL,
+			AssetType:             string(a.AssetType),
+			Currency:              a.Currency,
+			CurrentValue:          a.OwnedValue,
+			CurrentValueConverted: a.OwnedValueConverted,
+			ChangeAmount:          &change,
+			ChangePct:             pct,
+		})
 	}
-	sort.Slice(assetItems, func(i, j int) bool { return assetItems[i].Value > assetItems[j].Value })
+	sort.Slice(movers, func(i, j int) bool { return *movers[i].ChangePct > *movers[j].ChangePct })
 
-	// Debts grouped by debt_type.
-	debtByType := map[string]model.DashboardAllocItem{}
-	var totalDebtVal float64
+	const maxMovers = 3
+	gainers, losers = []model.DashboardMover{}, []model.DashboardMover{}
+	for _, m := range movers {
+		if len(gainers) < maxMovers && *m.ChangePct > 0 {
+			gainers = append(gainers, m)
+		}
+	}
+	for i := len(movers) - 1; i >= 0 && len(losers) < maxMovers; i-- {
+		if *movers[i].ChangePct < 0 {
+			losers = append(losers, movers[i])
+		}
+	}
+	return gainers, losers, nil
+}
+
+// ─── Breakdowns ──────────────────────────────────────────────────────────────
+
+// byCurrency splits net worth by holding currency, largest assets first.
+func byCurrency(assets []model.Asset, debts []model.Debt) []model.DashboardCurrencyItem {
+	items := map[string]*model.DashboardCurrencyItem{}
+	get := func(code string) *model.DashboardCurrencyItem {
+		if items[code] == nil {
+			items[code] = &model.DashboardCurrencyItem{Currency: code}
+		}
+		return items[code]
+	}
+	var totalAssets float64
+	for _, a := range assets {
+		it := get(a.Currency)
+		it.Assets += a.OwnedValue
+		it.AssetsConverted += a.OwnedValueConverted
+		totalAssets += a.OwnedValueConverted
+	}
 	for _, d := range debts {
-		totalDebtVal += d.OwnedBalance
-		item := debtByType[string(d.DebtType)]
-		item.Label = string(d.DebtType)
-		item.Value = round2(item.Value + d.OwnedBalance)
-		item.Count++
-		debtByType[string(d.DebtType)] = item
+		it := get(d.Currency)
+		it.Debts += d.OwnedBalance
+		it.DebtsConverted += d.OwnedBalanceConverted
 	}
-	debtItems := make([]model.DashboardAllocItem, 0, len(debtByType))
-	for _, item := range debtByType {
-		if totalDebtVal > 0 {
-			item.Pct = round2((item.Value / totalDebtVal) * 100)
+
+	out := make([]model.DashboardCurrencyItem, 0, len(items))
+	for _, it := range items {
+		it.Net = fx.Round2(it.Assets - it.Debts)
+		it.NetConverted = fx.Round2(it.AssetsConverted - it.DebtsConverted)
+		it.Assets, it.Debts = fx.Round2(it.Assets), fx.Round2(it.Debts)
+		it.AssetsConverted, it.DebtsConverted = fx.Round2(it.AssetsConverted), fx.Round2(it.DebtsConverted)
+		if totalAssets > 0 {
+			it.Pct = fx.Round2(it.AssetsConverted / totalAssets * 100)
 		}
-		debtItems = append(debtItems, item)
+		out = append(out, *it)
 	}
-	sort.Slice(debtItems, func(i, j int) bool { return debtItems[i].Value > debtItems[j].Value })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].AssetsConverted != out[j].AssetsConverted {
+			return out[i].AssetsConverted > out[j].AssetsConverted
+		}
+		return out[i].Currency < out[j].Currency
+	})
+	return out
+}
 
-	if assetItems == nil {
-		assetItems = []model.DashboardAllocItem{}
-	}
-	if debtItems == nil {
-		debtItems = []model.DashboardAllocItem{}
+func buildAllocation(assets []model.Asset, debts []model.Debt, folders []model.Folder) model.DashboardAllocation {
+	folderName := map[string]string{"": "No folder"}
+	for _, f := range folders {
+		folderName[f.ID.String()] = f.Name
 	}
 
-	return model.DashboardAllocation{Assets: assetItems, Debts: debtItems}
+	var byClass, byType, byCurrency, byFolder allocGroup
+	for _, a := range assets {
+		folderKey := ""
+		if a.FolderID != nil {
+			folderKey = a.FolderID.String()
+		}
+		byClass.add(a.AssetClass, a.AssetClass, a.OwnedValueConverted)
+		byType.add(string(a.AssetType), string(a.AssetType), a.OwnedValueConverted)
+		byCurrency.add(a.Currency, a.Currency, a.OwnedValueConverted)
+		byFolder.add(folderKey, folderName[folderKey], a.OwnedValueConverted)
+	}
+	var byDebtType allocGroup
+	for _, d := range debts {
+		byDebtType.add(string(d.DebtType), string(d.DebtType), d.OwnedBalanceConverted)
+	}
+	return model.DashboardAllocation{
+		Assets:     byClass.items(),
+		Debts:      byDebtType.items(),
+		ByType:     byType.items(),
+		ByCurrency: byCurrency.items(),
+		ByFolder:   byFolder.items(),
+	}
+}
+
+// allocGroup adds values up by key and turns them into allocation items.
+type allocGroup struct {
+	order []string
+	byKey map[string]*model.DashboardAllocItem
+	total float64
+}
+
+func (g *allocGroup) add(key, label string, value float64) {
+	if g.byKey == nil {
+		g.byKey = map[string]*model.DashboardAllocItem{}
+	}
+	it, ok := g.byKey[key]
+	if !ok {
+		it = &model.DashboardAllocItem{Key: key, Label: label}
+		g.byKey[key] = it
+		g.order = append(g.order, key)
+	}
+	it.Value += value
+	it.Count++
+	g.total += value
+}
+
+func (g *allocGroup) items() []model.DashboardAllocItem {
+	out := make([]model.DashboardAllocItem, 0, len(g.order))
+	for _, k := range g.order {
+		it := *g.byKey[k]
+		it.Value = fx.Round2(it.Value)
+		if g.total > 0 {
+			it.Pct = fx.Round2(it.Value / g.total * 100)
+		}
+		out = append(out, it)
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Value > out[j].Value })
+	return out
 }
 
 func buildDebts(debts []model.Debt) []model.DashboardDebt {
 	result := make([]model.DashboardDebt, 0, len(debts))
 	for _, d := range debts {
 		result = append(result, model.DashboardDebt{
-			DebtID:       d.ID,
-			Name:         d.Name,
-			DebtType:     string(d.DebtType),
-			Balance:      d.Balance,
-			OwnedBalance: d.OwnedBalance,
-			Currency:     string(d.Currency),
+			DebtID:                d.ID,
+			Name:                  d.Name,
+			DebtType:              string(d.DebtType),
+			Balance:               d.Balance,
+			OwnedBalance:          fx.Round2(d.OwnedBalance),
+			Currency:              d.Currency,
+			OwnedBalanceConverted: d.OwnedBalanceConverted,
+			HasSchedule:           d.HasSchedule,
+			MonthlyPayment:        d.MonthlyPayment,
+			InterestRate:          d.InterestRate,
+			ChangeAmount:          d.ChangeAmount1M,
+			ChangePct:             d.ChangePct1M,
 		})
 	}
 	return result
-}
-
-func buildTopMovers(ctx context.Context, s *service, assets []model.Asset, from, now time.Time) (gainers, losers []model.DashboardMover) {
-	type mover struct {
-		asset     model.Asset
-		changeAmt float64
-		changePct float64
-	}
-
-	var movers []mover
-	for _, a := range assets {
-		currentVal := a.OwnedValue
-		// Find earliest value-history entry in the period.
-		entries, err := s.dp.AssetValueHistStore.ListByAsset(ctx, a.ID, from, now)
-		if err != nil || len(entries) == 0 {
-			continue
-		}
-		oldVal := entries[0].Value * (a.OwnershipPct / 100)
-		if oldVal == 0 {
-			continue
-		}
-		changeAmt := round2(currentVal - oldVal)
-		changePct := round2((changeAmt / math.Abs(oldVal)) * 100)
-		movers = append(movers, mover{asset: a, changeAmt: changeAmt, changePct: changePct})
-	}
-
-	// Sort by change_pct descending for gainers, ascending for losers.
-	sort.Slice(movers, func(i, j int) bool { return movers[i].changePct > movers[j].changePct })
-
-	toMover := func(m mover) model.DashboardMover {
-		return model.DashboardMover{
-			AssetID:      m.asset.ID,
-			Name:         m.asset.Name,
-			Ticker:       m.asset.Ticker,
-			LogoURL:      m.asset.LogoURL,
-			AssetType:    string(m.asset.AssetType),
-			CurrentValue: m.asset.OwnedValue,
-			ChangeAmount: &m.changeAmt,
-			ChangePct:    &m.changePct,
-		}
-	}
-
-	const maxMovers = 3
-	for i, m := range movers {
-		if i >= maxMovers {
-			break
-		}
-		if m.changePct > 0 {
-			gainers = append(gainers, toMover(m))
-		}
-	}
-	for i := len(movers) - 1; i >= 0; i-- {
-		if len(losers) >= maxMovers {
-			break
-		}
-		if movers[i].changePct < 0 {
-			losers = append(losers, toMover(movers[i]))
-		}
-	}
-
-	if gainers == nil {
-		gainers = []model.DashboardMover{}
-	}
-	if losers == nil {
-		losers = []model.DashboardMover{}
-	}
-	return gainers, losers
-}
-
-// enrich populates computed fields on an asset (reuses logic from asset service).
-func enrich(a *model.Asset) {
-	a.TotalValue = round2(a.CurrentPrice * a.Quantity)
-	a.OwnedValue = round2(a.TotalValue * (a.OwnershipPct / 100.0))
-}
-
-// enrichDebt populates owned_balance on a debt.
-func enrichDebt(d *model.Debt) {
-	d.OwnedBalance = round2(d.Balance * (d.OwnershipPct / 100.0))
-}
-
-func round2(v float64) float64 {
-	return math.Round(v*100) / 100
 }

@@ -152,7 +152,10 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrFolderRequired.Code,
 		siloErrors.ErrAcquisitionPriceRequired.Code,
 		siloErrors.ErrInvalidCountry.Code,
-		siloErrors.ErrFolderTypeMismatch.Code:
+		siloErrors.ErrFolderTypeMismatch.Code,
+		siloErrors.ErrSellExceedsHolding.Code,
+		siloErrors.ErrDateInFuture.Code,
+		siloErrors.ErrInvalidPeriod.Code:
 		return http.StatusBadRequest
 
 	case siloErrors.ErrNotAvailable.Code:

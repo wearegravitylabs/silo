@@ -50,13 +50,52 @@ type Debt struct {
 	OwnershipPct  float64          `gorm:"type:numeric(8,4);default:100"                    json:"ownership_pct"`
 	StartDate     *time.Time       `json:"start_date,omitempty"`
 	PayoffDate    *time.Time       `json:"payoff_date,omitempty"`
-	Metadata      JSONB            `gorm:"type:jsonb"                                       json:"metadata,omitempty"`
-	CreatedAt     time.Time        `json:"created_at"`
-	UpdatedAt     time.Time        `json:"updated_at"`
-	DeletedAt     *time.Time       `gorm:"index"                                            json:"-"`
+	// Icon is what the app shows for the debt: an emoji, an icon name or an image URL.
+	Icon      *string    `json:"icon"`
+	Metadata  JSONB      `gorm:"type:jsonb"                                       json:"metadata,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	DeletedAt *time.Time `gorm:"index"                                            json:"-"`
 
-	// OwnedBalance is balance × (ownership_pct / 100). Computed, not stored.
+	// ── Computed fields (not stored) ──
+	// OwnedBalance is balance × (ownership_pct / 100), in the debt's currency.
 	OwnedBalance float64 `gorm:"-" json:"owned_balance"`
+	// OwnedBalanceConverted is OwnedBalance in the portfolio's base currency.
+	OwnedBalanceConverted float64       `gorm:"-" json:"owned_balance_converted"`
+	ConvertedCurrency     currency.Code `gorm:"-" json:"converted_currency"`
+	// ExchangeRate: 1 unit of currency = ExchangeRate units of ConvertedCurrency.
+	ExchangeRate float64 `gorm:"-" json:"exchange_rate"`
+	// MonthlyPayment is payment_amount turned into a monthly figure (owned
+	// share, base currency). 0 for debts without a schedule.
+	MonthlyPayment float64 `gorm:"-" json:"monthly_payment"`
+	// ChangeAmount1M / ChangePct1M compare the owned balance (base currency)
+	// with 30 days ago. Null for a debt added to Silo in the last 30 days.
+	ChangeAmount1M *float64 `gorm:"-" json:"change_amount_1m"`
+	ChangePct1M    *float64 `gorm:"-" json:"change_pct_1m"`
+}
+
+// DebtSummary is the debts overview: totals across a portfolio's debts, as
+// owned shares in the portfolio's base currency.
+type DebtSummary struct {
+	Currency currency.Code `json:"currency"`
+	Count    int           `json:"count"`
+	Total    float64       `json:"total"`
+	// ChangeAmount1M / ChangePct1M compare Total with 30 days ago.
+	ChangeAmount1M *float64 `json:"change_amount_1m"`
+	ChangePct1M    *float64 `json:"change_pct_1m"`
+	// ScheduledTotal is debts with a payment schedule (has_schedule);
+	// UnscheduledTotal is the rest.
+	ScheduledTotal   float64 `json:"scheduled_total"`
+	UnscheduledTotal float64 `json:"unscheduled_total"`
+	// MonthlyPayments adds up every scheduled debt's payment as a monthly figure.
+	MonthlyPayments float64 `json:"monthly_payments"`
+	// InterestPaidYTD estimates the interest paid since 1 January on scheduled
+	// debts, from their balance history and interest rate.
+	InterestPaidYTD float64 `json:"interest_paid_ytd"`
+	// DebtFreeDate is when the last scheduled debt is paid off at its current
+	// payment, as YYYY-MM-DD. Null when there are no scheduled debts or one of
+	// them never gets paid off (payment not above the interest).
+	DebtFreeDate *string `json:"debt_free_date"`
 }
 
 // CreateDebtRequest is the input for adding a debt.
@@ -73,6 +112,8 @@ type CreateDebtRequest struct {
 	Currency      currency.Code    `json:"currency"`
 	OwnershipPct  float64          `json:"ownership_pct"`
 	StartDate     *time.Time       `json:"start_date"`
+	Icon          *string          `json:"icon"`
+	Metadata      JSONB            `json:"metadata"`
 }
 
 // UpdateDebtRequest is the input for modifying a debt.
@@ -88,6 +129,19 @@ type UpdateDebtRequest struct {
 	HasSchedule   *bool               `json:"has_schedule"`
 	OwnershipPct  *float64            `json:"ownership_pct"`
 	StartDate     *time.Time          `json:"start_date"`
+	// Icon is cleared by sending null.
+	Icon     Optional[string] `json:"icon"`
+	Metadata JSONB            `json:"metadata"`
+
+	// OwnedBalance sets the balance from the user's own share in the
+	// portfolio's base currency (what the user types). The API works out the
+	// whole debt's balance from it. Don't send it together with balance.
+	OwnedBalance *float64 `json:"owned_balance"`
+	// BalanceDate is the day a new balance applies (YYYY-MM-DD, default today).
+	// A date before the latest known balance only adds it to the history.
+	BalanceDate *DateOnly `json:"balance_date"`
+	// BalanceNote is saved with the balance history entry, e.g. "Repayment".
+	BalanceNote string `json:"balance_note"`
 }
 
 // ListDebtsFilter carries optional filter and sort criteria for GET /debts.

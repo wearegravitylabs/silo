@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestOptional(t *testing.T) {
@@ -38,3 +39,18 @@ func TestOptional(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func TestRecordTime(t *testing.T) {
+	now := time.Now().UTC()
+	if got, ok := RecordTime(nil); !ok || now.Sub(got) > time.Minute {
+		t.Errorf("nil date: got %v %v, want now", got, ok)
+	}
+	past := DateOnly(time.Date(2024, 3, 9, 15, 0, 0, 0, time.UTC))
+	if got, ok := RecordTime(&past); !ok || !got.Equal(time.Date(2024, 3, 9, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("past date: got %v %v, want midnight 2024-03-09", got, ok)
+	}
+	future := DateOnly(now.AddDate(0, 0, 2))
+	if _, ok := RecordTime(&future); ok {
+		t.Error("future date: want not ok")
+	}
+}

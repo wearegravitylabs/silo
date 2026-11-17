@@ -34,3 +34,27 @@ func (d DateOnly) MarshalJSON() ([]byte, error) {
 
 // Time returns the underlying time.Time value.
 func (d DateOnly) Time() time.Time { return time.Time(d) }
+
+// StartOfDay is midnight UTC on t's day.
+func StartOfDay(t time.Time) time.Time {
+	t = t.UTC()
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
+}
+
+// RecordTime turns an optional date into the time a new value or balance is
+// recorded at: now for today or no date, midnight UTC for an earlier day.
+// ok is false for a date in the future.
+func RecordTime(d *DateOnly) (t time.Time, ok bool) {
+	now := time.Now().UTC()
+	if d == nil {
+		return now, true
+	}
+	day := StartOfDay(d.Time())
+	switch {
+	case day.After(StartOfDay(now)):
+		return time.Time{}, false
+	case day.Equal(StartOfDay(now)):
+		return now, true
+	}
+	return day, true
+}

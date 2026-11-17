@@ -151,6 +151,15 @@ const (
 	FolderDeleted    = "Folder deleted. Assets in this folder have been moved to the root."
 	FoldersReordered = "Folders reordered."
 
+	// ErrSellExceedsHolding is shown when a sale is bigger than what is held.
+	ErrSellExceedsHolding = "You can't sell more units than you hold."
+
+	// ErrDateInFuture is shown when a price, balance or sale date is after today.
+	ErrDateInFuture = "That date is in the future. Please pick today or an earlier date."
+
+	// ErrInvalidPeriod is shown for an unknown dashboard period or movers window.
+	ErrInvalidPeriod = "That period isn't supported. Use 1D, 1M, 3M, YTD, 1Y or ALL (movers: today, week or month)."
+
 	// ErrNotAvailable is shown for a feature this server doesn't provide.
 	ErrNotAvailable = "This feature isn't available on this server."
 

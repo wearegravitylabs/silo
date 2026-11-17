@@ -62,6 +62,18 @@ var (
 	ErrNotAvailable = &TranslatableError{Code: "NOT_AVAILABLE", Key: "ERR_NOT_AVAILABLE",
 		Message: messages.ErrNotAvailable, Public: true}
 
+	// ErrSellExceedsHolding is shown when a sale is bigger than what is held.
+	ErrSellExceedsHolding = &TranslatableError{Code: "SELL_EXCEEDS_HOLDING", Key: "ERR_SELL_EXCEEDS_HOLDING",
+		Message: messages.ErrSellExceedsHolding, Public: true}
+
+	// ErrDateInFuture is shown when a price, balance or sale date is after today.
+	ErrDateInFuture = &TranslatableError{Code: "DATE_IN_FUTURE", Key: "ERR_DATE_IN_FUTURE",
+		Message: messages.ErrDateInFuture, Public: true}
+
+	// ErrInvalidPeriod is shown for an unknown dashboard period or movers window.
+	ErrInvalidPeriod = &TranslatableError{Code: "INVALID_PERIOD", Key: "ERR_INVALID_PERIOD",
+		Message: messages.ErrInvalidPeriod, Public: true}
+
 	// ErrInvalidRequest is shown when request binding or validation fails.
 	ErrInvalidRequest = &TranslatableError{Code: "INVALID_REQUEST", Key: "ERR_INVALID_REQUEST",
 		Message: messages.ErrInvalidRequest, Public: true}

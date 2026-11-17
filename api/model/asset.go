@@ -139,6 +139,18 @@ type Asset struct {
 	// ExchangeRate is: 1 unit of asset.currency = ExchangeRate units of ConvertedCurrency.
 	// 1.0 when no conversion is needed or the FX lookup failed.
 	ExchangeRate float64 `gorm:"-" json:"exchange_rate"`
+
+	// Invested is what the owned share cost: Σ lot quantity × price paid ×
+	// ownership, in ConvertedCurrency. Gain = OwnedValueConverted − Invested,
+	// GainPct = Gain / Invested × 100. All three are null when no lot has a
+	// price. Cash flows (rent, dividends, sale proceeds) are not included.
+	Invested *float64 `gorm:"-" json:"invested"`
+	Gain     *float64 `gorm:"-" json:"gain"`
+	GainPct  *float64 `gorm:"-" json:"gain_pct"`
+	// ChangeAmount1M / ChangePct1M compare OwnedValueConverted with 30 days
+	// ago. Null for an asset added to Silo in the last 30 days.
+	ChangeAmount1M *float64 `gorm:"-" json:"change_amount_1m"`
+	ChangePct1M    *float64 `gorm:"-" json:"change_pct_1m"`
 }
 
 // ─── Request types ────────────────────────────────────────────────────────────
@@ -243,4 +255,37 @@ type UpdateAssetRequest struct {
 	Investability *Investability `json:"investability"`
 	Location      *string        `json:"location"`
 	Metadata      JSONB          `json:"metadata"`
+
+	// OwnedValue sets the value from the user's own share in the portfolio's
+	// base currency (what the user types). The API works out current_price
+	// from it. Don't send it together with current_price.
+	OwnedValue *float64 `json:"owned_value"`
+	// PriceDate is the day a new price or value applies (YYYY-MM-DD, default
+	// today). A date before the latest known value only adds it to the history.
+	PriceDate *DateOnly `json:"price_date"`
+}
+
+// SellAssetRequest is the payload for POST /portfolios/:id/assets/:id/sell.
+type SellAssetRequest struct {
+	// Quantity is how many units were sold. Must not exceed what is held.
+	Quantity float64 `json:"quantity" binding:"required,gt=0"`
+	// Date is the sale date (YYYY-MM-DD). Not in the future.
+	Date DateOnly `json:"date" binding:"required"`
+	// Price is the price per unit received, in the asset's currency. Optional
+	// for stock_ticker assets, where the market price on that day is used.
+	Price *float64 `json:"price"`
+	Notes string   `json:"notes"`
+}
+
+// SellAssetResult is returned by a sale.
+type SellAssetResult struct {
+	Asset Asset `json:"asset"`
+	// Proceeds is quantity × price, in the asset's currency. It is also
+	// recorded as a sale_proceeds cash flow.
+	Proceeds float64 `json:"proceeds"`
+	// CostOfSold is what the sold units cost, taken from the oldest lots first.
+	CostOfSold float64 `json:"cost_of_sold"`
+	// RealizedGain is Proceeds − CostOfSold, in the asset's currency.
+	RealizedGain float64       `json:"realized_gain"`
+	Currency     currency.Code `json:"currency"`
 }

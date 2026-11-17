@@ -20,6 +20,12 @@ type AssetValueHistoryDatabase interface {
 	// LatestByAssetBefore returns the most recent value history entry recorded
 	// before the given cutoff. Used for 30-day growth calculations.
 	LatestByAssetBefore(ctx context.Context, assetID uuid.UUID, before time.Time) (model.AssetValueHistory, error)
+	// ListByAssets returns entries for the given assets recorded in [from, to],
+	// oldest first.
+	ListByAssets(ctx context.Context, assetIDs []uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error)
+	// LatestBefore returns, per asset, the newest entry recorded at or before
+	// the given time. Assets with no such entry are absent from the map.
+	LatestBefore(ctx context.Context, assetIDs []uuid.UUID, at time.Time) (map[uuid.UUID]model.AssetValueHistory, error)
 }
 
 type assetValueHistStore struct{ storage *Store }
@@ -76,4 +82,39 @@ func (a *assetValueHistStore) LatestByAssetBefore(ctx context.Context, assetID u
 		return model.AssetValueHistory{}, siloErrors.ErrRecordNotFound
 	}
 	return entry, nil
+}
+
+func (a *assetValueHistStore) ListByAssets(ctx context.Context, assetIDs []uuid.UUID, from, to time.Time) ([]model.AssetValueHistory, error) {
+	var entries []model.AssetValueHistory
+	if len(assetIDs) == 0 {
+		return entries, nil
+	}
+	err := a.storage.DB.WithContext(ctx).
+		Where("asset_id IN ? AND recorded_at BETWEEN ? AND ?", assetIDs, from, to).
+		Order("recorded_at ASC").
+		Find(&entries).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	return entries, nil
+}
+
+func (a *assetValueHistStore) LatestBefore(ctx context.Context, assetIDs []uuid.UUID, at time.Time) (map[uuid.UUID]model.AssetValueHistory, error) {
+	out := map[uuid.UUID]model.AssetValueHistory{}
+	if len(assetIDs) == 0 {
+		return out, nil
+	}
+	var entries []model.AssetValueHistory
+	err := a.storage.DB.WithContext(ctx).
+		Raw(`SELECT DISTINCT ON (asset_id) * FROM asset_value_history
+		     WHERE asset_id IN ? AND recorded_at <= ?
+		     ORDER BY asset_id, recorded_at DESC`, assetIDs, at).
+		Scan(&entries).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	for _, e := range entries {
+		out[e.AssetID] = e
+	}
+	return out, nil
 }

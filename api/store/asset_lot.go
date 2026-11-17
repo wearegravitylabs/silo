@@ -16,8 +16,13 @@ import (
 type AssetLotDatabase interface {
 	CreateLot(ctx context.Context, lot model.AssetLot) (model.AssetLot, error)
 	ListLotsByAsset(ctx context.Context, assetID uuid.UUID) ([]model.AssetLot, error)
+	// ListLotsByAssets returns the lots of several assets, keyed by asset id,
+	// each oldest first.
+	ListLotsByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[uuid.UUID][]model.AssetLot, error)
 	GetLotByID(ctx context.Context, id uuid.UUID) (model.AssetLot, error)
 	DeleteLot(ctx context.Context, id uuid.UUID) error
+	// UpdateLotQuantity sets a lot's quantity (used when part of it is sold).
+	UpdateLotQuantity(ctx context.Context, id uuid.UUID, quantity float64) error
 	// SumQuantity returns the total quantity across all lots for an asset.
 	SumQuantity(ctx context.Context, assetID uuid.UUID) (float64, error)
 }
@@ -82,4 +87,34 @@ func (a *assetLotStore) SumQuantity(ctx context.Context, assetID uuid.UUID) (flo
 		Where("asset_id = ?", assetID).
 		Scan(&total).Error
 	return total, err
+}
+
+func (a *assetLotStore) UpdateLotQuantity(ctx context.Context, id uuid.UUID, quantity float64) error {
+	err := a.storage.DB.WithContext(ctx).
+		Model(&model.AssetLot{}).
+		Where("id = ?", id).
+		Update("quantity", quantity).Error
+	if err != nil {
+		return siloErrors.ErrGenericErr
+	}
+	return nil
+}
+
+func (a *assetLotStore) ListLotsByAssets(ctx context.Context, assetIDs []uuid.UUID) (map[uuid.UUID][]model.AssetLot, error) {
+	out := map[uuid.UUID][]model.AssetLot{}
+	if len(assetIDs) == 0 {
+		return out, nil
+	}
+	var lots []model.AssetLot
+	err := a.storage.DB.WithContext(ctx).
+		Where("asset_id IN ?", assetIDs).
+		Order("acquisition_date ASC").
+		Find(&lots).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	for _, l := range lots {
+		out[l.AssetID] = append(out[l.AssetID], l)
+	}
+	return out, nil
 }
