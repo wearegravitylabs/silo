@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Silo API",
-    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
+    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "silo-api-v1"
   },
@@ -4210,7 +4210,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"currency\": \"USD\",\n    \"total_assets\": {\n      \"value\": 608144,\n      \"count\": 5\n    },\n    \"growth_30d\": {\n      \"amount\": 4210.3,\n      \"percentage\": 0.7\n    },\n    \"investable\": {\n      \"value\": 43644,\n      \"count\": 3\n    },\n    \"non_investable\": {\n      \"value\": 564500,\n      \"count\": 2\n    }\n  },\n  \"message\": \"asset overview\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"currency\": \"USD\",\n    \"total_assets\": {\n      \"value\": 576550,\n      \"count\": 3\n    },\n    \"growth_30d\": {\n      \"amount\": 0,\n      \"percentage\": 0\n    },\n    \"investable\": {\n      \"value\": 8550,\n      \"count\": 1\n    },\n    \"non_investable\": {\n      \"value\": 568000,\n      \"count\": 2\n    }\n  },\n  \"message\": \"asset overview\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · No assets yet",
@@ -4699,11 +4699,11 @@
                 }
               ]
             },
-            "description": "Requires portfolio **member**. `class` may repeat — `?class=stock&class=crypto` returns both."
+            "description": "Requires portfolio **member**. `class` may repeat — `?class=stock&class=crypto` returns both.\n\n**Money fields:** `*_converted`, `invested`, `gain`, `change_amount_1m` are the **owned share in the portfolio's base currency** (`converted_currency`). `total_value` / `owned_value` stay in the asset's own `currency`. `invested` / `gain` / `gain_pct` are null when no lot has a price; cash flows are not part of gain. `change_amount_1m` / `change_pct_1m` are null when the asset has no value from 30 days ago."
           },
           "response": [
             {
-              "name": "200 · Assets (no lots; values converted to base currency)",
+              "name": "200 · Assets in USD, NGN and GBP, converted to the USD base",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -4771,7 +4771,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"d4c3b2a1-7182-4394-b5c6-d7e8f9a0b1c2\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n      \"name\": \"Apple Inc.\",\n      \"asset_type\": \"stock_ticker\",\n      \"ticker\": \"AAPL\",\n      \"quantity\": 25,\n      \"purchase_price\": 165.21,\n      \"current_price\": 227.52,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"investability\": \"investable\",\n      \"asset_class\": \"stock\",\n      \"subtype\": \"\",\n      \"country\": \"US\",\n      \"logo_url\": \"https://ngnmarket.com/logos/AAPL.png\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M7.37385 3.73077C7.60955 3.96647 8.60859 3.91024 9.25947 3.25936C9.91034 2.60849 9.96657 1.60945 9.73087 1.37374C9.49517 1.13804 8.49613 1.19428 7.84525 1.84515C7.19438 2.49602 7.13814 3.49507 7.37385 3.73077Z\\\" fill=\\\"#033AB8\\\"/><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.99995 4.62264C7.69019 4.62264 7.4189 4.51333 7.00256 4.3387C6.57684 4.16014 5.98155 3.91046 5.25374 4.03281C3.87588 4.26444 2.97261 5.05408 2.47875 6.06789C1.99923 7.0523 1.9175 8.2153 2.0689 9.25161C2.2467 10.4685 2.68279 11.6348 3.25826 12.5755C3.82369 13.4999 4.57241 14.2839 5.42125 14.6198C6.00396 14.8505 6.63871 14.6629 7.21223 14.5004C7.58561 14.3948 7.82667 14.3321 7.99995 14.3321C8.17322 14.3321 8.41428 14.3948 8.78766 14.5004C9.36118 14.6629 9.99593 14.8505 10.5786 14.6198C11.2526 14.3531 11.858 13.8057 12.3537 13.1475C12.8557 12.4809 13.2801 11.6549 13.5743 10.7598C13.6878 10.4144 13.4937 10.0309 13.1481 9.91794C12.4807 9.69975 11.9999 9.0718 11.9999 8.33331C11.9999 7.62828 12.438 7.02392 13.0591 6.78063C13.4326 6.63434 13.5938 6.17604 13.3942 5.82813C12.8763 4.92533 12.0067 4.24467 10.7461 4.03281C10.0184 3.91049 9.4231 4.16015 8.99739 4.3387C8.58104 4.51332 8.30973 4.62264 7.99995 4.62264ZM5.47478 5.34769C5.80236 5.29262 6.07389 5.39524 6.56155 5.59956C6.92202 5.75059 7.4122 5.95597 7.99995 5.95597C8.5877 5.95597 9.07789 5.7506 9.43838 5.59956C9.92601 5.39525 10.1976 5.29264 10.5251 5.3477C11.0889 5.44245 11.5116 5.66286 11.8271 5.96342C11.1214 6.51193 10.6666 7.36904 10.6666 8.33331C10.6666 9.41807 11.2421 10.3673 12.1034 10.8941C11.8752 11.4442 11.5947 11.9389 11.2886 12.3455C10.8769 12.8921 10.4523 13.2359 10.0879 13.3801C9.82113 13.4857 9.35974 13.2768 9.10803 13.2054C8.79763 13.1173 8.38022 12.9988 7.99995 12.9988C7.61967 12.9988 7.20227 13.1173 6.89187 13.2054C6.64016 13.2768 6.17876 13.4857 5.91197 13.3801C5.44298 13.1945 4.88741 12.6836 4.39565 11.8798C3.91392 11.0923 3.53991 10.097 3.38823 9.05885C3.26369 8.20642 3.34668 7.33078 3.67743 6.6518C3.99385 6.00224 4.5464 5.50376 5.47478 5.34769Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 5688,\n      \"owned_value\": 5688,\n      \"owned_value_converted\": 5688,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1\n    },\n    {\n      \"id\": \"e5d4c3b2-8293-44a5-86d7-e8f9a0b1c2d3\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n      \"name\": \"Bitcoin\",\n      \"asset_type\": \"crypto_ticker\",\n      \"ticker\": \"bitcoin\",\n      \"quantity\": 0.5,\n      \"purchase_price\": 46500,\n      \"current_price\": 68412,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"investability\": \"investable\",\n      \"asset_class\": \"crypto\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"12\\\" height=\\\"13\\\" viewBox=\\\"0 0 12 13\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M12 3C12 2.45726 11.7458 1.99276 11.3935 1.62839C11.0443 1.26722 10.5713 0.972429 10.0384 0.739313C8.97079 0.272213 7.54247 0 6 0C4.45753 0 3.02921 0.272213 1.96155 0.739313C1.42871 0.972429 0.955651 1.26722 0.606487 1.62839C0.254222 1.99276 0 2.45726 0 3V9.66667C0 10.2094 0.254222 10.6739 0.606487 11.0383C0.955651 11.3994 1.42871 11.6942 1.96155 11.9274C3.02921 12.3945 4.45753 12.6667 6 12.6667C7.54247 12.6667 8.97079 12.3945 10.0384 11.9274C10.5713 11.6942 11.0443 11.3994 11.3935 11.0383C11.7458 10.6739 12 10.2094 12 9.66667V3ZM1.56509 2.55514C1.37759 2.74908 1.33333 2.89841 1.33333 3C1.33333 3.10159 1.37759 3.25092 1.56509 3.44486C1.75569 3.64201 2.06367 3.85001 2.49598 4.03914C3.35861 4.41655 4.59695 4.66667 6 4.66667C7.40305 4.66667 8.64139 4.41655 9.50402 4.03914C9.93633 3.85001 10.2443 3.64201 10.4349 3.44486C10.6224 3.25092 10.6667 3.10159 10.6667 3C10.6667 2.89841 10.6224 2.74908 10.4349 2.55514C10.2443 2.35799 9.93633 2.14999 9.50402 1.96086C8.64139 1.58345 7.40305 1.33333 6 1.33333C4.59695 1.33333 3.35861 1.58345 2.49598 1.96086C2.06367 2.14999 1.75569 2.35799 1.56509 2.55514ZM10.6667 4.93807C10.4706 5.05647 10.2597 5.16389 10.0384 5.26069C8.97079 5.72779 7.54247 6 6 6C4.45753 6 3.02921 5.72779 1.96155 5.26069C1.74031 5.16389 1.52937 5.05647 1.33333 4.93807V6.33333C1.33333 6.43492 1.37759 6.58426 1.56509 6.7782C1.75568 6.97535 2.06367 7.18334 2.49598 7.37248C3.35861 7.74988 4.59695 8 6 8C7.40305 8 8.64139 7.74988 9.50402 7.37248C9.93633 7.18334 10.2443 6.97535 10.4349 6.7782C10.6224 6.58426 10.6667 6.43492 10.6667 6.33333V4.93807ZM10.6667 8.27141C10.4706 8.3898 10.2597 8.49723 10.0384 8.59402C8.97079 9.06112 7.54247 9.33333 6 9.33333C4.45753 9.33333 3.02921 9.06112 1.96155 8.59402C1.74031 8.49723 1.52937 8.3898 1.33333 8.27141V9.66667C1.33333 9.76826 1.37759 9.91759 1.56509 10.1115C1.75568 10.3087 2.06367 10.5167 2.49598 10.7058C3.35861 11.0832 4.59695 11.3333 6 11.3333C7.40305 11.3333 8.64139 11.0832 9.50402 10.7058C9.93633 10.5167 10.2443 10.3087 10.4349 10.1115C10.6224 9.91759 10.6667 9.76826 10.6667 9.66667V8.27141Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 34206,\n      \"owned_value\": 34206,\n      \"owned_value_converted\": 34206,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1\n    },\n    {\n      \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"c3d2e4f5-6071-4283-a4b5-c6d7e8f9a0b1\",\n      \"name\": \"123 Main Street\",\n      \"asset_type\": \"real_estate\",\n      \"ticker\": \"\",\n      \"quantity\": 1,\n      \"purchase_price\": 450000,\n      \"current_price\": 550000,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"investability\": \"non_investable\",\n      \"asset_class\": \"real_estate\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"Austin, TX\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 550000,\n      \"owned_value\": 550000,\n      \"owned_value_converted\": 550000,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1\n    },\n    {\n      \"id\": \"07f6e5d4-a4b5-46c7-a8f9-a0b1c2d3e4f5\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n      \"name\": \"Rolex Submariner\",\n      \"asset_type\": \"physical\",\n      \"ticker\": \"\",\n      \"quantity\": 1,\n      \"purchase_price\": 9800,\n      \"current_price\": 14500,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"investability\": \"non_investable\",\n      \"asset_class\": \"physical\",\n      \"subtype\": \"watch\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#phys)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M6.66852 2.00004C6.66852 1.82323 6.73876 1.65366 6.86378 1.52864C6.98881 1.40361 7.15838 1.33337 7.33519 1.33337H8.66852C8.84533 1.33337 9.0149 1.40361 9.13992 1.52864C9.26495 1.65366 9.33519 1.82323 9.33519 2.00004V2.88004L11.5545 3.24937C11.8657 3.30144 12.1484 3.46218 12.3522 3.70301C12.5561 3.94385 12.6679 4.24918 12.6679 4.56471V6.85271L14.0412 7.31004C14.1506 7.34653 14.2512 7.40532 14.3367 7.48269C14.4222 7.56006 14.4907 7.65433 14.5378 7.75954C14.585 7.86474 14.6099 7.9786 14.6108 8.09389C14.6117 8.20919 14.5887 8.32343 14.5432 8.42937L12.8625 12.3514L13.6332 12.7374C13.7142 12.7748 13.7869 12.8282 13.847 12.8942C13.907 12.9603 13.9532 13.0378 13.9827 13.122C14.0123 13.2063 14.0246 13.2956 14.0189 13.3847C14.0133 13.4738 13.9898 13.5609 13.9499 13.6407C13.91 13.7206 13.8544 13.7916 13.7865 13.8496C13.7186 13.9076 13.6398 13.9513 13.5546 13.9782C13.4695 14.0051 13.3798 14.0147 13.291 14.0063C13.2021 13.9979 13.1158 13.9718 13.0372 13.9294L11.2645 13.0434C11.0795 12.9509 10.8754 12.9028 10.6685 12.9028C10.4616 12.9028 10.2576 12.9509 10.0725 13.0434L9.19452 13.4827C8.82421 13.6679 8.41588 13.7643 8.00185 13.7643C7.58783 13.7643 7.17949 13.6679 6.80919 13.4827L5.93119 13.0434C5.74603 12.9508 5.54186 12.9026 5.33485 12.9026C5.12784 12.9026 4.92367 12.9508 4.73852 13.0434L2.96652 13.93C2.80827 14.0091 2.62511 14.022 2.45733 13.966C2.28955 13.91 2.15089 13.7896 2.07185 13.6314C1.99282 13.4731 1.97988 13.29 2.03589 13.1222C2.09191 12.9544 2.21227 12.8157 2.37052 12.7367L3.59185 12.126L1.52385 8.50737C1.46269 8.40033 1.42603 8.28104 1.41654 8.15812C1.40704 8.03519 1.42494 7.91169 1.46894 7.79652C1.51295 7.68135 1.58195 7.57738 1.671 7.4921C1.76004 7.40682 1.86689 7.34236 1.98385 7.30337L3.33519 6.85271V4.56471C3.33512 4.24918 3.44696 3.94385 3.65081 3.70301C3.85466 3.46218 4.13732 3.30144 4.44852 3.24937L6.66852 2.88004V2.00004ZM4.83519 11.6167C5.40959 11.5071 6.0041 11.5893 6.52719 11.8507L7.40452 12.29C7.58976 12.3827 7.79405 12.431 8.00119 12.431C8.20832 12.431 8.41261 12.3827 8.59785 12.29L9.47519 11.8507C9.81284 11.6819 10.1825 11.5867 10.5597 11.5714C10.9369 11.5561 11.313 11.6211 11.6632 11.762L13.1032 8.40337L8.00185 6.70337L2.98385 8.37537L4.83519 11.6167ZM11.3352 6.40871V4.56471L8.00185 4.00937L4.66852 4.56471V6.40871L7.57985 5.43804C7.85356 5.3468 8.14948 5.3468 8.42319 5.43804L11.3352 6.40871Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"phys\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 14500,\n      \"owned_value\": 14500,\n      \"owned_value_converted\": 14500,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1\n    },\n    {\n      \"id\": \"18a7f6e5-b5c6-47d8-b9a0-b1c2d3e4f5a6\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n      \"name\": \"Angel stake — Acme Inc\",\n      \"asset_type\": \"manual\",\n      \"ticker\": \"\",\n      \"quantity\": 1,\n      \"purchase_price\": 50000,\n      \"current_price\": 75000,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 5,\n      \"investability\": \"investable\",\n      \"asset_class\": \"manual\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"metadata\": {\n        \"round\": \"seed\"\n      },\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M4.66536 8.00004C4.66536 7.63185 4.96384 7.33337 5.33203 7.33337H7.33203V5.33337C7.33203 4.96518 7.63051 4.66671 7.9987 4.66671C8.36689 4.66671 8.66536 4.96518 8.66536 5.33337V7.33337H10.6654C11.0336 7.33337 11.332 7.63185 11.332 8.00004C11.332 8.36823 11.0336 8.66671 10.6654 8.66671H8.66536V10.6667C8.66536 11.0349 8.36689 11.3334 7.9987 11.3334C7.63051 11.3334 7.33203 11.0349 7.33203 10.6667V8.66671H5.33203C4.96384 8.66671 4.66536 8.36823 4.66536 8.00004Z\\\" fill=\\\"#033AB8\\\"/><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M1.33203 8.00004C1.33203 4.31814 4.3168 1.33337 7.9987 1.33337C11.6806 1.33337 14.6654 4.31814 14.6654 8.00004C14.6654 11.6819 11.6806 14.6667 7.9987 14.6667C4.3168 14.6667 1.33203 11.6819 1.33203 8.00004ZM7.9987 2.66671C5.05318 2.66671 2.66536 5.05452 2.66536 8.00004C2.66536 10.9456 5.05318 13.3334 7.9987 13.3334C10.9442 13.3334 13.332 10.9456 13.332 8.00004C13.332 5.05452 10.9442 2.66671 7.9987 2.66671Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n      \"investability_editable\": true,\n      \"total_value\": 75000,\n      \"owned_value\": 3750,\n      \"owned_value_converted\": 3750,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1\n    }\n  ],\n  \"message\": \"assets\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n      \"name\": \"123 Main Street\",\n      \"asset_type\": \"real_estate\",\n      \"ticker\": \"\",\n      \"quantity\": 1,\n      \"purchase_price\": 450000,\n      \"current_price\": 550000,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"investability\": \"non_investable\",\n      \"asset_class\": \"real_estate\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"Austin, TX\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 550000,\n      \"owned_value\": 550000,\n      \"owned_value_converted\": 550000,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1,\n      \"invested\": 450000,\n      \"gain\": 100000,\n      \"gain_pct\": 22.22,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null\n    },\n    {\n      \"id\": \"d6dcf5ac-8a2a-52dc-8b6b-00799431aa39\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"cc2bad17-5244-5b22-8e66-338f57e36578\",\n      \"name\": \"Lagos Bakery Ltd\",\n      \"asset_type\": \"business\",\n      \"ticker\": \"\",\n      \"quantity\": 1,\n      \"purchase_price\": 30000000,\n      \"current_price\": 45000000,\n      \"currency\": \"NGN\",\n      \"ownership_pct\": 60,\n      \"investability\": \"non_investable\",\n      \"asset_class\": \"business\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.16707 1.46454C6.79781 1.34146 6.3932 1.38587 6.05944 1.58613L3.3127 3.23417C2.9111 3.47514 2.66536 3.90915 2.66536 4.3775V13.3334H1.9987C1.63051 13.3334 1.33203 13.6318 1.33203 14C1.33203 14.3682 1.63051 14.6667 1.9987 14.6667H13.9987C14.3669 14.6667 14.6654 14.3682 14.6654 14C14.6654 13.6318 14.3669 13.3334 13.9987 13.3334H13.332V4.48054C13.332 3.90664 12.9648 3.39712 12.4203 3.21563L7.16707 1.46454ZM11.9987 13.3334V4.48054L7.33203 2.92499V13.3334H11.9987ZM5.9987 3.1775L3.9987 4.3775V13.3334H5.9987V3.1775Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 45000000,\n      \"owned_value\": 27000000,\n      \"owned_value_converted\": 18000,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 0.0006666666666666666,\n      \"invested\": 12000,\n      \"gain\": 6000,\n      \"gain_pct\": 50,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null\n    },\n    {\n      \"id\": \"c9e02e10-c4ca-536c-9562-5cbbd995a99a\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"cc2bad17-5244-5b22-8e66-338f57e36578\",\n      \"name\": \"Vanguard FTSE 100 ETF\",\n      \"asset_type\": \"stock_manual\",\n      \"ticker\": \"\",\n      \"quantity\": 200,\n      \"purchase_price\": 31,\n      \"current_price\": 34.2,\n      \"currency\": \"GBP\",\n      \"ownership_pct\": 100,\n      \"investability\": \"investable\",\n      \"asset_class\": \"stock\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 0,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M7.37385 3.73077C7.60955 3.96647 8.60859 3.91024 9.25947 3.25936C9.91034 2.60849 9.96657 1.60945 9.73087 1.37374C9.49517 1.13804 8.49613 1.19428 7.84525 1.84515C7.19438 2.49602 7.13814 3.49507 7.37385 3.73077Z\\\" fill=\\\"#033AB8\\\"/><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.99995 4.62264C7.69019 4.62264 7.4189 4.51333 7.00256 4.3387C6.57684 4.16014 5.98155 3.91046 5.25374 4.03281C3.87588 4.26444 2.97261 5.05408 2.47875 6.06789C1.99923 7.0523 1.9175 8.2153 2.0689 9.25161C2.2467 10.4685 2.68279 11.6348 3.25826 12.5755C3.82369 13.4999 4.57241 14.2839 5.42125 14.6198C6.00396 14.8505 6.63871 14.6629 7.21223 14.5004C7.58561 14.3948 7.82667 14.3321 7.99995 14.3321C8.17322 14.3321 8.41428 14.3948 8.78766 14.5004C9.36118 14.6629 9.99593 14.8505 10.5786 14.6198C11.2526 14.3531 11.858 13.8057 12.3537 13.1475C12.8557 12.4809 13.2801 11.6549 13.5743 10.7598C13.6878 10.4144 13.4937 10.0309 13.1481 9.91794C12.4807 9.69975 11.9999 9.0718 11.9999 8.33331C11.9999 7.62828 12.438 7.02392 13.0591 6.78063C13.4326 6.63434 13.5938 6.17604 13.3942 5.82813C12.8763 4.92533 12.0067 4.24467 10.7461 4.03281C10.0184 3.91049 9.4231 4.16015 8.99739 4.3387C8.58104 4.51332 8.30973 4.62264 7.99995 4.62264ZM5.47478 5.34769C5.80236 5.29262 6.07389 5.39524 6.56155 5.59956C6.92202 5.75059 7.4122 5.95597 7.99995 5.95597C8.5877 5.95597 9.07789 5.7506 9.43838 5.59956C9.92601 5.39525 10.1976 5.29264 10.5251 5.3477C11.0889 5.44245 11.5116 5.66286 11.8271 5.96342C11.1214 6.51193 10.6666 7.36904 10.6666 8.33331C10.6666 9.41807 11.2421 10.3673 12.1034 10.8941C11.8752 11.4442 11.5947 11.9389 11.2886 12.3455C10.8769 12.8921 10.4523 13.2359 10.0879 13.3801C9.82113 13.4857 9.35974 13.2768 9.10803 13.2054C8.79763 13.1173 8.38022 12.9988 7.99995 12.9988C7.61967 12.9988 7.20227 13.1173 6.89187 13.2054C6.64016 13.2768 6.17876 13.4857 5.91197 13.3801C5.44298 13.1945 4.88741 12.6836 4.39565 11.8798C3.91392 11.0923 3.53991 10.097 3.38823 9.05885C3.26369 8.20642 3.34668 7.33078 3.67743 6.6518C3.99385 6.00224 4.5464 5.50376 5.47478 5.34769Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 6840.000000000001,\n      \"owned_value\": 6840.000000000001,\n      \"owned_value_converted\": 8550,\n      \"total_cash_in_converted\": 0,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1.25,\n      \"invested\": 7750,\n      \"gain\": 800,\n      \"gain_pct\": 10.32,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null\n    }\n  ],\n  \"message\": \"assets\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · Filtered (?class=stock&class=crypto)",
@@ -5827,7 +5827,7 @@
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"asset\",\n    \"code\": \"FOLDER_NOT_FOUND\",\n    \"message\": \"That folder doesn't exist or you don't have access to it.\"\n  }\n}"
             },
             {
-              "name": "500 · Folder is a debt folder",
+              "name": "400 · Folder is a debt folder",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -5857,8 +5857,8 @@
                   }
                 }
               },
-              "status": "Internal Server Error",
-              "code": 500,
+              "status": "Bad Request",
+              "code": 400,
               "_postman_previewlanguage": "json",
               "header": [
                 {
@@ -5871,7 +5871,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 500,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"asset\",\n    \"code\": \"FOLDER_TYPE_MISMATCH\",\n    \"message\": \"That folder cannot hold this type of item.\"\n  }\n}"
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"asset\",\n    \"code\": \"FOLDER_TYPE_MISMATCH\",\n    \"message\": \"That folder cannot hold this type of item.\"\n  }\n}"
             },
             {
               "name": "403 · Viewer cannot add assets",
@@ -6210,7 +6210,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n    \"name\": \"123 Main Street\",\n    \"asset_type\": \"real_estate\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 450000,\n    \"current_price\": 550000,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"real_estate\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"Austin, TX\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"4bdac9b8-e8f9-4a0b-acd3-e4f5a6b7c8d9\",\n        \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n        \"quantity\": 1,\n        \"acquisition_price\": 450000,\n        \"acquisition_date\": \"2022-06-01T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"\",\n        \"created_at\": \"2026-10-31T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 550000,\n    \"owned_value\": 550000,\n    \"owned_value_converted\": 0,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"\",\n    \"exchange_rate\": 0\n  },\n  \"message\": \"Asset added to your portfolio.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n    \"name\": \"123 Main Street\",\n    \"asset_type\": \"real_estate\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 450000,\n    \"current_price\": 550000,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"real_estate\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"Austin, TX\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"861c7475-7f6c-527b-94c8-9b5cca1c0a35\",\n        \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n        \"quantity\": 1,\n        \"acquisition_price\": 450000,\n        \"acquisition_date\": \"2022-06-01T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"\",\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 550000,\n    \"owned_value\": 550000,\n    \"owned_value_converted\": 550000,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"invested\": 450000,\n    \"gain\": 100000,\n    \"gain_pct\": 22.22,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Asset added to your portfolio.\",\n  \"error\": null\n}"
             },
             {
               "name": "400 · Unknown asset_type",
@@ -6617,7 +6617,7 @@
                 "{{assetID}}"
               ]
             },
-            "description": "Requires portfolio **member**."
+            "description": "Requires portfolio **member**.\n\n**Money fields:** `*_converted`, `invested`, `gain`, `change_amount_1m` are the **owned share in the portfolio's base currency** (`converted_currency`). `total_value` / `owned_value` stay in the asset's own `currency`. `invested` / `gain` / `gain_pct` are null when no lot has a price; cash flows are not part of gain. `change_amount_1m` / `change_pct_1m` are null when the asset has no value from 30 days ago."
           },
           "response": [
             {
@@ -6652,7 +6652,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"d4c3b2a1-7182-4394-b5c6-d7e8f9a0b1c2\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n    \"name\": \"Apple Inc.\",\n    \"asset_type\": \"stock_ticker\",\n    \"ticker\": \"AAPL\",\n    \"quantity\": 25,\n    \"purchase_price\": 165.21,\n    \"current_price\": 227.52,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"investable\",\n    \"asset_class\": \"stock\",\n    \"subtype\": \"\",\n    \"country\": \"US\",\n    \"logo_url\": \"https://ngnmarket.com/logos/AAPL.png\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"29b8a7f6-c6d7-48e9-8ab1-c2d3e4f5a6b7\",\n        \"asset_id\": \"d4c3b2a1-7182-4394-b5c6-d7e8f9a0b1c2\",\n        \"quantity\": 25,\n        \"acquisition_price\": 165.21,\n        \"acquisition_date\": \"2023-04-18T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"Initial buy\",\n        \"created_at\": \"2026-10-31T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M7.37385 3.73077C7.60955 3.96647 8.60859 3.91024 9.25947 3.25936C9.91034 2.60849 9.96657 1.60945 9.73087 1.37374C9.49517 1.13804 8.49613 1.19428 7.84525 1.84515C7.19438 2.49602 7.13814 3.49507 7.37385 3.73077Z\\\" fill=\\\"#033AB8\\\"/><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.99995 4.62264C7.69019 4.62264 7.4189 4.51333 7.00256 4.3387C6.57684 4.16014 5.98155 3.91046 5.25374 4.03281C3.87588 4.26444 2.97261 5.05408 2.47875 6.06789C1.99923 7.0523 1.9175 8.2153 2.0689 9.25161C2.2467 10.4685 2.68279 11.6348 3.25826 12.5755C3.82369 13.4999 4.57241 14.2839 5.42125 14.6198C6.00396 14.8505 6.63871 14.6629 7.21223 14.5004C7.58561 14.3948 7.82667 14.3321 7.99995 14.3321C8.17322 14.3321 8.41428 14.3948 8.78766 14.5004C9.36118 14.6629 9.99593 14.8505 10.5786 14.6198C11.2526 14.3531 11.858 13.8057 12.3537 13.1475C12.8557 12.4809 13.2801 11.6549 13.5743 10.7598C13.6878 10.4144 13.4937 10.0309 13.1481 9.91794C12.4807 9.69975 11.9999 9.0718 11.9999 8.33331C11.9999 7.62828 12.438 7.02392 13.0591 6.78063C13.4326 6.63434 13.5938 6.17604 13.3942 5.82813C12.8763 4.92533 12.0067 4.24467 10.7461 4.03281C10.0184 3.91049 9.4231 4.16015 8.99739 4.3387C8.58104 4.51332 8.30973 4.62264 7.99995 4.62264ZM5.47478 5.34769C5.80236 5.29262 6.07389 5.39524 6.56155 5.59956C6.92202 5.75059 7.4122 5.95597 7.99995 5.95597C8.5877 5.95597 9.07789 5.7506 9.43838 5.59956C9.92601 5.39525 10.1976 5.29264 10.5251 5.3477C11.0889 5.44245 11.5116 5.66286 11.8271 5.96342C11.1214 6.51193 10.6666 7.36904 10.6666 8.33331C10.6666 9.41807 11.2421 10.3673 12.1034 10.8941C11.8752 11.4442 11.5947 11.9389 11.2886 12.3455C10.8769 12.8921 10.4523 13.2359 10.0879 13.3801C9.82113 13.4857 9.35974 13.2768 9.10803 13.2054C8.79763 13.1173 8.38022 12.9988 7.99995 12.9988C7.61967 12.9988 7.20227 13.1173 6.89187 13.2054C6.64016 13.2768 6.17876 13.4857 5.91197 13.3801C5.44298 13.1945 4.88741 12.6836 4.39565 11.8798C3.91392 11.0923 3.53991 10.097 3.38823 9.05885C3.26369 8.20642 3.34668 7.33078 3.67743 6.6518C3.99385 6.00224 4.5464 5.50376 5.47478 5.34769Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 5688,\n    \"owned_value\": 5688,\n    \"owned_value_converted\": 5688,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1\n  },\n  \"message\": \"asset\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n    \"name\": \"123 Main Street\",\n    \"asset_type\": \"real_estate\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 450000,\n    \"current_price\": 550000,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"real_estate\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"Austin, TX\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"861c7475-7f6c-527b-94c8-9b5cca1c0a35\",\n        \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n        \"quantity\": 1,\n        \"acquisition_price\": 450000,\n        \"acquisition_date\": \"2022-06-01T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"\",\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 550000,\n    \"owned_value\": 550000,\n    \"owned_value_converted\": 550000,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"invested\": 450000,\n    \"gain\": 100000,\n    \"gain_pct\": 22.22,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"asset\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · Asset in another currency (NGN stock in a USD portfolio)",
@@ -6780,7 +6780,7 @@
                 "{{assetID}}"
               ]
             },
-            "description": "Requires portfolio **editor**. Partial update. `investability` is silently ignored for asset types that have a preset value.\n\n**Clearing a field:** send `\"folder_id\": null` to take the asset out of its folder. Leaving a key out keeps its value. `folder_id` must be an **asset** folder of this portfolio (another portfolio's folder → 404 `FOLDER_NOT_FOUND`; a debt folder → 400 `FOLDER_TYPE_MISMATCH`).",
+            "description": "Requires portfolio **editor**. Partial update. `investability` is silently ignored for asset types that have a preset value.\n\n**Clearing a field:** send `\"folder_id\": null` to take the asset out of its folder. Leaving a key out keeps its value. `folder_id` must be an **asset** folder of this portfolio (another portfolio's folder → 404 `FOLDER_NOT_FOUND`; a debt folder → 400 `FOLDER_TYPE_MISMATCH`).\n\n**Setting the value:** send either `current_price` (price per unit, asset currency) or `owned_value` (the user's share in the **base currency**, what they type) — not both (400). Add `price_date` (YYYY-MM-DD) to date it; an older date than the latest known value only fills in the history and leaves `current_price` alone. A future date is 400 `DATE_IN_FUTURE`. The response is the full asset (lots and converted fields).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"123 Main St (renovated)\",\n  \"current_price\": 610000,\n  \"ownership_pct\": 100,\n  \"location\": \"Austin, TX\",\n  \"folder_id\": \"{{folderID}}\",\n  \"metadata\": {\n    \"renovated\": true\n  }\n}",
@@ -6793,7 +6793,7 @@
           },
           "response": [
             {
-              "name": "200 · Updated (no lots; converted_* fields are 0 — re-fetch for them)",
+              "name": "200 · New price today",
               "originalRequest": {
                 "method": "PATCH",
                 "header": [
@@ -6816,7 +6816,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"123 Main St (renovated)\",\n  \"current_price\": 610000,\n  \"ownership_pct\": 100,\n  \"location\": \"Austin, TX\",\n  \"folder_id\": \"{{folderID}}\",\n  \"metadata\": {\n    \"renovated\": true\n  }\n}",
+                  "raw": "{\n  \"current_price\": 552500\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -6838,7 +6838,103 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"c3d2e4f5-6071-4283-a4b5-c6d7e8f9a0b1\",\n    \"name\": \"123 Main St (renovated)\",\n    \"asset_type\": \"real_estate\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 450000,\n    \"current_price\": 610000,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"real_estate\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"Austin, TX\",\n    \"metadata\": {\n      \"renovated\": true\n    },\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:31:05.902117Z\",\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 610000,\n    \"owned_value\": 610000,\n    \"owned_value_converted\": 0,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"\",\n    \"exchange_rate\": 0\n  },\n  \"message\": \"Asset updated.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n    \"name\": \"123 Main Street\",\n    \"asset_type\": \"real_estate\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 450000,\n    \"current_price\": 552500,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"real_estate\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"Austin, TX\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"861c7475-7f6c-527b-94c8-9b5cca1c0a35\",\n        \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n        \"quantity\": 1,\n        \"acquisition_price\": 450000,\n        \"acquisition_date\": \"2022-06-01T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"\",\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 552500,\n    \"owned_value\": 552500,\n    \"owned_value_converted\": 552500,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"invested\": 450000,\n    \"gain\": 102500,\n    \"gain_pct\": 22.78,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Asset updated.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · Value typed as owned share in base currency (owned_value)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"owned_value\": 18000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"d6dcf5ac-8a2a-52dc-8b6b-00799431aa39\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"cc2bad17-5244-5b22-8e66-338f57e36578\",\n    \"name\": \"Lagos Bakery Ltd\",\n    \"asset_type\": \"business\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 30000000,\n    \"current_price\": 45000000,\n    \"currency\": \"NGN\",\n    \"ownership_pct\": 60,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"business\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"46e9d442-80fc-5865-aea7-10af98946481\",\n        \"asset_id\": \"d6dcf5ac-8a2a-52dc-8b6b-00799431aa39\",\n        \"quantity\": 1,\n        \"acquisition_price\": 30000000,\n        \"acquisition_date\": \"2023-01-10T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"\",\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.16707 1.46454C6.79781 1.34146 6.3932 1.38587 6.05944 1.58613L3.3127 3.23417C2.9111 3.47514 2.66536 3.90915 2.66536 4.3775V13.3334H1.9987C1.63051 13.3334 1.33203 13.6318 1.33203 14C1.33203 14.3682 1.63051 14.6667 1.9987 14.6667H13.9987C14.3669 14.6667 14.6654 14.3682 14.6654 14C14.6654 13.6318 14.3669 13.3334 13.9987 13.3334H13.332V4.48054C13.332 3.90664 12.9648 3.39712 12.4203 3.21563L7.16707 1.46454ZM11.9987 13.3334V4.48054L7.33203 2.92499V13.3334H11.9987ZM5.9987 3.1775L3.9987 4.3775V13.3334H5.9987V3.1775Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 45000000,\n    \"owned_value\": 27000000,\n    \"owned_value_converted\": 18000,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 0.0006666666666666666,\n    \"invested\": 12000,\n    \"gain\": 6000,\n    \"gain_pct\": 50,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Asset updated.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · Back-dated price (history only, current_price unchanged)",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"current_price\": 545000,\n  \"price_date\": \"2026-03-31\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n    \"name\": \"123 Main Street\",\n    \"asset_type\": \"real_estate\",\n    \"ticker\": \"\",\n    \"quantity\": 1,\n    \"purchase_price\": 450000,\n    \"current_price\": 550000,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"investability\": \"non_investable\",\n    \"asset_class\": \"real_estate\",\n    \"subtype\": \"\",\n    \"country\": \"\",\n    \"logo_url\": \"\",\n    \"total_cash_in\": 0,\n    \"total_cash_out\": 0,\n    \"location\": \"Austin, TX\",\n    \"last_price_sync\": null,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"lots\": [\n      {\n        \"id\": \"861c7475-7f6c-527b-94c8-9b5cca1c0a35\",\n        \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n        \"quantity\": 1,\n        \"acquisition_price\": 450000,\n        \"acquisition_date\": \"2022-06-01T00:00:00Z\",\n        \"price_date_used\": null,\n        \"notes\": \"\",\n        \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n      }\n    ],\n    \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><g clip-path=\\\"url(#re)\\\"><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.9005 3.85472C8.28626 3.46914 8.76984 3.19602 9.29923 3.06474C9.82862 2.93346 10.3838 2.94899 10.905 3.10965C11.4262 3.27031 11.8938 3.57002 12.2574 3.97656C12.621 4.38309 12.8669 4.88107 12.9687 5.41691C13.0704 5.95276 13.0241 6.50621 12.8348 7.01773C12.6456 7.52925 12.3204 7.97948 11.8943 8.32001C11.4683 8.66054 10.9574 8.87847 10.4168 8.95037C9.87611 9.02226 9.32608 8.9454 8.82583 8.72806C8.64994 8.65066 8.46 8.61027 8.26783 8.60939H7.35917C6.89917 8.60939 6.52583 8.98272 6.52583 9.44272V10.4947H5.4745C5.0145 10.4947 4.64117 10.8681 4.64117 11.3281V12.3801H3.14583V11.4374L6.7165 7.86739C7.07917 7.50472 7.16983 7.00339 7.08317 6.58006C6.98289 6.09363 7.00509 5.58992 7.14776 5.1142C7.29043 4.63848 7.54909 4.20568 7.9005 3.85472ZM13.0858 2.91206C12.4269 2.25304 11.5731 1.824 10.6511 1.68858C9.72913 1.55316 8.78802 1.71858 7.96746 2.1603C7.14689 2.60201 6.49059 3.29649 6.09591 4.14069C5.70124 4.98489 5.58923 5.93383 5.7765 6.84672C5.78272 6.87279 5.78133 6.90009 5.7725 6.92539L2.10583 10.5921C2.01287 10.6849 1.93911 10.7952 1.88878 10.9165C1.83845 11.0379 1.81253 11.168 1.8125 11.2994V13.0401C1.8125 13.4121 2.11383 13.7134 2.48583 13.7134H5.14117C5.60117 13.7134 5.9745 13.3401 5.9745 12.8801V11.8281H7.0265C7.4865 11.8281 7.85983 11.4547 7.85983 10.9947V9.94272H8.2665C8.26783 9.94272 8.27717 9.94406 8.2945 9.95139C9.21996 10.3526 10.2564 10.4185 11.2252 10.1378C12.194 9.857 13.0346 9.24715 13.6022 8.41326C14.1697 7.57937 14.4286 6.57366 14.3344 5.56938C14.2402 4.5651 13.7986 3.62579 13.0858 2.91206ZM9.78583 6.21206C9.87872 6.30494 9.989 6.37863 10.1104 6.4289C10.2317 6.47917 10.3618 6.50504 10.4932 6.50504C10.6245 6.50504 10.7546 6.47917 10.876 6.4289C10.9973 6.37863 11.1076 6.30494 11.2005 6.21206C11.2934 6.11917 11.3671 6.00889 11.4173 5.88753C11.4676 5.76616 11.4935 5.63609 11.4935 5.50472C11.4935 5.37336 11.4676 5.24328 11.4173 5.12192C11.3671 5.00055 11.2934 4.89028 11.2005 4.79739C11.013 4.60979 10.7586 4.50437 10.4934 4.5043C10.2282 4.50424 9.97376 4.60955 9.78617 4.79706C9.59857 4.98456 9.49314 5.23891 9.49308 5.50415C9.49302 5.76939 9.59833 6.02446 9.78583 6.21206Z\\\" fill=\\\"#033AB8\\\"/></g><defs><clipPath id=\\\"re\\\"><rect width=\\\"16\\\" height=\\\"16\\\" fill=\\\"white\\\"/></clipPath></defs></svg>\",\n    \"investability_editable\": false,\n    \"total_value\": 550000,\n    \"owned_value\": 550000,\n    \"owned_value_converted\": 550000,\n    \"total_cash_in_converted\": 0,\n    \"total_cash_out_converted\": 0,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"invested\": 450000,\n    \"gain\": 100000,\n    \"gain_pct\": 22.22,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Asset updated.\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · Taken out of its folder (folder_id: null)",
@@ -6935,6 +7031,102 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"asset\",\n    \"code\": \"ASSET_NOT_FOUND\",\n    \"message\": \"an error occurred\"\n  }\n}"
+            },
+            {
+              "name": "400 · price_date in the future",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"current_price\": 1,\n  \"price_date\": \"2099-01-01\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"26a3e5bc-59f3-5294-b1c9-fd799a5c9f5c\",\n    \"service\": \"asset\",\n    \"code\": \"DATE_IN_FUTURE\",\n    \"message\": \"That date is in the future. Please pick today or an earlier date.\"\n  }\n}"
+            },
+            {
+              "name": "400 · current_price and owned_value together",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"current_price\": 1,\n  \"owned_value\": 2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"26a3e5bc-59f3-5294-b1c9-fd799a5c9f5c\",\n    \"service\": \"asset\",\n    \"code\": \"INVALID_REQUEST\",\n    \"message\": \"The request is missing required fields or contains invalid data. Please check and try again.\"\n  }\n}"
             }
           ]
         },
@@ -7448,6 +7640,190 @@
           ]
         },
         {
+          "name": "Sell units",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/sell",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "assets",
+                "{{assetID}}",
+                "sell"
+              ]
+            },
+            "description": "Requires portfolio **editor**. Sells part (or all) of a holding. Units come off the **oldest lots first**; a lot that is used up is removed. The money is recorded as a `sale_proceeds` cash flow and the remaining units are valued at the sale price on the sale date.\n\n- `quantity` > 0 and not more than held (else 400 `SELL_EXCEEDS_HOLDING`).\n- `date` YYYY-MM-DD, not in the future.\n- `price` per unit in the asset's currency — optional only for `stock_ticker` (market price is used).\n\n`proceeds`, `cost_of_sold` and `realized_gain` are in the asset's currency.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 120,\n  \"date\": \"2026-11-17\",\n  \"price\": 34.2,\n  \"notes\": \"Rebalancing\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Sold 120 of 200 units (100 from the first lot, 20 from the second)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/sell",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}",
+                    "sell"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 120,\n  \"date\": \"2026-11-17\",\n  \"price\": 34.2,\n  \"notes\": \"Rebalancing\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"asset\": {\n      \"id\": \"c9e02e10-c4ca-536c-9562-5cbbd995a99a\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"cc2bad17-5244-5b22-8e66-338f57e36578\",\n      \"name\": \"Vanguard FTSE 100 ETF\",\n      \"asset_type\": \"stock_manual\",\n      \"ticker\": \"\",\n      \"quantity\": 80,\n      \"purchase_price\": 32,\n      \"current_price\": 34.2,\n      \"currency\": \"GBP\",\n      \"ownership_pct\": 100,\n      \"investability\": \"investable\",\n      \"asset_class\": \"stock\",\n      \"subtype\": \"\",\n      \"country\": \"\",\n      \"logo_url\": \"\",\n      \"total_cash_in\": 4104,\n      \"total_cash_out\": 0,\n      \"location\": \"\",\n      \"last_price_sync\": null,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"lots\": [\n        {\n          \"id\": \"61c68f64-83c0-5cc1-b25f-3a413119540e\",\n          \"asset_id\": \"c9e02e10-c4ca-536c-9562-5cbbd995a99a\",\n          \"quantity\": 80,\n          \"acquisition_price\": 32,\n          \"acquisition_date\": \"2024-02-01T00:00:00Z\",\n          \"price_date_used\": null,\n          \"notes\": \"\",\n          \"created_at\": \"2026-11-17T09:14:22.481203Z\"\n        }\n      ],\n      \"icon\": \"<svg width=\\\"16\\\" height=\\\"16\\\" viewBox=\\\"0 0 16 16\\\" fill=\\\"none\\\" xmlns=\\\"http://www.w3.org/2000/svg\\\"><path d=\\\"M7.37385 3.73077C7.60955 3.96647 8.60859 3.91024 9.25947 3.25936C9.91034 2.60849 9.96657 1.60945 9.73087 1.37374C9.49517 1.13804 8.49613 1.19428 7.84525 1.84515C7.19438 2.49602 7.13814 3.49507 7.37385 3.73077Z\\\" fill=\\\"#033AB8\\\"/><path fill-rule=\\\"evenodd\\\" clip-rule=\\\"evenodd\\\" d=\\\"M7.99995 4.62264C7.69019 4.62264 7.4189 4.51333 7.00256 4.3387C6.57684 4.16014 5.98155 3.91046 5.25374 4.03281C3.87588 4.26444 2.97261 5.05408 2.47875 6.06789C1.99923 7.0523 1.9175 8.2153 2.0689 9.25161C2.2467 10.4685 2.68279 11.6348 3.25826 12.5755C3.82369 13.4999 4.57241 14.2839 5.42125 14.6198C6.00396 14.8505 6.63871 14.6629 7.21223 14.5004C7.58561 14.3948 7.82667 14.3321 7.99995 14.3321C8.17322 14.3321 8.41428 14.3948 8.78766 14.5004C9.36118 14.6629 9.99593 14.8505 10.5786 14.6198C11.2526 14.3531 11.858 13.8057 12.3537 13.1475C12.8557 12.4809 13.2801 11.6549 13.5743 10.7598C13.6878 10.4144 13.4937 10.0309 13.1481 9.91794C12.4807 9.69975 11.9999 9.0718 11.9999 8.33331C11.9999 7.62828 12.438 7.02392 13.0591 6.78063C13.4326 6.63434 13.5938 6.17604 13.3942 5.82813C12.8763 4.92533 12.0067 4.24467 10.7461 4.03281C10.0184 3.91049 9.4231 4.16015 8.99739 4.3387C8.58104 4.51332 8.30973 4.62264 7.99995 4.62264ZM5.47478 5.34769C5.80236 5.29262 6.07389 5.39524 6.56155 5.59956C6.92202 5.75059 7.4122 5.95597 7.99995 5.95597C8.5877 5.95597 9.07789 5.7506 9.43838 5.59956C9.92601 5.39525 10.1976 5.29264 10.5251 5.3477C11.0889 5.44245 11.5116 5.66286 11.8271 5.96342C11.1214 6.51193 10.6666 7.36904 10.6666 8.33331C10.6666 9.41807 11.2421 10.3673 12.1034 10.8941C11.8752 11.4442 11.5947 11.9389 11.2886 12.3455C10.8769 12.8921 10.4523 13.2359 10.0879 13.3801C9.82113 13.4857 9.35974 13.2768 9.10803 13.2054C8.79763 13.1173 8.38022 12.9988 7.99995 12.9988C7.61967 12.9988 7.20227 13.1173 6.89187 13.2054C6.64016 13.2768 6.17876 13.4857 5.91197 13.3801C5.44298 13.1945 4.88741 12.6836 4.39565 11.8798C3.91392 11.0923 3.53991 10.097 3.38823 9.05885C3.26369 8.20642 3.34668 7.33078 3.67743 6.6518C3.99385 6.00224 4.5464 5.50376 5.47478 5.34769Z\\\" fill=\\\"#033AB8\\\"/></svg>\",\n      \"investability_editable\": false,\n      \"total_value\": 2736,\n      \"owned_value\": 2736,\n      \"owned_value_converted\": 3420,\n      \"total_cash_in_converted\": 5130,\n      \"total_cash_out_converted\": 0,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1.25,\n      \"invested\": 3200,\n      \"gain\": 220,\n      \"gain_pct\": 6.88,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null\n    },\n    \"proceeds\": 4104,\n    \"cost_of_sold\": 3640,\n    \"realized_gain\": 464,\n    \"currency\": \"GBP\"\n  },\n  \"message\": \"units sold\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · More than held",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/sell",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}",
+                    "sell"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 500,\n  \"date\": \"2026-11-17\",\n  \"price\": 34.2\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"26a3e5bc-59f3-5294-b1c9-fd799a5c9f5c\",\n    \"service\": \"asset\",\n    \"code\": \"SELL_EXCEEDS_HOLDING\",\n    \"message\": \"You can't sell more units than you hold.\"\n  }\n}"
+            },
+            {
+              "name": "400 · No price on an asset with no market price",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/sell",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "assets",
+                    "{{assetID}}",
+                    "sell"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"quantity\": 1,\n  \"date\": \"2026-11-17\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"26a3e5bc-59f3-5294-b1c9-fd799a5c9f5c\",\n    \"service\": \"asset\",\n    \"code\": \"ACQUISITION_PRICE_REQUIRED\",\n    \"message\": \"Please enter the price you paid for this purchase. We couldn't work it out automatically.\"\n  }\n}"
+            }
+          ]
+        },
+        {
           "name": "List cash flows",
           "request": {
             "method": "GET",
@@ -7834,16 +8210,16 @@
                 }
               ]
             },
-            "description": "Valuation time series. `from`/`to` are RFC 3339; they default to the last 12 months, and an unparseable value falls back to that default rather than erroring."
+            "description": "Requires portfolio **member**. Points between `from` and `to` (RFC 3339; default the last year), oldest first. `value` is the whole asset in its own `currency`; `owned_value_converted` is the owned share in the base currency; `change_amount` / `change_pct` compare with the point before (null on the very first)."
           },
           "response": [
             {
-              "name": "200 · Points in range (oldest first)",
+              "name": "200 · Points with owned base-currency value and change",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/value-history?",
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/assets/{{assetID}}/value-history?from=2022-01-01T00:00:00Z",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -7857,15 +8233,7 @@
                   "query": [
                     {
                       "key": "from",
-                      "value": "2024-10-19T00:00:00Z",
-                      "description": "RFC 3339",
-                      "disabled": true
-                    },
-                    {
-                      "key": "to",
-                      "value": "2025-10-19T00:00:00Z",
-                      "description": "RFC 3339",
-                      "disabled": true
+                      "value": "2022-01-01T00:00:00Z"
                     }
                   ]
                 }
@@ -7884,7 +8252,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"a1302f1e-4ef5-4061-82d9-e0f1a2b3c4d5\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 450000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2022-06-01T00:00:00Z\"\n    },\n    {\n      \"id\": \"b2413020-5f06-4172-93e0-f1a2b3c4d5e6\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 550000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-10-31T09:14:22.481203Z\"\n    },\n    {\n      \"id\": \"c3524131-6017-4283-a4f1-a2b3c4d5e6f7\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 610000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-10-31T09:31:05.902117Z\"\n    }\n  ],\n  \"message\": \"value history\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"2c3744ef-9dea-5bf9-bbee-bbb674d0e6ea\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 450000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2022-06-01T01:00:00+01:00\",\n      \"owned_value_converted\": 450000,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": null,\n      \"change_pct\": null\n    },\n    {\n      \"id\": \"d194ace1-f18b-5c9d-8ceb-d698ddf34473\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 545000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-03-31T01:00:00+01:00\",\n      \"owned_value_converted\": 545000,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": 95000,\n      \"change_pct\": 21.11\n    },\n    {\n      \"id\": \"f17eaca1-85dc-55cc-8cf5-26d2c574e8fc\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 540000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-10-08T01:00:00+01:00\",\n      \"owned_value_converted\": 540000,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": -5000,\n      \"change_pct\": -0.92\n    },\n    {\n      \"id\": \"2dd469ba-bf49-5d39-9d6d-0e1ce9c2b33b\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 550000,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"owned_value_converted\": 550000,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": 10000,\n      \"change_pct\": 1.85\n    },\n    {\n      \"id\": \"4156f224-3b26-5213-8a46-93e026755e6a\",\n      \"asset_id\": \"f6e5d4c3-93a4-45b6-97e8-f9a0b1c2d3e4\",\n      \"value\": 552500,\n      \"currency\": \"USD\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"owned_value_converted\": 552500,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": 2500,\n      \"change_pct\": 0.45\n    }\n  ],\n  \"message\": \"value history\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · Nothing in range",
@@ -8877,11 +9245,11 @@
                 }
               ]
             },
-            "description": "Requires portfolio **member**. Optional `?folder_id=` lists one folder's debts."
+            "description": "Requires portfolio **member**. Optional `?folder_id=` lists one folder's debts.\n\n**Money fields:** `balance` / `owned_balance` are in the debt's own `currency`. `owned_balance_converted`, `monthly_payment` and `change_amount_1m` are the owned share in the base currency (`converted_currency`). `monthly_payment` is `payment_amount` as a monthly figure (0 without a schedule). `has_schedule` says whether the debt is scheduled."
           },
           "response": [
             {
-              "name": "200 · Debts",
+              "name": "200 · Debts in USD and NGN, converted to the USD base",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -8943,7 +9311,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n      \"name\": \"Primary mortgage\",\n      \"debt_type\": \"mortgage\",\n      \"principal\": 450000,\n      \"balance\": 388210.55,\n      \"interest_rate\": 6.25,\n      \"payment_amount\": 2770.12,\n      \"frequency\": \"monthly\",\n      \"has_schedule\": true,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"start_date\": \"2022-06-01T00:00:00Z\",\n      \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n      \"owned_balance\": 388210.55\n    },\n    {\n      \"id\": \"07968575-a45b-46c7-a8d5-e6f7a8b9c0d1\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n      \"name\": \"Tesla Model 3 loan\",\n      \"debt_type\": \"car_loan\",\n      \"principal\": 42000,\n      \"balance\": 18350,\n      \"interest_rate\": 4.9,\n      \"payment_amount\": 790,\n      \"frequency\": \"monthly\",\n      \"has_schedule\": false,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 50,\n      \"created_at\": \"2026-10-12T17:40:09.774120Z\",\n      \"updated_at\": \"2026-10-12T17:40:09.774120Z\",\n      \"owned_balance\": 9175\n    }\n  ],\n  \"message\": \"debts\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n      \"name\": \"Primary mortgage\",\n      \"debt_type\": \"mortgage\",\n      \"principal\": 450000,\n      \"balance\": 386000,\n      \"interest_rate\": 6.25,\n      \"payment_amount\": 2770.12,\n      \"frequency\": \"monthly\",\n      \"has_schedule\": true,\n      \"currency\": \"USD\",\n      \"ownership_pct\": 100,\n      \"start_date\": \"2022-06-01T01:00:00+01:00\",\n      \"icon\": \"🏠\",\n      \"metadata\": {\n        \"account_last4\": \"4417\",\n        \"lender\": \"Chase\"\n      },\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"owned_balance\": 386000,\n      \"owned_balance_converted\": 386000,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 1,\n      \"monthly_payment\": 2770.12,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null\n    },\n    {\n      \"id\": \"73b1ddf9-6976-573d-ab69-5cb7dab52cf4\",\n      \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n      \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n      \"name\": \"Car loan\",\n      \"debt_type\": \"car_loan\",\n      \"principal\": 6000000,\n      \"balance\": 4200000,\n      \"interest_rate\": 0,\n      \"payment_amount\": 0,\n      \"frequency\": \"\",\n      \"has_schedule\": false,\n      \"currency\": \"NGN\",\n      \"ownership_pct\": 100,\n      \"icon\": null,\n      \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"owned_balance\": 4200000,\n      \"owned_balance_converted\": 2800,\n      \"converted_currency\": \"USD\",\n      \"exchange_rate\": 0.0006666666666666666,\n      \"monthly_payment\": 0,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null\n    }\n  ],\n  \"message\": \"debts\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · None yet",
@@ -9052,6 +9420,62 @@
           ]
         },
         {
+          "name": "Debts overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/overview",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "debts",
+                "overview"
+              ]
+            },
+            "description": "Requires portfolio **member**. Totals for the Debts header, as owned shares in the base currency:\n\n- `total`, and `change_amount_1m` / `change_pct_1m` vs 30 days ago\n- `scheduled_total` / `unscheduled_total` (by `has_schedule`)\n- `monthly_payments` — scheduled debts' payments as a monthly figure\n- `interest_paid_ytd` — an estimate from balance history and interest rates\n- `debt_free_date` — when the last scheduled debt is paid off at its current payment; null when there is none or one never pays off"
+          },
+          "response": [
+            {
+              "name": "200 · Overview",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/overview",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "debts",
+                    "overview"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"currency\": \"USD\",\n    \"count\": 2,\n    \"total\": 388800,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null,\n    \"scheduled_total\": 386000,\n    \"unscheduled_total\": 2800,\n    \"monthly_payments\": 2770.12,\n    \"interest_paid_ytd\": 24717.96,\n    \"debt_free_date\": \"2047-09-17\"\n  },\n  \"message\": \"debts overview\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
           "name": "Create debt",
           "request": {
             "method": "POST",
@@ -9072,10 +9496,10 @@
                 "debts"
               ]
             },
-            "description": "Requires portfolio **editor**.\n\n`debt_type`: `mortgage`, `student_loan`, `car_loan`, `personal`, `credit_card`, `manual`.\n\n`frequency`: `daily`, `weekly`, `biweekly`, `monthly`, `quarterly`, `biannual`, `annually`.\n\nSet `has_schedule: true` to make the amortization route meaningful.\n\n`folder_id` is optional but, when sent, must be a **debt** folder (`{{debtFolderID}}`). Every new portfolio already has a debt folder called *General*.\n\n`interest_rate` is an annual percentage (`6.25` = 6.25%). `start_date` must be RFC 3339 (`2022-06-01T00:00:00Z`) — a bare date is rejected.\n\nSaves `debtID`.",
+            "description": "Requires portfolio **editor**.\n\n`debt_type`: `mortgage`, `student_loan`, `car_loan`, `personal`, `credit_card`, `manual`.\n\n`frequency`: `daily`, `weekly`, `biweekly`, `monthly`, `quarterly`, `biannual`, `annually`.\n\nSet `has_schedule: true` to make the amortization route meaningful.\n\n`folder_id` is optional but, when sent, must be a **debt** folder (`{{debtFolderID}}`). Every new portfolio already has a debt folder called *General*.\n\n`interest_rate` is an annual percentage (`6.25` = 6.25%). `start_date` must be RFC 3339 (`2022-06-01T00:00:00Z`) — a bare date is rejected.\n\nSaves `debtID`.\n\n`icon` (emoji, icon name or image URL) and `metadata` (any JSON object) are optional.\n\n**Money fields:** `balance` / `owned_balance` are in the debt's own `currency`. `owned_balance_converted`, `monthly_payment` and `change_amount_1m` are the owned share in the base currency (`converted_currency`). `monthly_payment` is `payment_amount` as a monthly figure (0 without a schedule). `has_schedule` says whether the debt is scheduled.",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"folder_id\": \"{{debtFolderID}}\",\n  \"name\": \"Primary mortgage\",\n  \"debt_type\": \"mortgage\",\n  \"principal\": 450000,\n  \"balance\": 388210.55,\n  \"interest_rate\": 6.25,\n  \"payment_amount\": 2770.12,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"currency\": \"USD\",\n  \"ownership_pct\": 100,\n  \"start_date\": \"2022-06-01T00:00:00Z\"\n}",
+              "raw": "{\n  \"folder_id\": \"{{debtFolderID}}\",\n  \"name\": \"Primary mortgage\",\n  \"debt_type\": \"mortgage\",\n  \"principal\": 450000,\n  \"balance\": 388210.55,\n  \"interest_rate\": 6.25,\n  \"payment_amount\": 2770.12,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"currency\": \"USD\",\n  \"ownership_pct\": 100,\n  \"start_date\": \"2022-06-01T00:00:00Z\",\n  \"icon\": \"🏠\",\n  \"metadata\": {\n    \"lender\": \"Chase\",\n    \"account_last4\": \"4417\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -9124,7 +9548,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"folder_id\": \"{{debtFolderID}}\",\n  \"name\": \"Primary mortgage\",\n  \"debt_type\": \"mortgage\",\n  \"principal\": 450000,\n  \"balance\": 388210.55,\n  \"interest_rate\": 6.25,\n  \"payment_amount\": 2770.12,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"currency\": \"USD\",\n  \"ownership_pct\": 100,\n  \"start_date\": \"2022-06-01T00:00:00Z\"\n}",
+                  "raw": "{\n  \"folder_id\": \"{{debtFolderID}}\",\n  \"name\": \"Primary mortgage\",\n  \"debt_type\": \"mortgage\",\n  \"principal\": 450000,\n  \"balance\": 388210.55,\n  \"interest_rate\": 6.25,\n  \"payment_amount\": 2770.12,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"currency\": \"USD\",\n  \"ownership_pct\": 100,\n  \"start_date\": \"2022-06-01T00:00:00Z\",\n  \"icon\": \"🏠\",\n  \"metadata\": {\n    \"lender\": \"Chase\",\n    \"account_last4\": \"4417\"\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -9146,7 +9570,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Primary mortgage\",\n    \"debt_type\": \"mortgage\",\n    \"principal\": 450000,\n    \"balance\": 388210.55,\n    \"interest_rate\": 6.25,\n    \"payment_amount\": 2770.12,\n    \"frequency\": \"monthly\",\n    \"has_schedule\": true,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"start_date\": \"2022-06-01T00:00:00Z\",\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"owned_balance\": 388210.55\n  },\n  \"message\": \"Debt added to your portfolio.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 201,\n  \"data\": {\n    \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Primary mortgage\",\n    \"debt_type\": \"mortgage\",\n    \"principal\": 450000,\n    \"balance\": 388210.55,\n    \"interest_rate\": 6.25,\n    \"payment_amount\": 2770.12,\n    \"frequency\": \"monthly\",\n    \"has_schedule\": true,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"start_date\": \"2022-06-01T00:00:00Z\",\n    \"icon\": \"🏠\",\n    \"metadata\": {\n      \"account_last4\": \"4417\",\n      \"lender\": \"Chase\"\n    },\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"owned_balance\": 388210.55,\n    \"owned_balance_converted\": 388210.55,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"monthly_payment\": 2770.12,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Debt added to your portfolio.\",\n  \"error\": null\n}"
             },
             {
               "name": "400 · Unknown debt_type",
@@ -9290,7 +9714,7 @@
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"debt\",\n    \"code\": \"FOLDER_NOT_FOUND\",\n    \"message\": \"That folder doesn't exist or you don't have access to it.\"\n  }\n}"
             },
             {
-              "name": "500 · folder_id is an asset folder",
+              "name": "400 · folder_id is an asset folder",
               "originalRequest": {
                 "method": "POST",
                 "header": [
@@ -9320,8 +9744,8 @@
                   }
                 }
               },
-              "status": "Internal Server Error",
-              "code": 500,
+              "status": "Bad Request",
+              "code": 400,
               "_postman_previewlanguage": "json",
               "header": [
                 {
@@ -9334,7 +9758,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 500,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"debt\",\n    \"code\": \"FOLDER_TYPE_MISMATCH\",\n    \"message\": \"That folder cannot hold this type of item.\"\n  }\n}"
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"debt\",\n    \"code\": \"FOLDER_TYPE_MISMATCH\",\n    \"message\": \"That folder cannot hold this type of item.\"\n  }\n}"
             }
           ]
         },
@@ -9390,7 +9814,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Primary mortgage\",\n    \"debt_type\": \"mortgage\",\n    \"principal\": 450000,\n    \"balance\": 388210.55,\n    \"interest_rate\": 6.25,\n    \"payment_amount\": 2770.12,\n    \"frequency\": \"monthly\",\n    \"has_schedule\": true,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"start_date\": \"2022-06-01T00:00:00Z\",\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"owned_balance\": 388210.55\n  },\n  \"message\": \"debt\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Primary mortgage\",\n    \"debt_type\": \"mortgage\",\n    \"principal\": 450000,\n    \"balance\": 386000,\n    \"interest_rate\": 6.25,\n    \"payment_amount\": 2770.12,\n    \"frequency\": \"monthly\",\n    \"has_schedule\": true,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"start_date\": \"2022-06-01T01:00:00+01:00\",\n    \"icon\": \"🏠\",\n    \"metadata\": {\n      \"account_last4\": \"4417\",\n      \"lender\": \"Chase\"\n    },\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"owned_balance\": 386000,\n    \"owned_balance_converted\": 386000,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"monthly_payment\": 2770.12,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"debt\",\n  \"error\": null\n}"
             },
             {
               "name": "404 · Debt not found",
@@ -9450,7 +9874,7 @@
                 "{{debtID}}"
               ]
             },
-            "description": "Requires portfolio **editor**. Partial update — note `principal` and `debt_type` are fixed at creation and cannot be changed here.\n\n**Clearing a field:** send `\"folder_id\": null` to take the debt out of its folder.",
+            "description": "Requires portfolio **editor**. Partial update — note `principal` and `debt_type` are fixed at creation and cannot be changed here.\n\n**Clearing a field:** send `\"folder_id\": null` to take the debt out of its folder.\n\n**Setting the balance:** send either `balance` (whole debt, its own currency) or `owned_balance` (the user's share in the **base currency**, what they type) — not both. Every balance change is saved in the balance history; `balance_date` (YYYY-MM-DD) dates it and `balance_note` labels it (e.g. \"Repayment\"). An older date only fills in history. `icon: null` clears the icon; `metadata` replaces the stored object.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"name\": \"Primary mortgage (refinanced)\",\n  \"balance\": 372004.18,\n  \"interest_rate\": 5.4,\n  \"payment_amount\": 2610.0,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"ownership_pct\": 100\n}",
@@ -9463,7 +9887,7 @@
           },
           "response": [
             {
-              "name": "200 · Updated",
+              "name": "200 · Balance typed as owned share in base currency (owned_balance)",
               "originalRequest": {
                 "method": "PATCH",
                 "header": [
@@ -9486,7 +9910,7 @@
                 },
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Primary mortgage (refinanced)\",\n  \"balance\": 372004.18,\n  \"interest_rate\": 5.4,\n  \"payment_amount\": 2610.0,\n  \"frequency\": \"monthly\",\n  \"has_schedule\": true,\n  \"ownership_pct\": 100\n}",
+                  "raw": "{\n  \"owned_balance\": 2800,\n  \"balance_note\": \"Repayment\"\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -9508,7 +9932,55 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Primary mortgage (refinanced)\",\n    \"debt_type\": \"mortgage\",\n    \"principal\": 450000,\n    \"balance\": 372004.18,\n    \"interest_rate\": 5.4,\n    \"payment_amount\": 2610,\n    \"frequency\": \"monthly\",\n    \"has_schedule\": true,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"start_date\": \"2022-06-01T00:00:00Z\",\n    \"created_at\": \"2026-10-31T09:14:22.481203Z\",\n    \"updated_at\": \"2026-10-31T09:31:05.902117Z\",\n    \"owned_balance\": 372004.18\n  },\n  \"message\": \"Debt updated.\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"73b1ddf9-6976-573d-ab69-5cb7dab52cf4\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Car loan\",\n    \"debt_type\": \"car_loan\",\n    \"principal\": 6000000,\n    \"balance\": 4200000,\n    \"interest_rate\": 0,\n    \"payment_amount\": 0,\n    \"frequency\": \"\",\n    \"has_schedule\": false,\n    \"currency\": \"NGN\",\n    \"ownership_pct\": 100,\n    \"icon\": null,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"owned_balance\": 4200000,\n    \"owned_balance_converted\": 2800,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 0.0006666666666666666,\n    \"monthly_payment\": 0,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Debt updated.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · New balance with a date and note",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "debts",
+                    "{{debtID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"balance\": 386000,\n  \"balance_date\": \"2026-11-17\",\n  \"balance_note\": \"November payment\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n    \"portfolio_id\": \"8d2f4b6a-1c3e-4a5b-9d7f-2e4c6a8b0d1f\",\n    \"folder_id\": \"b2e1d3c4-5f60-4172-93a4-b5c6d7e8f9a0\",\n    \"name\": \"Primary mortgage\",\n    \"debt_type\": \"mortgage\",\n    \"principal\": 450000,\n    \"balance\": 386000,\n    \"interest_rate\": 6.25,\n    \"payment_amount\": 2770.12,\n    \"frequency\": \"monthly\",\n    \"has_schedule\": true,\n    \"currency\": \"USD\",\n    \"ownership_pct\": 100,\n    \"start_date\": \"2022-06-01T01:00:00+01:00\",\n    \"icon\": \"🏠\",\n    \"metadata\": {\n      \"account_last4\": \"4417\",\n      \"lender\": \"Chase\"\n    },\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"owned_balance\": 386000,\n    \"owned_balance_converted\": 386000,\n    \"converted_currency\": \"USD\",\n    \"exchange_rate\": 1,\n    \"monthly_payment\": 2770.12,\n    \"change_amount_1m\": null,\n    \"change_pct_1m\": null\n  },\n  \"message\": \"Debt updated.\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · Taken out of its folder (folder_id: null)",
@@ -9682,11 +10154,11 @@
                 "amortization"
               ]
             },
-            "description": "Period-by-period principal/interest split for the remaining balance."
+            "description": "Requires portfolio **member**. Payment schedule from **today** on, starting from the current balance (trimmed to 3 rows here). Needs `has_schedule`, a `payment_amount` and an `interest_rate` ≥ 0."
           },
           "response": [
             {
-              "name": "200 · Schedule (trimmed here to 3 rows — the real list runs to payoff)",
+              "name": "200 · Schedule from today (trimmed to 3 rows here)",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -9718,7 +10190,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"payment_number\": 1,\n      \"payment_date\": \"2022-07-01\",\n      \"payment\": 2770.12,\n      \"principal\": 748.19,\n      \"interest\": 2021.93,\n      \"remaining_balance\": 387462.36\n    },\n    {\n      \"payment_number\": 2,\n      \"payment_date\": \"2022-07-31\",\n      \"payment\": 2770.12,\n      \"principal\": 752.09,\n      \"interest\": 2018.03,\n      \"remaining_balance\": 386710.27\n    },\n    {\n      \"payment_number\": 3,\n      \"payment_date\": \"2022-08-31\",\n      \"payment\": 2770.12,\n      \"principal\": 756,\n      \"interest\": 2014.12,\n      \"remaining_balance\": 385954.27\n    }\n  ],\n  \"message\": \"amortization schedule\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"payment_number\": 1,\n      \"payment_date\": \"2026-12-17\",\n      \"payment\": 2770.12,\n      \"principal\": 759.7,\n      \"interest\": 2010.42,\n      \"remaining_balance\": 385240.3\n    },\n    {\n      \"payment_number\": 2,\n      \"payment_date\": \"2027-01-17\",\n      \"payment\": 2770.12,\n      \"principal\": 763.66,\n      \"interest\": 2006.46,\n      \"remaining_balance\": 384476.64\n    },\n    {\n      \"payment_number\": 3,\n      \"payment_date\": \"2027-02-17\",\n      \"payment\": 2770.12,\n      \"principal\": 767.64,\n      \"interest\": 2002.48,\n      \"remaining_balance\": 383709\n    }\n  ],\n  \"message\": \"amortization schedule\",\n  \"error\": null\n}"
             },
             {
               "name": "400 · has_schedule is false, or no payment_amount / interest_rate",
@@ -9789,6 +10261,76 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 404,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"debt\",\n    \"code\": \"DEBT_NOT_FOUND\",\n    \"message\": \"an error occurred\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Balance history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/balance-history?from=2022-01-01T00:00:00Z",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "portfolios",
+                "{{portfolioID}}",
+                "debts",
+                "{{debtID}}",
+                "balance-history"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2022-01-01T00:00:00Z"
+                }
+              ]
+            },
+            "description": "Requires portfolio **member**. Every known balance between `from` and `to` (RFC 3339; default the last year), oldest first. A debt created with a past `start_date` starts with its principal on that date. `balance` is the whole debt in its own currency; `owned_balance_converted` the owned share in the base currency; `change_amount` / `change_pct` compare with the entry before."
+          },
+          "response": [
+            {
+              "name": "200 · Balances (NGN car loan, shown in the USD base)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/debts/{{debtID}}/balance-history?from=2022-01-01T00:00:00Z",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}",
+                    "debts",
+                    "{{debtID}}",
+                    "balance-history"
+                  ],
+                  "query": [
+                    {
+                      "key": "from",
+                      "value": "2022-01-01T00:00:00Z"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": [\n    {\n      \"id\": \"0d86cd83-62f6-5a8b-99f3-755fcee0a2c2\",\n      \"debt_id\": \"73b1ddf9-6976-573d-ab69-5cb7dab52cf4\",\n      \"balance\": 4500000,\n      \"currency\": \"NGN\",\n      \"source\": \"manual\",\n      \"recorded_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"owned_balance_converted\": 3000,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": null,\n      \"change_pct\": null\n    },\n    {\n      \"id\": \"618ab2dc-8548-5219-ba5e-6afd4e583051\",\n      \"debt_id\": \"73b1ddf9-6976-573d-ab69-5cb7dab52cf4\",\n      \"balance\": 4200000,\n      \"currency\": \"NGN\",\n      \"source\": \"manual\",\n      \"note\": \"Repayment\",\n      \"recorded_at\": \"2026-11-17T09:14:22.481203Z\",\n      \"owned_balance_converted\": 2800,\n      \"converted_currency\": \"USD\",\n      \"change_amount\": -200,\n      \"change_pct\": -6.67\n    }\n  ],\n  \"message\": \"balance history\",\n  \"error\": null\n}"
             }
           ]
         },
@@ -10486,7 +11028,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?",
+              "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?period=1M&movers=month",
               "host": [
                 "{{base_url}}"
               ],
@@ -10498,22 +11040,24 @@
               "query": [
                 {
                   "key": "period",
-                  "value": "1M",
-                  "description": "Lookback window, e.g. 1W, 1M, 3M, 1Y, ALL",
-                  "disabled": true
+                  "value": "1M"
+                },
+                {
+                  "key": "movers",
+                  "value": "month"
                 }
               ]
             },
-            "description": "Requires portfolio **member**. Net worth, allocation and movement for the window. `period` defaults to `1M`."
+            "description": "Requires portfolio **member**. Everything is the owned share in the portfolio's base currency (`net_worth.currency`) unless a field says otherwise.\n\n**Query**\n- `period` — chart range: `1D`, `1M` (default), `3M`, `YTD`, `1Y`, `ALL` (`W`, `6M` also work). Anything else is 400 `INVALID_PERIOD`.\n- `movers` — top-movers window: `today`, `week`, `month` (default).\n\n**Chart:** net worth (assets − debts) at the end of each day, rebuilt from asset value history and debt balance history; the last point is today's live value. `granularity` is `weekly` when the range is over 2 years. Past values use today's exchange rates.\n\n**data_status:** `empty` (nothing yet), `insufficient_history` (nothing from before today — no chart or change yet), `ready`.\n\n`net_worth_by_currency` is the currency strip; `allocation` has `assets` (by class), `debts` (by type), `by_type`, `by_currency`, `by_folder`; `debt_summary` is the same as **Debts overview**."
           },
           "response": [
             {
-              "name": "200 · Ready (enough history for the period)",
+              "name": "200 · Ready (1Y, chart trimmed to first and last 3 points)",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?",
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?period=1Y&movers=month",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -10525,9 +11069,11 @@
                   "query": [
                     {
                       "key": "period",
-                      "value": "1M",
-                      "description": "Lookback window, e.g. 1W, 1M, 3M, 1Y, ALL",
-                      "disabled": true
+                      "value": "1Y"
+                    },
+                    {
+                      "key": "movers",
+                      "value": "month"
                     }
                   ]
                 }
@@ -10546,15 +11092,15 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"data_status\": \"ready\",\n    \"net_worth\": {\n      \"total\": 210758.45,\n      \"assets\": 608144,\n      \"debts\": 397385.55,\n      \"currency\": \"USD\",\n      \"change_amount\": 4210.3,\n      \"change_pct\": 2.04\n    },\n    \"chart\": {\n      \"period\": \"1M\",\n      \"points\": [\n        {\n          \"date\": \"2026-10-01\",\n          \"value\": 206548.15\n        },\n        {\n          \"date\": \"2026-10-15\",\n          \"value\": 208119.4\n        },\n        {\n          \"date\": \"2026-10-31\",\n          \"value\": 210758.45\n        }\n      ]\n    },\n    \"allocation\": {\n      \"assets\": [\n        {\n          \"label\": \"real_estate\",\n          \"value\": 550000,\n          \"pct\": 90.44,\n          \"count\": 1\n        },\n        {\n          \"label\": \"crypto\",\n          \"value\": 34206,\n          \"pct\": 5.62,\n          \"count\": 1\n        },\n        {\n          \"label\": \"physical\",\n          \"value\": 14500,\n          \"pct\": 2.38,\n          \"count\": 1\n        },\n        {\n          \"label\": \"stock\",\n          \"value\": 5688,\n          \"pct\": 0.94,\n          \"count\": 1\n        },\n        {\n          \"label\": \"manual\",\n          \"value\": 3750,\n          \"pct\": 0.62,\n          \"count\": 1\n        }\n      ],\n      \"debts\": [\n        {\n          \"label\": \"mortgage\",\n          \"value\": 388210.55,\n          \"pct\": 97.69,\n          \"count\": 1\n        },\n        {\n          \"label\": \"car_loan\",\n          \"value\": 9175,\n          \"pct\": 2.31,\n          \"count\": 1\n        }\n      ]\n    },\n    \"top_movers\": {\n      \"gainers\": [\n        {\n          \"asset_id\": \"d4c3b2a1-7182-4394-b5c6-d7e8f9a0b1c2\",\n          \"name\": \"Apple Inc.\",\n          \"ticker\": \"AAPL\",\n          \"logo_url\": \"https://ngnmarket.com/logos/AAPL.png\",\n          \"asset_type\": \"stock_ticker\",\n          \"current_value\": 5688,\n          \"change_amount\": 212.5,\n          \"change_pct\": 3.88\n        }\n      ],\n      \"losers\": [\n        {\n          \"asset_id\": \"e5d4c3b2-8293-44a5-86d7-e8f9a0b1c2d3\",\n          \"name\": \"Bitcoin\",\n          \"ticker\": \"bitcoin\",\n          \"asset_type\": \"crypto_ticker\",\n          \"current_value\": 34206,\n          \"change_amount\": -1310,\n          \"change_pct\": -3.69\n        }\n      ]\n    },\n    \"debts\": [\n      {\n        \"debt_id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n        \"name\": \"Primary mortgage\",\n        \"debt_type\": \"mortgage\",\n        \"balance\": 388210.55,\n        \"owned_balance\": 388210.55,\n        \"currency\": \"USD\",\n        \"change_amount\": -1748.2,\n        \"change_pct\": -0.45\n      },\n      {\n        \"debt_id\": \"07968575-a45b-46c7-a8d5-e6f7a8b9c0d1\",\n        \"name\": \"Tesla Model 3 loan\",\n        \"debt_type\": \"car_loan\",\n        \"balance\": 18350,\n        \"owned_balance\": 9175,\n        \"currency\": \"USD\",\n        \"change_amount\": null,\n        \"change_pct\": null\n      }\n    ],\n    \"last_synced_at\": \"2026-10-31T09:14:22.481203Z\"\n  },\n  \"message\": \"dashboard\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"data_status\": \"ready\",\n    \"net_worth\": {\n      \"total\": 185120,\n      \"assets\": 573920,\n      \"debts\": 388800,\n      \"currency\": \"USD\",\n      \"change_amount\": 165120,\n      \"change_pct\": 825.6\n    },\n    \"net_worth_by_currency\": [\n      {\n        \"currency\": \"USD\",\n        \"assets\": 552500,\n        \"debts\": 386000,\n        \"net\": 166500,\n        \"assets_converted\": 552500,\n        \"debts_converted\": 386000,\n        \"net_converted\": 166500,\n        \"pct\": 96.27\n      },\n      {\n        \"currency\": \"NGN\",\n        \"assets\": 27000000,\n        \"debts\": 4200000,\n        \"net\": 22800000,\n        \"assets_converted\": 18000,\n        \"debts_converted\": 2800,\n        \"net_converted\": 15200,\n        \"pct\": 3.14\n      },\n      {\n        \"currency\": \"GBP\",\n        \"assets\": 2736,\n        \"debts\": 0,\n        \"net\": 2736,\n        \"assets_converted\": 3420,\n        \"debts_converted\": 0,\n        \"net_converted\": 3420,\n        \"pct\": 0.6\n      }\n    ],\n    \"chart\": {\n      \"period\": \"1Y\",\n      \"granularity\": \"daily\",\n      \"points\": [\n        {\n          \"date\": \"2025-11-17\",\n          \"value\": 20000\n        },\n        {\n          \"date\": \"2025-11-18\",\n          \"value\": 20000\n        },\n        {\n          \"date\": \"2025-11-19\",\n          \"value\": 20000\n        },\n        {\n          \"date\": \"2026-11-15\",\n          \"value\": 110000\n        },\n        {\n          \"date\": \"2026-11-16\",\n          \"value\": 110000\n        },\n        {\n          \"date\": \"2026-11-17\",\n          \"value\": 185120\n        }\n      ]\n    },\n    \"allocation\": {\n      \"assets\": [\n        {\n          \"key\": \"real_estate\",\n          \"label\": \"real_estate\",\n          \"value\": 552500,\n          \"pct\": 96.27,\n          \"count\": 1\n        },\n        {\n          \"key\": \"business\",\n          \"label\": \"business\",\n          \"value\": 18000,\n          \"pct\": 3.14,\n          \"count\": 1\n        },\n        {\n          \"key\": \"stock\",\n          \"label\": \"stock\",\n          \"value\": 3420,\n          \"pct\": 0.6,\n          \"count\": 1\n        }\n      ],\n      \"debts\": [\n        {\n          \"key\": \"mortgage\",\n          \"label\": \"mortgage\",\n          \"value\": 386000,\n          \"pct\": 99.28,\n          \"count\": 1\n        },\n        {\n          \"key\": \"car_loan\",\n          \"label\": \"car_loan\",\n          \"value\": 2800,\n          \"pct\": 0.72,\n          \"count\": 1\n        }\n      ],\n      \"by_type\": [\n        {\n          \"key\": \"real_estate\",\n          \"label\": \"real_estate\",\n          \"value\": 552500,\n          \"pct\": 96.27,\n          \"count\": 1\n        },\n        {\n          \"key\": \"business\",\n          \"label\": \"business\",\n          \"value\": 18000,\n          \"pct\": 3.14,\n          \"count\": 1\n        },\n        {\n          \"key\": \"stock_manual\",\n          \"label\": \"stock_manual\",\n          \"value\": 3420,\n          \"pct\": 0.6,\n          \"count\": 1\n        }\n      ],\n      \"by_currency\": [\n        {\n          \"key\": \"USD\",\n          \"label\": \"USD\",\n          \"value\": 552500,\n          \"pct\": 96.27,\n          \"count\": 1\n        },\n        {\n          \"key\": \"NGN\",\n          \"label\": \"NGN\",\n          \"value\": 18000,\n          \"pct\": 3.14,\n          \"count\": 1\n        },\n        {\n          \"key\": \"GBP\",\n          \"label\": \"GBP\",\n          \"value\": 3420,\n          \"pct\": 0.6,\n          \"count\": 1\n        }\n      ],\n      \"by_folder\": [\n        {\n          \"key\": \"a1f0c2d3-4e5f-4061-8293-a4b5c6d7e8f9\",\n          \"label\": \"Real estate\",\n          \"value\": 552500,\n          \"pct\": 96.27,\n          \"count\": 1\n        },\n        {\n          \"key\": \"cc2bad17-5244-5b22-8e66-338f57e36578\",\n          \"label\": \"Investments\",\n          \"value\": 21420,\n          \"pct\": 3.73,\n          \"count\": 2\n        }\n      ]\n    },\n    \"top_movers\": {\n      \"window\": \"month\",\n      \"gainers\": [],\n      \"losers\": []\n    },\n    \"debts\": [\n      {\n        \"debt_id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n        \"name\": \"Primary mortgage\",\n        \"debt_type\": \"mortgage\",\n        \"balance\": 386000,\n        \"owned_balance\": 386000,\n        \"currency\": \"USD\",\n        \"owned_balance_converted\": 386000,\n        \"has_schedule\": true,\n        \"monthly_payment\": 2770.12,\n        \"interest_rate\": 6.25,\n        \"change_amount\": null,\n        \"change_pct\": null\n      },\n      {\n        \"debt_id\": \"73b1ddf9-6976-573d-ab69-5cb7dab52cf4\",\n        \"name\": \"Car loan\",\n        \"debt_type\": \"car_loan\",\n        \"balance\": 4200000,\n        \"owned_balance\": 4200000,\n        \"currency\": \"NGN\",\n        \"owned_balance_converted\": 2800,\n        \"has_schedule\": false,\n        \"monthly_payment\": 0,\n        \"interest_rate\": 0,\n        \"change_amount\": null,\n        \"change_pct\": null\n      }\n    ],\n    \"debt_summary\": {\n      \"currency\": \"USD\",\n      \"count\": 2,\n      \"total\": 388800,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null,\n      \"scheduled_total\": 386000,\n      \"unscheduled_total\": 2800,\n      \"monthly_payments\": 2770.12,\n      \"interest_paid_ytd\": 24717.96,\n      \"debt_free_date\": \"2047-09-17\"\n    },\n    \"last_synced_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"dashboard\",\n  \"error\": null\n}"
             },
             {
-              "name": "200 · Insufficient history (change fields are null, chart empty)",
+              "name": "200 · Insufficient history (everything added today)",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?",
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?period=1M&movers=month",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -10566,9 +11112,11 @@
                   "query": [
                     {
                       "key": "period",
-                      "value": "1M",
-                      "description": "Lookback window, e.g. 1W, 1M, 3M, 1Y, ALL",
-                      "disabled": true
+                      "value": "1M"
+                    },
+                    {
+                      "key": "movers",
+                      "value": "month"
                     }
                   ]
                 }
@@ -10587,7 +11135,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"data_status\": \"insufficient_history\",\n    \"net_worth\": {\n      \"total\": 161789.45,\n      \"assets\": 550000,\n      \"debts\": 388210.55,\n      \"currency\": \"USD\",\n      \"change_amount\": null,\n      \"change_pct\": null\n    },\n    \"chart\": {\n      \"period\": \"1M\",\n      \"points\": []\n    },\n    \"allocation\": {\n      \"assets\": [\n        {\n          \"label\": \"real_estate\",\n          \"value\": 550000,\n          \"pct\": 100,\n          \"count\": 1\n        }\n      ],\n      \"debts\": [\n        {\n          \"label\": \"mortgage\",\n          \"value\": 388210.55,\n          \"pct\": 100,\n          \"count\": 1\n        }\n      ]\n    },\n    \"top_movers\": {\n      \"gainers\": [],\n      \"losers\": []\n    },\n    \"debts\": [\n      {\n        \"debt_id\": \"f6857464-934a-45b6-97c4-d5e6f7a8b9c0\",\n        \"name\": \"Primary mortgage\",\n        \"debt_type\": \"mortgage\",\n        \"balance\": 388210.55,\n        \"owned_balance\": 388210.55,\n        \"currency\": \"USD\",\n        \"change_amount\": null,\n        \"change_pct\": null\n      }\n    ],\n    \"last_synced_at\": \"2026-10-31T09:14:22.481203Z\"\n  },\n  \"message\": \"dashboard\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"data_status\": \"insufficient_history\",\n    \"net_worth\": {\n      \"total\": 12000,\n      \"assets\": 12000,\n      \"debts\": 0,\n      \"currency\": \"USD\",\n      \"change_amount\": null,\n      \"change_pct\": null\n    },\n    \"net_worth_by_currency\": [\n      {\n        \"currency\": \"USD\",\n        \"assets\": 12000,\n        \"debts\": 0,\n        \"net\": 12000,\n        \"assets_converted\": 12000,\n        \"debts_converted\": 0,\n        \"net_converted\": 12000,\n        \"pct\": 100\n      }\n    ],\n    \"chart\": {\n      \"period\": \"1M\",\n      \"granularity\": \"daily\",\n      \"points\": []\n    },\n    \"allocation\": {\n      \"assets\": [\n        {\n          \"key\": \"manual\",\n          \"label\": \"manual\",\n          \"value\": 12000,\n          \"pct\": 100,\n          \"count\": 1\n        }\n      ],\n      \"debts\": [],\n      \"by_type\": [\n        {\n          \"key\": \"manual\",\n          \"label\": \"manual\",\n          \"value\": 12000,\n          \"pct\": 100,\n          \"count\": 1\n        }\n      ],\n      \"by_currency\": [\n        {\n          \"key\": \"USD\",\n          \"label\": \"USD\",\n          \"value\": 12000,\n          \"pct\": 100,\n          \"count\": 1\n        }\n      ],\n      \"by_folder\": [\n        {\n          \"key\": \"e3884498-d3d6-5018-9096-90fcabcd65ee\",\n          \"label\": \"Cash\",\n          \"value\": 12000,\n          \"pct\": 100,\n          \"count\": 1\n        }\n      ]\n    },\n    \"top_movers\": {\n      \"window\": \"month\",\n      \"gainers\": [],\n      \"losers\": []\n    },\n    \"debts\": [],\n    \"debt_summary\": {\n      \"currency\": \"USD\",\n      \"count\": 0,\n      \"total\": 0,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null,\n      \"scheduled_total\": 0,\n      \"unscheduled_total\": 0,\n      \"monthly_payments\": 0,\n      \"interest_paid_ytd\": 0,\n      \"debt_free_date\": null\n    },\n    \"last_synced_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"dashboard\",\n  \"error\": null\n}"
             },
             {
               "name": "200 · Empty portfolio",
@@ -10595,7 +11143,7 @@
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?",
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?period=1M&movers=month",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -10607,9 +11155,11 @@
                   "query": [
                     {
                       "key": "period",
-                      "value": "1M",
-                      "description": "Lookback window, e.g. 1W, 1M, 3M, 1Y, ALL",
-                      "disabled": true
+                      "value": "1M"
+                    },
+                    {
+                      "key": "movers",
+                      "value": "month"
                     }
                   ]
                 }
@@ -10628,15 +11178,15 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"data_status\": \"empty\",\n    \"net_worth\": {\n      \"total\": 0,\n      \"assets\": 0,\n      \"debts\": 0,\n      \"currency\": \"USD\",\n      \"change_amount\": null,\n      \"change_pct\": null\n    },\n    \"chart\": {\n      \"period\": \"1M\",\n      \"points\": []\n    },\n    \"allocation\": {\n      \"assets\": [],\n      \"debts\": []\n    },\n    \"top_movers\": {\n      \"gainers\": [],\n      \"losers\": []\n    },\n    \"debts\": [],\n    \"last_synced_at\": \"2026-10-31T09:14:22.481203Z\"\n  },\n  \"message\": \"dashboard\",\n  \"error\": null\n}"
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"data_status\": \"empty\",\n    \"net_worth\": {\n      \"total\": 0,\n      \"assets\": 0,\n      \"debts\": 0,\n      \"currency\": \"USD\",\n      \"change_amount\": null,\n      \"change_pct\": null\n    },\n    \"net_worth_by_currency\": [],\n    \"chart\": {\n      \"period\": \"1M\",\n      \"granularity\": \"daily\",\n      \"points\": []\n    },\n    \"allocation\": {\n      \"assets\": [],\n      \"debts\": [],\n      \"by_type\": [],\n      \"by_currency\": [],\n      \"by_folder\": []\n    },\n    \"top_movers\": {\n      \"window\": \"month\",\n      \"gainers\": [],\n      \"losers\": []\n    },\n    \"debts\": [],\n    \"debt_summary\": {\n      \"currency\": \"USD\",\n      \"count\": 0,\n      \"total\": 0,\n      \"change_amount_1m\": null,\n      \"change_pct_1m\": null,\n      \"scheduled_total\": 0,\n      \"unscheduled_total\": 0,\n      \"monthly_payments\": 0,\n      \"interest_paid_ytd\": 0,\n      \"debt_free_date\": null\n    },\n    \"last_synced_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"dashboard\",\n  \"error\": null\n}"
             },
             {
-              "name": "403 · Not a member",
+              "name": "400 · Unknown period",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
                 "url": {
-                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?",
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}/dashboard?period=5Y",
                   "host": [
                     "{{base_url}}"
                   ],
@@ -10648,15 +11198,13 @@
                   "query": [
                     {
                       "key": "period",
-                      "value": "1M",
-                      "description": "Lookback window, e.g. 1W, 1M, 3M, 1Y, ALL",
-                      "disabled": true
+                      "value": "5Y"
                     }
                   ]
                 }
               },
-              "status": "Forbidden",
-              "code": 403,
+              "status": "Bad Request",
+              "code": 400,
               "_postman_previewlanguage": "json",
               "header": [
                 {
@@ -10669,7 +11217,7 @@
                 }
               ],
               "cookie": [],
-              "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"middleware\",\n    \"code\": \"INSUFFICIENT_PERMISSION\",\n    \"message\": \"You don't have permission to do that.\"\n  }\n}"
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"26a3e5bc-59f3-5294-b1c9-fd799a5c9f5c\",\n    \"service\": \"dashboard\",\n    \"code\": \"INVALID_PERIOD\",\n    \"message\": \"That period isn't supported. Use 1D, 1M, 3M, YTD, 1Y or ALL (movers: today, week or month).\"\n  }\n}"
             }
           ]
         }
