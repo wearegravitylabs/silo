@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Silo API",
-    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
+    "description": "Complete API collection for **Silo**, generated from the route registrations in\n`api/api/handler.go` and each domain's `New()` block.\n\n### Setup\nSet `host` (default `http://localhost:8080`); `base_url` is derived as\n`{{host}}/api/v1`. Everything else is filled in for you by test scripts as you\ngo.\n\n### Quick start\n1. **Auth → Send sign-in code** — set the `email` variable first.\n2. **Auth → Verify code** — with `IS_SANDBOX_MODE=true` the code `000000`\n   always works. `access_token` and `refresh_token` are saved automatically.\n3. **Users → Complete onboarding** — until this succeeds every Tier 3 route\n   returns `NOT_ONBOARDED` (403).\n4. **Portfolios → Create portfolio** — saves `portfolioID`.\n5. **Folders → Create folder** — saves `folderID`; assets require one.\n6. **Assets → Create asset** — saves `assetID`.\n\n### Access tiers\n- **Public** — no token. Auth and the reference-data endpoints.\n- **Tier 2** (valid JWT + verified email) — `/users/*`. Onboarding lives here,\n  since you cannot require onboarding to reach it.\n- **Tier 3** (valid JWT + completed onboarding) — everything else. The cloud\n  distribution also injects subscription/entitlement middleware at this tier.\n\nWithin Tier 3, portfolio-scoped routes additionally check the caller's role on\nthat portfolio — **member** (read), **editor** (write) or **owner** (delete the\nportfolio, manage members). Each request below states which it needs.\n\n### Response envelope\nEvery response, success or failure, uses the same envelope:\n\n```json\n{ \"code\": 200, \"data\": {}, \"message\": \"portfolio\", \"error\": null }\n```\n\nOn failure `data` is null and `error` carries `{ id, service, code, message }`,\nwhere `id` is the `X-Request-ID` and `code` is a machine-readable identifier\nsuch as `INVALID_OTP` or `INSUFFICIENT_PERMISSION`. Branch on `error`, not on\n`message`.\n\n### Saved examples\nEvery request has saved **examples** (the dropdown at the top right of the\nresponse pane, or under the request in the sidebar). Each one shows the exact\nbody the server sends for that case — the success shape first, then the errors\nthat route can really return. Values are realistic samples, not live data.\n\n### Main flows\n**1. Sign in** — `Auth → Send sign-in code` → `Auth → Verify code`.\nLook at `data.user.is_onboarded`: if `false`, go to step 2; otherwise skip it.\nWhen any call returns `401 INVALID_TOKEN`, call `Auth → Refresh access token`\nand retry once; if that also fails, send the user back to sign-in.\n\n**2. Onboarding** — `Users → Complete onboarding`. Until this succeeds every\nTier 3 route answers `403 NOT_ONBOARDED`.\n\n**3. First portfolio** — `Portfolios → Create portfolio`. It comes with two\nfolders called *General*: one for assets, one for debts\n(`Folders → List folders?type=asset|debt`).\n\n**4. Add a stock** — `Stocks → Browse listed stocks?country=US|NG` (pick a\nsymbol) → `Assets → Create asset — stock (ticker)` with that `ticker` and\n`country`. Leave `acquisition_price` out to have it looked up; if the reply is\n`ACQUISITION_PRICE_REQUIRED`, ask the user for the price and resend. On\n`MARKET_UNAVAILABLE` / `MARKET_QUOTA_EXCEEDED`, offer `stock_manual` instead.\n\n**5. Add crypto** — `Assets → Search tickers?type=crypto&q=…` → create with\n`asset_type: crypto_ticker` and the result's `ticker` (a CoinGecko coin ID\nsuch as `bitcoin`).\n\n**6. Add anything else** — `real_estate`, `physical` (needs `subtype` from\n`Reference data → List physical subtypes`), `domain`, `vc`, `business`,\n`manual`. Every lot needs `acquisition_price`; `current_price` is optional.\n\n**7. Track an asset** — lots (`Add lot`), income/expenses (`Add cash flow`),\nthe value chart (`Value history`), files (`Upload asset document` → `download-url`)\nand notes.\n\n**8. Debts** — `Debts → Create debt` (folder must be a *debt* folder), then\n`Amortization schedule` when `has_schedule` is true.\n\n**9. Home screen** — `Dashboard → Get dashboard?period=W|1M|3M|6M|1Y`.\nBranch on `data_status`: `empty`, `insufficient_history` (change fields are\n`null`, chart is empty) or `ready`.\n\n**10. Fast forward** — `Projections → Create scenario` → `Add rule` (each rule\nchange returns the recomputed projection) → `Chart projection`.\n\n### Handling errors\n| HTTP | `error.code` | What to do |\n|---|---|---|\n| 400 | `INVALID_REQUEST` | Body or query failed validation. Check the request. |\n| 400 | `INVALID_*`, `FOLDER_REQUIRED`, `ACQUISITION_PRICE_REQUIRED`, `FILE_TOO_LARGE`, `UNSUPPORTED_FILE_TYPE`, `FOLDER_TYPE_MISMATCH`, `SELL_EXCEEDS_HOLDING`, `DATE_IN_FUTURE`, `INVALID_PERIOD`, `INVALID_RULE_CONFIG`, `INVALID_CODE`, `INVALID_LINK`, `INVALID_SETTINGS` | Show `error.message` next to the field. |\n| 401 | `UNAUTHORIZED` | No `Authorization: Bearer …` header. Sign in. |\n| 401 | `INVALID_TOKEN` | Access token expired. Refresh, then retry. |\n| 401 | `INVALID_OTP` | Wrong / expired sign-in code. |\n| 403 | `EMAIL_NOT_VERIFIED` / `NOT_ONBOARDED` | Send the user to the missing step. |\n| 403 | `INSUFFICIENT_PERMISSION` | Role too low for this portfolio (or not a member). |\n| 404 | `NOT_FOUND`, `*_NOT_FOUND`, `RECORD_NOT_FOUND` | Gone, never existed, or belongs to another portfolio. |\n| 409 | `ALREADY_ONBOARDED`, `MEMBER_ALREADY_EXISTS` | Already done — treat as success or explain. |\n| 422 | `LAST_OWNER`, `INVITEE_NOT_FOUND` | Show `error.message`. |\n| 501 | `NOT_AVAILABLE` | Feature not on this server (AI insights on self-hosted). Hide it. |\n| 429 | `MARKET_RATE_LIMITED` | Retry in about a minute. |\n| 503 | `MARKET_QUOTA_EXCEEDED`, `MARKET_UNAVAILABLE` | Offer manual price entry. |\n| 500 | anything else | Unexpected. Show a generic error and log `error.id`. |\n\n`error.message` is safe to show to users. For errors marked internal\n(`*_NOT_FOUND` except folders, `GENERIC_ERROR`, storage errors) it is always\nthe generic text `an error occurred`.\n\nErrors from the auth / role checks have `error.service: \"middleware\"`; the\nrest name the route's domain (`asset`, `debt`, …).\n\n### Field formats\n- IDs are UUID strings. Money and quantities are JSON numbers.\n- Timestamps are RFC 3339 in UTC (`2026-10-31T09:14:22.481203Z`).\n- Lot `acquisition_date` accepts `YYYY-MM-DD` or RFC 3339. Cash-flow\n  `flow_date`, debt `start_date` and autopilot dates **must** be RFC 3339.\n- Nullable fields are sent as `null`; some optional fields (`lots`,\n  `metadata`, `tags`, `folder_id` on debts, `members`) are left out entirely\n  when empty.\n",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_postman_id": "silo-api-v1"
   },
@@ -633,6 +633,227 @@
               "body": "{\n  \"code\": 401,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"auth\",\n    \"code\": \"INVALID_TOKEN\",\n    \"message\": \"Your session has expired. Please sign in again.\"\n  }\n}"
             }
           ]
+        },
+        {
+          "name": "Log out",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "No auth header needed. Revokes the refresh token so it can't get new access tokens. `all_devices: true` signs the user out of every device. Always 200 (also for an unknown token), so the app can clear its state either way. The current access token keeps working until it expires (15 minutes) — drop it from memory.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\",\n  \"all_devices\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Signed out",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/logout",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "logout"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\",\n  \"all_devices\": false\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"signed out\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Confirm email change",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/confirm-email-change",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "confirm-email-change"
+              ]
+            },
+            "description": "No auth header needed. The app page at `APP_BASE_URL/confirm-email?token=…` (the link in the email to the NEW address) sends the token here. On success the account uses the new email and the old address gets a notice. The link works once, for 24 hours (else 400 `INVALID_LINK`); if someone took the address meanwhile, 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"token-from-the-link\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Email changed (returns the user)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/confirm-email-change",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "confirm-email-change"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"token-from-the-link\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"email\": \"ada.l@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"phone_number\": \"8012345678\",\n    \"phone_country_code\": \"+234\",\n    \"avatar_url\": null,\n    \"date_of_birth\": null,\n    \"settings\": {},\n    \"is_email_verified\": true,\n    \"is_onboarded\": true,\n    \"portfolio_count\": 0,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"email changed\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · Link used or expired",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/confirm-email-change",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "confirm-email-change"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"token\": \"token-from-the-link\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "auth": {
+                  "type": "noauth"
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"user\",\n    \"code\": \"INVALID_LINK\",\n    \"message\": \"This link has expired or was already used. Please start again.\"\n  }\n}"
+            }
+          ]
         }
       ]
     },
@@ -1106,7 +1327,7 @@
                 "me"
               ]
             },
-            "description": "Partial update — omit a field to leave it unchanged.\n\nSend `\"avatar_url\": null` to remove the profile photo.\n\n**Date of birth and settings:** `date_of_birth` (YYYY-MM-DD, null removes it) is used by projections that run \"until age\". `settings` is merged into the saved settings: keys sent replace those keys, a key sent as `null` is removed, others are kept (e.g. `projections_intro_seen`).",
+            "description": "Partial update — omit a field to leave it unchanged.\n\nSend `\"avatar_url\": null` to remove the profile photo.\n\n**Date of birth and settings:** `date_of_birth` (YYYY-MM-DD, null removes it) is used by projections that run \"until age\". `settings` is merged into the saved settings: keys sent replace those keys, a key sent as `null` is removed, others are kept (e.g. `projections_intro_seen`).\n\n**Settings:** only these keys (else 400 `INVALID_SETTINGS`); objects merge one level deep, `null` removes a key:\n\n| key | value |\n|---|---|\n| `theme` | `system`, `light`, `dark` |\n| `accent_color` | any CSS colour |\n| `language` | e.g. `en`, `en-NG` |\n| `projections_intro_seen` | true / false |\n| `notifications` | `{ email: bool, in_app: bool }` |\n| `security` | `{ viewers_must_sign_up: bool }` |\n| `vault` | `{ auto_lock_minutes: 0–1440 }` |\n\nReplacing or removing `avatar_url` deletes the old uploaded photo from storage.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"first_name\": \"Ada\",\n  \"last_name\": \"Lovelace\",\n  \"phone_number\": \"8012345678\",\n  \"phone_country_code\": \"+234\",\n  \"avatar_url\": \"https://cdn.example.com/avatar.png\"\n}",
@@ -1301,6 +1522,98 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"email\": \"ada@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"phone_number\": \"8012345678\",\n    \"phone_country_code\": \"+234\",\n    \"avatar_url\": null,\n    \"date_of_birth\": \"1990-04-12\",\n    \"settings\": {\n      \"projections_intro_seen\": true\n    },\n    \"is_email_verified\": true,\n    \"is_onboarded\": true,\n    \"portfolio_count\": 1,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Your profile has been updated.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · Preferences, notifications, security",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"settings\": {\n    \"theme\": \"dark\",\n    \"accent_color\": \"#7C3AED\",\n    \"language\": \"en\",\n    \"notifications\": {\n      \"email\": true,\n      \"in_app\": false\n    },\n    \"security\": {\n      \"viewers_must_sign_up\": true\n    }\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"id\": \"3f6c2a8e-5b1d-4c7a-9e2f-8a1b4c6d7e90\",\n    \"email\": \"ada.l@example.com\",\n    \"first_name\": \"Ada\",\n    \"last_name\": \"Lovelace\",\n    \"phone_number\": \"8012345678\",\n    \"phone_country_code\": \"+234\",\n    \"avatar_url\": null,\n    \"date_of_birth\": null,\n    \"settings\": {\n      \"accent_color\": \"#7C3AED\",\n      \"language\": \"en\",\n      \"notifications\": {\n        \"email\": true,\n        \"in_app\": false\n      },\n      \"security\": {\n        \"viewers_must_sign_up\": true\n      },\n      \"theme\": \"dark\"\n    },\n    \"is_email_verified\": true,\n    \"is_onboarded\": true,\n    \"portfolio_count\": 0,\n    \"created_at\": \"2026-11-17T09:14:22.481203Z\",\n    \"updated_at\": \"2026-11-17T09:14:22.481203Z\"\n  },\n  \"message\": \"Your profile has been updated.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · A setting with a bad value",
+              "originalRequest": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"settings\": {\n    \"theme\": \"purple\"\n  }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"user\",\n    \"code\": \"INVALID_SETTINGS\",\n    \"message\": \"One of those settings isn't valid.\"\n  }\n}"
             }
           ]
         },
@@ -1481,36 +1794,353 @@
           ]
         },
         {
-          "name": "Delete my account",
+          "name": "Send confirmation code",
           "request": {
-            "method": "DELETE",
-            "header": [],
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
-              "raw": "{{base_url}}/users/me",
+              "raw": "{{base_url}}/users/me/confirmation-code",
               "host": [
                 "{{base_url}}"
               ],
               "path": [
                 "users",
-                "me"
+                "me",
+                "confirmation-code"
               ]
             },
-            "description": "Deletes the account straight away (an emailed confirmation code is planned).\n\n- Portfolios where this user is the **only owner** are deleted with them.\n- Portfolios with **another owner** stay, under that owner.\n- The user is removed from every portfolio shared with them.\n- All sign-in sessions end (refresh tokens revoked).\n- The same email can sign up again straight away, as a **new, empty** account.\n\nThe data is kept for 30 days so support can restore it, then removed for good, files included."
+            "description": "Emails a 6-digit code (valid 10 minutes, 5 tries) that confirms a risky action:\n\n- `delete_account` — then **Delete my account** with `{\"code\": …}`\n- `delete_portfolio` + `portfolio_id` (owner only, else 403) — then **Delete portfolio** with `{\"code\": …}`\n\nAsking again replaces the earlier code. In sandbox mode `000000` always works.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"purpose\": \"delete_portfolio\",\n  \"portfolio_id\": \"{{portfolioID}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": [
             {
-              "name": "200 · Deleted",
+              "name": "200 · Code sent",
               "originalRequest": {
-                "method": "DELETE",
-                "header": [],
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "url": {
-                  "raw": "{{base_url}}/users/me",
+                  "raw": "{{base_url}}/users/me/confirmation-code",
                   "host": [
                     "{{base_url}}"
                   ],
                   "path": [
                     "users",
-                    "me"
+                    "me",
+                    "confirmation-code"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"purpose\": \"delete_portfolio\",\n  \"portfolio_id\": \"{{portfolioID}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"code sent\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "403 · Not the portfolio's owner",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me/confirmation-code",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "confirmation-code"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"purpose\": \"delete_portfolio\",\n  \"portfolio_id\": \"{{portfolioID}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 403,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"user\",\n    \"code\": \"INSUFFICIENT_PERMISSION\",\n    \"message\": \"You don't have permission to do that.\"\n  }\n}"
+            },
+            {
+              "name": "200 · Code for deleting the account",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me/confirmation-code",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "confirmation-code"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"purpose\": \"delete_account\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"code sent\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Change email",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me/email",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me",
+                "email"
+              ]
+            },
+            "description": "Sends a confirm link to the NEW address; nothing changes until it's opened (see **Confirm email change**). 409 if another account already uses the address.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"ada.l@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Link sent",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me/email",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "email"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"ada.l@example.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"confirmation link sent\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "409 · Address already used",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me/email",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me",
+                    "email"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"ada.l@example.com\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 409,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"user\",\n    \"code\": \"USER_EMAIL_EXISTS\",\n    \"message\": \"An account with this email address already exists.\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Email available",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/email-available?email=ada.l@example.com",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "email-available"
+              ],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "ada.l@example.com"
+                }
+              ]
+            },
+            "description": "Whether an address is free to change to (your own counts as available)."
+          },
+          "response": [
+            {
+              "name": "200 · Free",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/users/email-available?email=ada.l@example.com",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "email-available"
+                  ],
+                  "query": [
+                    {
+                      "key": "email",
+                      "value": "ada.l@example.com"
+                    }
                   ]
                 }
               },
@@ -1528,7 +2158,171 @@
                 }
               ],
               "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"email\": \"ada.l@example.com\",\n    \"available\": true\n  },\n  \"message\": \"email availability\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "200 · Taken",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/users/email-available?email=grace@example.com",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "email-available"
+                  ],
+                  "query": [
+                    {
+                      "key": "email",
+                      "value": "grace@example.com"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 200,\n  \"data\": {\n    \"email\": \"grace@example.com\",\n    \"available\": false\n  },\n  \"message\": \"email availability\",\n  \"error\": null\n}"
+            }
+          ]
+        },
+        {
+          "name": "Delete my account",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "description": "Needs the emailed code: call **Send confirmation code** with `purpose: delete_account` first. Without a code, or with a wrong or expired one, 400 `INVALID_CODE`.\n\n- Portfolios where this user is the **only owner** are deleted with them; ones with **another owner** stay with that owner.\n- The user leaves every shared portfolio, and all sign-in sessions end.\n- The same email can sign up again straight away, as a new empty account.\n\nThe data is kept for 30 days so support can restore it, then removed for good, files included.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "200 · Deleted",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
               "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"Your account has been deleted. We're sorry to see you go.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · Wrong or missing code",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/users/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "users",
+                    "me"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"999999\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"user\",\n    \"code\": \"INVALID_CODE\",\n    \"message\": \"That code didn't work. Check the email we sent, or ask for a new code.\"\n  }\n}"
             }
           ]
         }
@@ -2558,7 +3352,12 @@
           "name": "Delete portfolio",
           "request": {
             "method": "DELETE",
-            "header": [],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "url": {
               "raw": "{{base_url}}/portfolios/{{portfolioID}}",
               "host": [
@@ -2569,14 +3368,28 @@
                 "{{portfolioID}}"
               ]
             },
-            "description": "Requires portfolio **owner**."
+            "description": "Requires portfolio **owner** and the emailed code: call **Send confirmation code** with `purpose: delete_portfolio` and the `portfolio_id` first. The portfolio is kept for 30 days, then removed for good.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
           },
           "response": [
             {
               "name": "200 · Deleted",
               "originalRequest": {
                 "method": "DELETE",
-                "header": [],
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
                 "url": {
                   "raw": "{{base_url}}/portfolios/{{portfolioID}}",
                   "host": [
@@ -2586,6 +3399,15 @@
                     "portfolios",
                     "{{portfolioID}}"
                   ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
               },
               "status": "OK",
@@ -2603,6 +3425,98 @@
               ],
               "cookie": [],
               "body": "{\n  \"code\": 200,\n  \"data\": null,\n  \"message\": \"Portfolio deleted.\",\n  \"error\": null\n}"
+            },
+            {
+              "name": "400 · No code",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"123456\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"portfolio\",\n    \"code\": \"INVALID_CODE\",\n    \"message\": \"That code didn't work. Check the email we sent, or ask for a new code.\"\n  }\n}"
+            },
+            {
+              "name": "400 · Wrong code",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/portfolios/{{portfolioID}}",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "portfolios",
+                    "{{portfolioID}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"code\": \"111111\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "X-Request-Id",
+                  "value": "6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"code\": 400,\n  \"data\": null,\n  \"message\": \"an error has occurred\",\n  \"error\": {\n    \"id\": \"6f1c2b7e-3a9d-4c51-8e2f-0b7a4d9c1e35\",\n    \"service\": \"portfolio\",\n    \"code\": \"INVALID_CODE\",\n    \"message\": \"That code didn't work. Check the email we sent, or ask for a new code.\"\n  }\n}"
             },
             {
               "name": "403 · Only an owner can delete",

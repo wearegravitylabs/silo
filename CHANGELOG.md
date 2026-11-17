@@ -42,6 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PATCH /autopilot/rules/:id` (everything but the target) and `GET /autopilot/rules?target_id=`
 - `GET /assets/export` and `GET /debts/export` download CSV files
 - Folders have a `color`
+- `POST /auth/logout` revokes the refresh token (`all_devices` for every device)
+- Emailed 6-digit codes for risky actions: `POST /users/me/confirmation-code`
+- Change email: `POST /users/me/email` sends a link to the new address, `POST /auth/confirm-email-change` completes it and notifies the old address; `GET /users/email-available`
+- User settings are checked: theme, accent colour, language, notifications, security, vault auto-lock, projections intro
 
 ### Changed
 
@@ -64,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Creating a scenario no longer imports fixed-amount autopilot buys as income
 - The autopilot rule list includes paused rules
 - Note `tags` are a plain array (the old `{"list": [...]}` shape is still accepted)
+- `DELETE /users/me` and `DELETE /portfolios/:id` need the emailed code (`{"code": "123456"}`), else `400 INVALID_CODE`
+- Replacing or removing the profile photo deletes the old file from storage
 
 ### Fixed
 

@@ -204,6 +204,24 @@ Tests: a table of known cases, one per rule and frequency, with numbers worked o
 
 ## Phase 4: Account and security (silo, with cloud parts)
 
+> **Status (2026-11-17): done and pushed (silo part).** 24/24 live checks pass, and Phases 0–3 still pass.
+>
+> **Decided:**
+> - Deletes need the emailed code from now on.
+> - Changing email is confirmed by a link sent to the new address, plus a notice to the old one.
+> - Settings keys are checked.
+>
+> **Done:**
+> - Logout, for this device or all devices.
+> - Confirmation codes: 10 minutes, 5 tries, only the newest code works.
+> - Change email, and an "is this email free" check.
+> - Checked settings (merged one level deep).
+> - The old profile photo is deleted when it's replaced or removed.
+> - Date of birth (done in Phase 2).
+>
+> **Still to do in cloud:** add `plan`, `trial_ends_at` and `trial_days_left` to `GET /users/me` (done with the cloud bump).
+> The vault password change will use the same code flow in Phase 6.
+
 - `POST /auth/logout` revokes the refresh token. This needs a refresh-token table or deny-list; today tokens can't be revoked.
 - An emailed code for risky actions. One reusable "send code / check code" flow, used for:
   - deleting the account
