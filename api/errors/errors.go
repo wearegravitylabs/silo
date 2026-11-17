@@ -74,6 +74,14 @@ var (
 	ErrInvalidPeriod = &TranslatableError{Code: "INVALID_PERIOD", Key: "ERR_INVALID_PERIOD",
 		Message: messages.ErrInvalidPeriod, Public: true}
 
+	// ErrPublicLinksDisabled is shown when the owner requires viewers to sign up.
+	ErrPublicLinksDisabled = &TranslatableError{Code: "PUBLIC_LINKS_DISABLED", Key: "ERR_PUBLIC_LINKS_DISABLED",
+		Message: messages.ErrPublicLinksDisabled, Public: true}
+
+	// ErrSectionNotAllowed is shown when a member opens a section they can't see.
+	ErrSectionNotAllowed = &TranslatableError{Code: "SECTION_NOT_ALLOWED", Key: "ERR_SECTION_NOT_ALLOWED",
+		Message: messages.ErrSectionNotAllowed, Public: true}
+
 	// ErrInvalidCode is shown for a wrong, expired or missing emailed code.
 	ErrInvalidCode = &TranslatableError{Code: "INVALID_CODE", Key: "ERR_INVALID_CODE",
 		Message: messages.ErrInvalidCode, Public: true}

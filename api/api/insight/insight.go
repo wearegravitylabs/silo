@@ -19,7 +19,7 @@ type handler struct{ svc appInsight.Insight }
 // 501 NOT_AVAILABLE so the app can hide the insight card instead of erroring.
 func New(r *gin.RouterGroup, svc appInsight.Insight, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
-	g := r.Group("/portfolios/:portfolioID/insights", mid.RequirePortfolioMember())
+	g := r.Group("/portfolios/:portfolioID/insights", mid.RequireSection("insights"), mid.RequirePortfolioMember())
 	g.GET("/daily", h.notAvailable)
 	g.POST("/query", h.notAvailable)
 	g.POST("/fast-forward", h.notAvailable)

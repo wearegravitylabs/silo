@@ -283,6 +283,40 @@ func (m *Middleware) requirePortfolioRole(minRole model.PortfolioMemberRole) gin
 	}
 }
 
+// RequireSection aborts with 403 SECTION_NOT_ALLOWED when the caller is a
+// member who may not open any of the given sections. Owners may open
+// everything; a non-member gets INSUFFICIENT_PERMISSION, like the role check.
+func (m *Middleware) RequireSection(sections ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		callerID, ok := c.Request.Context().Value(contexts.ContextKeyUserID).(uuid.UUID)
+		if !ok {
+			abortUnauthorized(c, siloErrors.ErrUnauthorized)
+			return
+		}
+		portfolioID, err := uuid.Parse(c.Param("portfolioID"))
+		if err != nil {
+			abortForbidden(c, siloErrors.ErrInsufficientPermission)
+			return
+		}
+		member, err := m.portfolioStore.GetMember(c.Request.Context(), portfolioID, callerID)
+		if err != nil {
+			abortForbidden(c, siloErrors.ErrInsufficientPermission)
+			return
+		}
+		if member.Role != model.RoleOwner {
+			allowed := false
+			for _, s := range sections {
+				allowed = allowed || member.Sections.Has(s)
+			}
+			if !allowed {
+				abortForbidden(c, siloErrors.ErrSectionNotAllowed)
+				return
+			}
+		}
+		c.Next()
+	}
+}
+
 // Owned ties an id in the URL to the parent it must belong to: the row in
 // Table whose id is the Param value must have Column equal to the ParentParam
 // value. Routes without Param are skipped.

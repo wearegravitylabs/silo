@@ -49,6 +49,7 @@ type Dependency struct {
 	FolderStore          store.FolderDatabase
 	ExchangeRateStore    store.ExchangeRateDatabase
 	ConfirmationStore    store.ConfirmationDatabase
+	SharingStore         store.SharingDatabase
 
 	// Storage bucket names (read from env, used by services that handle file I/O)
 	StoragePublicBucket  string
@@ -129,6 +130,7 @@ func InitDp(ctx context.Context, s *store.Store, env *environment.Env) Dependenc
 		FolderStore:          store.NewFolderStore(s),
 		ExchangeRateStore:    store.NewExchangeRateStore(s),
 		ConfirmationStore:    store.NewConfirmationStore(s),
+		SharingStore:         store.NewSharingStore(s),
 
 		StoragePublicBucket:  env.GetWithDefault(modelEnv.StorageBucket, "silo"),
 		StoragePrivateBucket: env.GetWithDefault(modelEnv.StoragePrivateBucket, env.GetWithDefault(modelEnv.StorageBucket, "silo")+"-docs"),

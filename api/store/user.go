@@ -124,7 +124,7 @@ func (u *userStore) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 			  AND id IN (SELECT portfolio_id FROM portfolio_members WHERE user_id = ? AND role = 'owner')
 			  AND NOT EXISTS (
 			      SELECT 1 FROM portfolio_members o
-			      WHERE o.portfolio_id = portfolios.id AND o.role = 'owner' AND o.user_id <> ?
+			      WHERE o.portfolio_id = portfolios.id AND o.role = 'owner' AND o.status = 'active' AND o.user_id <> ?
 			  )`, id, id).Error; err != nil {
 			return err
 		}
@@ -133,13 +133,13 @@ func (u *userStore) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 		if err := tx.Exec(`
 			UPDATE portfolios p SET user_id = (
 			    SELECT o.user_id FROM portfolio_members o
-			    WHERE o.portfolio_id = p.id AND o.role = 'owner' AND o.user_id <> ?
+			    WHERE o.portfolio_id = p.id AND o.role = 'owner' AND o.status = 'active' AND o.user_id <> ?
 			    ORDER BY o.created_at, o.user_id LIMIT 1
 			)
 			WHERE p.user_id = ? AND p.deleted_at IS NULL
 			  AND EXISTS (
 			      SELECT 1 FROM portfolio_members o
-			      WHERE o.portfolio_id = p.id AND o.role = 'owner' AND o.user_id <> ?
+			      WHERE o.portfolio_id = p.id AND o.role = 'owner' AND o.status = 'active' AND o.user_id <> ?
 			  )`, id, id, id).Error; err != nil {
 			return err
 		}

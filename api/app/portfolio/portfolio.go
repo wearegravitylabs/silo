@@ -29,7 +29,8 @@ type Portfolio interface {
 	Update(ctx context.Context, id, callerID uuid.UUID, req model.UpdatePortfolioRequest) (model.Portfolio, error)
 	// Delete soft-deletes a portfolio. The store query is scoped to callerID.
 	Delete(ctx context.Context, id, callerID uuid.UUID, code string) error
-	// AddMember adds a user (by email) to the portfolio. callerID is stored as InvitedBy.
+	// AddMember invites someone by email. They see the portfolio once they
+	// accept (Sharing.AcceptInvite). callerID is stored as InvitedBy.
 	AddMember(ctx context.Context, portfolioID, callerID uuid.UUID, req model.InviteMemberRequest) error
 	// RemoveMember removes a member. Enforces the last-owner guard.
 	RemoveMember(ctx context.Context, portfolioID, callerID, targetUserID uuid.UUID) error
@@ -68,7 +69,9 @@ func (s *service) Create(ctx context.Context, callerID uuid.UUID, req model.Crea
 		PortfolioID: created.ID,
 		UserID:      callerID,
 		Role:        model.RoleOwner,
-		Status:      model.MemberStatusAccepted,
+		Status:      model.MemberStatusActive,
+		JoinedAt:    &created.CreatedAt,
+		Sections:    model.AllSections,
 		InvitedBy:   callerID,
 	}
 	if err := s.dp.PortfolioStore.AddMember(ctx, member); err != nil {
@@ -213,22 +216,35 @@ func (s *service) AddMember(ctx context.Context, portfolioID, callerID uuid.UUID
 		Str(siloLogger.LogStrKeyMethod, "portfolio.AddMember").
 		Logger()
 
-	invitee, err := s.dp.UserStore.GetUserByEmail(ctx, req.Email)
+	// Someone without an account gets one now (the same as their first
+	// sign-in would make); they finish signing up when they open the invite.
+	invitee, err := s.dp.UserStore.UpsertUserByEmail(ctx, req.Email)
 	if err != nil {
-		return siloErrors.ErrInviteeNotFound
+		return err
+	}
+	sections := model.DefaultMemberSections
+	if req.Sections != nil {
+		if !req.Sections.Valid() {
+			return siloErrors.ErrInvalidRequest
+		}
+		sections = *req.Sections
 	}
 
 	member := model.PortfolioMember{
 		PortfolioID:  portfolioID,
 		UserID:       invitee.ID,
 		Role:         req.Role,
-		Status:       model.MemberStatusAccepted,
+		Status:       model.MemberStatusInvited,
 		InvitedBy:    callerID,
 		InvitedEmail: &req.Email,
+		Sections:     sections,
+		CreatedAt:    time.Now().UTC(),
 	}
 	if err := s.dp.PortfolioStore.AddMember(ctx, member); err != nil {
 		return err
 	}
+	// The invite stands even if the email fails; the owner can resend it.
+	_ = s.sendInvite(ctx, portfolioID, callerID, member)
 
 	log.Info().
 		Str("portfolio_id", portfolioID.String()).

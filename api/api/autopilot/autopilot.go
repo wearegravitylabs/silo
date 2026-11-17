@@ -21,7 +21,7 @@ type handler struct{ svc appAutopilot.Autopilot }
 // New registers autopilot routes under /portfolios/:portfolioID/autopilot.
 func New(r *gin.RouterGroup, svc appAutopilot.Autopilot, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
-	g := r.Group("/portfolios/:portfolioID/autopilot")
+	g := r.Group("/portfolios/:portfolioID/autopilot", mid.RequireSection("assets", "debts"))
 	owned := mid.RequireOwned(
 		middleware.Owned{Param: "id", Table: "autopilot_rules", Column: "portfolio_id", ParentParam: "portfolioID"},
 	)

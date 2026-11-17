@@ -22,7 +22,7 @@ type handler struct{ svc appVault.Vault }
 // New registers vault routes under /portfolios/:portfolioID/vault.
 func New(r *gin.RouterGroup, svc appVault.Vault, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
-	g := r.Group("/portfolios/:portfolioID/vault")
+	g := r.Group("/portfolios/:portfolioID/vault", mid.RequireSection("vault"))
 	owned := mid.RequireOwned(
 		middleware.Owned{Param: "id", Table: "vault_documents", Column: "portfolio_id", ParentParam: "portfolioID"},
 	)

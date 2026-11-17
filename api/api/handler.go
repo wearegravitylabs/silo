@@ -16,6 +16,7 @@ import (
 	apiModel "github.com/wearegravitylabs/silo/api/api/model"
 	"github.com/wearegravitylabs/silo/api/api/portfolio"
 	"github.com/wearegravitylabs/silo/api/api/projection"
+	"github.com/wearegravitylabs/silo/api/api/sharing"
 	"github.com/wearegravitylabs/silo/api/api/snapshot"
 	"github.com/wearegravitylabs/silo/api/api/stock"
 	apiUpload "github.com/wearegravitylabs/silo/api/api/upload"
@@ -152,6 +153,11 @@ func (h *Handler) Build() {
 	snapshot.New(onboarded, h.snapshotSvc, h.mid)
 	vault.New(onboarded, h.vaultSvc, h.mid)
 	insight.New(onboarded, h.insightSvc, h.mid)
+	if sharingSvc, ok := h.portfolioSvc.(appPortfolio.Sharing); ok {
+		sharing.New(v1, verified, onboarded, sharingSvc, sharing.Views{
+			Dashboard: h.dashboardSvc, Assets: h.assetSvc, Debts: h.debtSvc, Projection: h.projectionSvc,
+		}, h.mid)
+	}
 
 	// ── Internal — no user auth required, should be network-restricted in production ──
 	internal := h.engine.Group("/internal")

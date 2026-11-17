@@ -21,9 +21,10 @@ const (
 type PortfolioMemberStatus string
 
 const (
-	MemberStatusPending  PortfolioMemberStatus = "pending"
-	MemberStatusAccepted PortfolioMemberStatus = "accepted"
-	MemberStatusDeclined PortfolioMemberStatus = "declined"
+	// MemberStatusInvited: invited by email, not accepted yet. No access.
+	MemberStatusInvited PortfolioMemberStatus = "invited"
+	// MemberStatusActive: a member with access.
+	MemberStatusActive PortfolioMemberStatus = "active"
 )
 
 // Portfolio is the top-level container for a user's financial life.
@@ -48,11 +49,14 @@ type PortfolioMember struct {
 	PortfolioID  uuid.UUID             `gorm:"type:uuid;not null;uniqueIndex:portfolio_user_unique"          json:"portfolio_id"`
 	UserID       uuid.UUID             `gorm:"type:uuid;not null;uniqueIndex:portfolio_user_unique"          json:"user_id"`
 	Role         PortfolioMemberRole   `gorm:"not null;default:'viewer'"                                     json:"role"`
-	Status       PortfolioMemberStatus `gorm:"not null;default:'accepted'"                                   json:"status"`
+	Status       PortfolioMemberStatus `gorm:"not null;default:'active'"                                     json:"status"`
 	InvitedBy    uuid.UUID             `gorm:"type:uuid"                                                     json:"invited_by"`
-	InvitedEmail *string               `json:"invited_email,omitempty"` // set when invitee has no account yet
-	AcceptedAt   *time.Time            `json:"accepted_at"`
-	CreatedAt    time.Time             `json:"created_at"`
+	InvitedEmail *string               `json:"invited_email,omitempty"`
+	// JoinedAt is when the member accepted (null while invited).
+	JoinedAt *time.Time `gorm:"column:accepted_at" json:"joined_at"`
+	// Sections the member can open. Owners can open everything.
+	Sections  Sections  `gorm:"type:text[]" json:"sections"`
+	CreatedAt time.Time `json:"created_at"`
 
 	// User is populated on explicit Preload only.
 	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
@@ -82,6 +86,8 @@ type UpdatePortfolioRequest struct {
 type InviteMemberRequest struct {
 	Email string              `json:"email" binding:"required,email"`
 	Role  PortfolioMemberRole `json:"role"  binding:"required,oneof=owner editor viewer"`
+	// Sections the new member can open. Defaults to everything but the vault.
+	Sections *Sections `json:"sections"`
 }
 
 // PortfolioMemberRequest kept for backward compatibility — alias for InviteMemberRequest.

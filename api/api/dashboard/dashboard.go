@@ -19,7 +19,7 @@ type handler struct{ svc appDashboard.Dashboard }
 // New registers the dashboard route under /portfolios/:portfolioID/dashboard.
 func New(r *gin.RouterGroup, svc appDashboard.Dashboard, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
-	g := r.Group("/portfolios/:portfolioID/dashboard")
+	g := r.Group("/portfolios/:portfolioID/dashboard", mid.RequireSection("dashboard"))
 	g.GET("", mid.RequirePortfolioMember(), h.get)
 }
 

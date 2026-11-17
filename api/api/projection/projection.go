@@ -21,7 +21,7 @@ type handler struct{ svc appProjection.Projection }
 // New registers projection routes under /portfolios/:portfolioID/projections.
 func New(r *gin.RouterGroup, svc appProjection.Projection, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
-	g := r.Group("/portfolios/:portfolioID/projections")
+	g := r.Group("/portfolios/:portfolioID/projections", mid.RequireSection("projections"))
 	owned := mid.RequireOwned(
 		middleware.Owned{Param: "scenarioID", Table: "projection_scenarios", Column: "portfolio_id", ParentParam: "portfolioID"},
 		middleware.Owned{Param: "ruleID", Table: "projection_rules", Column: "scenario_id", ParentParam: "scenarioID"},

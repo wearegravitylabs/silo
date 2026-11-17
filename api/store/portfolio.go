@@ -27,8 +27,16 @@ type PortfolioDatabase interface {
 	CountOwners(ctx context.Context, portfolioID uuid.UUID) (int64, error)
 	AddMember(ctx context.Context, member model.PortfolioMember) error
 	RemoveMember(ctx context.Context, portfolioID, userID uuid.UUID) error
+	// GetMember returns an active member: the access check. Someone who was
+	// invited but hasn't accepted is not found.
 	GetMember(ctx context.Context, portfolioID, userID uuid.UUID) (model.PortfolioMember, error)
+	// GetMembership returns the member row whatever its status.
+	GetMembership(ctx context.Context, portfolioID, userID uuid.UUID) (model.PortfolioMember, error)
+	UpdateMember(ctx context.Context, member model.PortfolioMember) error
+	// ListMembers returns active and invited members, with their users.
 	ListMembers(ctx context.Context, portfolioID uuid.UUID) ([]model.PortfolioMember, error)
+	// ListInvitesForUser returns the user's not-yet-accepted invites.
+	ListInvitesForUser(ctx context.Context, userID uuid.UUID) ([]model.PortfolioMember, error)
 	// ListLiveIDs returns the id of every portfolio that is not deleted, for
 	// scheduled jobs that run over all portfolios.
 	ListLiveIDs(ctx context.Context) ([]uuid.UUID, error)
@@ -55,7 +63,7 @@ func (p *portfolioStore) CreatePortfolio(ctx context.Context, portfolio model.Po
 func (p *portfolioStore) GetPortfolioByID(ctx context.Context, id, callerID uuid.UUID) (model.Portfolio, error) {
 	var portfolio model.Portfolio
 	err := p.storage.DB.WithContext(ctx).
-		Joins("JOIN portfolio_members pm ON pm.portfolio_id = portfolios.id AND pm.user_id = ?", callerID).
+		Joins("JOIN portfolio_members pm ON pm.portfolio_id = portfolios.id AND pm.user_id = ? AND pm.status = 'active'", callerID).
 		Preload("Members").
 		Where("portfolios.id = ? AND portfolios.deleted_at IS NULL", id).
 		First(&portfolio).Error
@@ -86,7 +94,7 @@ func (p *portfolioStore) ListPortfoliosByUser(ctx context.Context, userID uuid.U
 	var portfolios []model.Portfolio
 	err := p.storage.DB.WithContext(ctx).
 		Joins("JOIN portfolio_members ON portfolio_members.portfolio_id = portfolios.id").
-		Where("portfolio_members.user_id = ? AND portfolios.deleted_at IS NULL", userID).
+		Where("portfolio_members.user_id = ? AND portfolio_members.status = 'active' AND portfolios.deleted_at IS NULL", userID).
 		Find(&portfolios).Error
 	if err != nil {
 		return nil, siloErrors.ErrGenericErr
@@ -124,7 +132,7 @@ func (p *portfolioStore) RemoveMember(ctx context.Context, portfolioID, userID u
 func (p *portfolioStore) GetMember(ctx context.Context, portfolioID, userID uuid.UUID) (model.PortfolioMember, error) {
 	var member model.PortfolioMember
 	err := p.storage.DB.WithContext(ctx).
-		Where("portfolio_id = ? AND user_id = ?", portfolioID, userID).
+		Where("portfolio_id = ? AND user_id = ? AND status = ?", portfolioID, userID, model.MemberStatusActive).
 		First(&member).Error
 	if err == gorm.ErrRecordNotFound {
 		return model.PortfolioMember{}, siloErrors.ErrRecordNotFound
@@ -132,10 +140,51 @@ func (p *portfolioStore) GetMember(ctx context.Context, portfolioID, userID uuid
 	return member, err
 }
 
+func (p *portfolioStore) GetMembership(ctx context.Context, portfolioID, userID uuid.UUID) (model.PortfolioMember, error) {
+	var member model.PortfolioMember
+	err := p.storage.DB.WithContext(ctx).
+		Where("portfolio_id = ? AND user_id = ?", portfolioID, userID).
+		First(&member).Error
+	if err == gorm.ErrRecordNotFound {
+		return model.PortfolioMember{}, siloErrors.ErrRecordNotFound
+	}
+	if err != nil {
+		return model.PortfolioMember{}, siloErrors.ErrGenericErr
+	}
+	return member, nil
+}
+
+func (p *portfolioStore) UpdateMember(ctx context.Context, member model.PortfolioMember) error {
+	if err := p.storage.DB.WithContext(ctx).Save(&member).Error; err != nil {
+		return siloErrors.ErrGenericErr
+	}
+	return nil
+}
+
 func (p *portfolioStore) ListMembers(ctx context.Context, portfolioID uuid.UUID) ([]model.PortfolioMember, error) {
 	var members []model.PortfolioMember
-	err := p.storage.DB.WithContext(ctx).Where("portfolio_id = ?", portfolioID).Find(&members).Error
-	return members, err
+	err := p.storage.DB.WithContext(ctx).
+		Preload("User").
+		Where("portfolio_id = ?", portfolioID).
+		Order("created_at ASC").
+		Find(&members).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	return members, nil
+}
+
+func (p *portfolioStore) ListInvitesForUser(ctx context.Context, userID uuid.UUID) ([]model.PortfolioMember, error) {
+	var members []model.PortfolioMember
+	err := p.storage.DB.WithContext(ctx).
+		Joins("JOIN portfolios ON portfolios.id = portfolio_members.portfolio_id AND portfolios.deleted_at IS NULL").
+		Where("portfolio_members.user_id = ? AND portfolio_members.status = ?", userID, model.MemberStatusInvited).
+		Order("portfolio_members.created_at DESC").
+		Find(&members).Error
+	if err != nil {
+		return nil, siloErrors.ErrGenericErr
+	}
+	return members, nil
 }
 
 // ListPortfoliosFiltered returns a paginated and filtered list of portfolios for a user.
@@ -145,7 +194,7 @@ func (p *portfolioStore) ListPortfoliosFiltered(ctx context.Context, userID uuid
 	q := p.storage.DB.WithContext(ctx).
 		Model(&model.Portfolio{}).
 		Joins("JOIN portfolio_members pm ON pm.portfolio_id = portfolios.id").
-		Where("pm.user_id = ? AND portfolios.deleted_at IS NULL", userID)
+		Where("pm.user_id = ? AND pm.status = 'active' AND portfolios.deleted_at IS NULL", userID)
 
 	if filter.Name != "" {
 		q = q.Where("LOWER(portfolios.name) LIKE ?", "%"+strings.ToLower(filter.Name)+"%")
@@ -181,7 +230,7 @@ func (p *portfolioStore) CountOwners(ctx context.Context, portfolioID uuid.UUID)
 	var count int64
 	err := p.storage.DB.WithContext(ctx).
 		Model(&model.PortfolioMember{}).
-		Where("portfolio_id = ? AND role = ?", portfolioID, model.RoleOwner).
+		Where("portfolio_id = ? AND role = ? AND status = ?", portfolioID, model.RoleOwner, model.MemberStatusActive).
 		Count(&count).Error
 	return count, err
 }

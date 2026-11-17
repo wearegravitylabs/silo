@@ -75,3 +75,40 @@ func EmailChangedNotice(newEmail string) string {
 		"",
 		"If you didn't make this change, contact support straight away.")
 }
+
+// InviteEmail invites someone to a portfolio. link opens the app's invites page.
+func InviteEmail(inviter, portfolio, role, link string) string {
+	return page("You're invited to a Silo portfolio",
+		fmt.Sprintf("<strong>%s</strong> invited you to <strong>%s</strong> as %s. Open Silo to accept — if you're new, you'll sign up first with this email.",
+			html.EscapeString(inviter), html.EscapeString(portfolio), html.EscapeString(roleLabel(role))),
+		buttonBlock("View invite", link),
+		"If you weren't expecting this, you can ignore it; nothing happens until you accept.")
+}
+
+// AccessRequestEmail tells an owner someone asked to join through the invite link.
+func AccessRequestEmail(requester, portfolio, link string) string {
+	return page("Someone asked to join your portfolio",
+		fmt.Sprintf("<strong>%s</strong> opened your invite link to <strong>%s</strong> and asked to join. Approve or decline in Silo.",
+			html.EscapeString(requester), html.EscapeString(portfolio)),
+		buttonBlock("Review request", link),
+		"Only people you approve can see the portfolio. You can turn the invite link off at any time.")
+}
+
+// AccessApprovedEmail tells someone their request to join was approved.
+func AccessApprovedEmail(portfolio, link string) string {
+	return page("You're in",
+		fmt.Sprintf("Your request to join <strong>%s</strong> was approved.", html.EscapeString(portfolio)),
+		buttonBlock("Open Silo", link),
+		"")
+}
+
+// roleLabel is how a role reads to people: the app calls editors partners.
+func roleLabel(role string) string {
+	switch role {
+	case "owner":
+		return "an owner"
+	case "editor":
+		return "a partner"
+	}
+	return "a viewer"
+}

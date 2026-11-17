@@ -30,7 +30,7 @@ type handler struct {
 // New registers debt routes under /portfolios/:portfolioID/debts.
 func New(r *gin.RouterGroup, svc appDebt.Debt, noteSvc appNote.Note, docSvc appDocument.Document, mid *middleware.Middleware) {
 	h := &handler{svc: svc, noteSvc: noteSvc, docSvc: docSvc}
-	g := r.Group("/portfolios/:portfolioID/debts")
+	g := r.Group("/portfolios/:portfolioID/debts", mid.RequireSection("debts"))
 	owned := mid.RequireOwned(
 		middleware.Owned{Param: "id", Table: "debts", Column: "portfolio_id", ParentParam: "portfolioID"},
 		middleware.Owned{Param: "docID", Table: "asset_documents", Column: "debt_id", ParentParam: "id"},

@@ -151,6 +151,12 @@ const (
 	FolderDeleted    = "Folder deleted. Assets in this folder have been moved to the root."
 	FoldersReordered = "Folders reordered."
 
+	// ErrPublicLinksDisabled is shown when the owner requires viewers to sign up.
+	ErrPublicLinksDisabled = "Public links are turned off for this portfolio. Viewers need a Silo account."
+
+	// ErrSectionNotAllowed is shown when a member opens a section they can't see.
+	ErrSectionNotAllowed = "You don't have access to this part of the portfolio."
+
 	// ErrInvalidCode is shown for a wrong, expired or missing emailed code.
 	ErrInvalidCode = "That code didn't work. Check the email we sent, or ask for a new code."
 

@@ -30,7 +30,6 @@ func New(r *gin.RouterGroup, svc appPortfolio.Portfolio, mid *middleware.Middlew
 	g.PATCH("/:portfolioID", mid.RequirePortfolioEditor(), h.update)
 	g.DELETE("/:portfolioID", mid.RequirePortfolioOwner(), h.delete)
 
-	g.GET("/:portfolioID/members", mid.RequirePortfolioMember(), h.listMembers)
 	g.POST("/:portfolioID/members", mid.RequirePortfolioOwner(), h.addMember)
 	g.DELETE("/:portfolioID/members/:userID", mid.RequirePortfolioOwner(), h.removeMember)
 }
@@ -166,25 +165,6 @@ func (h *handler) delete(c *gin.Context) {
 	}
 
 	apiModel.OK(c, messages.PortfolioDeleted, nil)
-}
-
-func (h *handler) listMembers(c *gin.Context) {
-	callerID, ok := mustCallerID(c, serviceName)
-	if !ok {
-		return
-	}
-	portfolioID, ok := parseID(c, "portfolioID")
-	if !ok {
-		return
-	}
-
-	portfolio, err := h.svc.GetByID(c.Request.Context(), portfolioID, callerID)
-	if err != nil {
-		apiModel.HandleErrorResponse(c, serviceName, err)
-		return
-	}
-
-	apiModel.OK(c, "members", portfolio.Members)
 }
 
 func (h *handler) addMember(c *gin.Context) {

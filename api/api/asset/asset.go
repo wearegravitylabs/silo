@@ -32,7 +32,7 @@ type handler struct {
 // upstream via the onboarded route group's RequireAuth + RequireOnboarded chain.
 func New(r *gin.RouterGroup, svc appAsset.Asset, docSvc appDocument.Document, noteSvc appNote.Note, mid *middleware.Middleware) {
 	h := &handler{svc: svc, docSvc: docSvc, noteSvc: noteSvc}
-	g := r.Group("/portfolios/:portfolioID/assets")
+	g := r.Group("/portfolios/:portfolioID/assets", mid.RequireSection("assets"))
 	owned := mid.RequireOwned(
 		middleware.Owned{Param: "id", Table: "assets", Column: "portfolio_id", ParentParam: "portfolioID"},
 		middleware.Owned{Param: "lotID", Table: "asset_lots", Column: "asset_id", ParentParam: "id"},

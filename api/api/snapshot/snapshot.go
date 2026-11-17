@@ -20,7 +20,7 @@ type handler struct{ svc appSnapshot.Snapshot }
 // Snapshots are taken once a day by the snapshot-capture scheduler job.
 func New(r *gin.RouterGroup, svc appSnapshot.Snapshot, mid *middleware.Middleware) {
 	h := &handler{svc: svc}
-	g := r.Group("/portfolios/:portfolioID/snapshots", mid.RequirePortfolioMember())
+	g := r.Group("/portfolios/:portfolioID/snapshots", mid.RequireSection("dashboard"), mid.RequirePortfolioMember())
 	g.GET("", h.list)
 	g.GET("/latest", h.latest)
 }

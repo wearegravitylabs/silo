@@ -122,7 +122,9 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrNotOnboarded.Code:
 		return http.StatusForbidden
 
-	case siloErrors.ErrInsufficientPermission.Code:
+	case siloErrors.ErrInsufficientPermission.Code,
+		siloErrors.ErrPublicLinksDisabled.Code,
+		siloErrors.ErrSectionNotAllowed.Code:
 		return http.StatusForbidden
 
 	case siloErrors.ErrRecordNotFound.Code,
