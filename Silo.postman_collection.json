@@ -15311,7 +15311,7 @@
                 "daily"
               ]
             },
-            "description": "Requires portfolio **member**. AI insights are a hosted (silo-cloud) feature. The open-source server answers **501 `NOT_AVAILABLE`** — hide the insights card when you get it."
+            "description": "Requires the `insights` section. Today's insight card: `title`, `sections` [{heading, body}], `highlights` [{label, value, tone: positive|negative|neutral}], `date`, `currency`. On silo-cloud it is written by the AI the first time the dashboard is opened each day (UTC) and cached for the day; it doesn't use the AI message allowance. The open-source server answers **501 `NOT_AVAILABLE`** — hide the card."
           },
           "response": [
             {
@@ -15372,7 +15372,7 @@
                 "query"
               ]
             },
-            "description": "Requires portfolio **member**. AI insights are a hosted (silo-cloud) feature. The open-source server answers **501 `NOT_AVAILABLE`** — hide the insights card when you get it.",
+            "description": "Not available (501 `NOT_AVAILABLE`) on either server. Questions go through the chat (silo-cloud `POST /portfolios/:id/chat/messages`); projections replace fast-forward.",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"query\": \"How much did my net worth change last quarter?\"\n}",
@@ -15456,7 +15456,7 @@
                 "fast-forward"
               ]
             },
-            "description": "Requires portfolio **member**. AI insights are a hosted (silo-cloud) feature. The open-source server answers **501 `NOT_AVAILABLE`** — hide the insights card when you get it.",
+            "description": "Not available (501 `NOT_AVAILABLE`) on either server. Questions go through the chat (silo-cloud `POST /portfolios/:id/chat/messages`); projections replace fast-forward.",
             "body": {
               "mode": "raw",
               "raw": "{}",

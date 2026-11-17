@@ -52,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Public read-only links with chosen sections (never the vault), off while the owner requires viewers to sign up
 - Vault password per portfolio for browser-side encryption: status, set, unlock (5 wrong tries lock it for 15 minutes), change with the emailed code; the server stores only the wrapped key, salt, KDF and a verifier hash
 - Vault files record whether and how they were encrypted; `PUT /vault/documents/:id/file` replaces a file (e.g. with its encrypted version)
+- Insight routes call the `Insight` service (silo-cloud plugs in its AI one); the card has a title, sections and highlights
 
 ### Changed
 
