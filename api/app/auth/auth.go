@@ -32,6 +32,22 @@ type Auth interface {
 	VerifyCode(ctx context.Context, email, code string) (model.AuthResponse, error)
 	// RefreshToken validates a refresh token and issues a new access JWT.
 	RefreshToken(ctx context.Context, rawToken string) (accessToken string, err error)
+	// Logout revokes the refresh token, or every refresh token of its user
+	// when allDevices is set. Access tokens run out on their own (15 minutes).
+	Logout(ctx context.Context, rawToken string, allDevices bool) error
+}
+
+func (s *service) Logout(ctx context.Context, rawToken string, allDevices bool) error {
+	sum := sha256.Sum256([]byte(rawToken))
+	stored, err := s.dp.RefreshTokenStore.GetByTokenHash(ctx, hex.EncodeToString(sum[:]))
+	if err != nil {
+		// Already signed out (or never valid): nothing to do.
+		return nil
+	}
+	if allDevices {
+		return s.dp.RefreshTokenStore.RevokeAllForUser(ctx, stored.UserID)
+	}
+	return s.dp.RefreshTokenStore.RevokeToken(ctx, stored.ID)
 }
 
 type service struct{ dp app.Dependency }

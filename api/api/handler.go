@@ -123,6 +123,7 @@ func (h *Handler) Build() {
 
 	// ── Tier 1: Public — no token required ───────────────────────────────────
 	auth.New(v1, h.authSvc)
+	user.NewPublic(v1, h.userSvc)
 	v1.GET("/asset-classes", assetClassesHandler())
 	v1.GET("/physical-subtypes", physicalSubtypesHandler())
 	v1.GET("/currencies", currenciesHandler())

@@ -26,6 +26,22 @@ func New(r *gin.RouterGroup, svc appAuth.Auth) {
 	g.POST("/send-code", h.sendCode)
 	g.POST("/verify-code", h.verifyCode)
 	g.POST("/refresh-token", h.refreshToken)
+	g.POST("/logout", h.logout)
+}
+
+// logout revokes the refresh token (or all of the user's with all_devices).
+// It always succeeds, so the app can clear its state either way.
+func (h *handler) logout(c *gin.Context) {
+	var req model.LogoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidRequest)
+		return
+	}
+	if err := h.svc.Logout(c.Request.Context(), req.RefreshToken, req.AllDevices); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, err)
+		return
+	}
+	apiModel.OK(c, "signed out", nil)
 }
 
 // sendCode godoc

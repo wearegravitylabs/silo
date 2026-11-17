@@ -156,7 +156,10 @@ func codeToHTTPStatus(code string) int {
 		siloErrors.ErrSellExceedsHolding.Code,
 		siloErrors.ErrDateInFuture.Code,
 		siloErrors.ErrInvalidPeriod.Code,
-		siloErrors.ErrInvalidRuleConfig.Code:
+		siloErrors.ErrInvalidRuleConfig.Code,
+		siloErrors.ErrInvalidCode.Code,
+		siloErrors.ErrInvalidLink.Code,
+		siloErrors.ErrInvalidSettings.Code:
 		return http.StatusBadRequest
 
 	case siloErrors.ErrNotAvailable.Code:

@@ -151,6 +151,15 @@ const (
 	FolderDeleted    = "Folder deleted. Assets in this folder have been moved to the root."
 	FoldersReordered = "Folders reordered."
 
+	// ErrInvalidCode is shown for a wrong, expired or missing emailed code.
+	ErrInvalidCode = "That code didn't work. Check the email we sent, or ask for a new code."
+
+	// ErrInvalidLink is shown for an expired or already-used email link.
+	ErrInvalidLink = "This link has expired or was already used. Please start again."
+
+	// ErrInvalidSettings is shown for an unknown setting or a bad value.
+	ErrInvalidSettings = "One of those settings isn't valid."
+
 	// ErrInvalidRuleConfig is shown for an unknown projection rule or a missing setting.
 	ErrInvalidRuleConfig = "That rule is missing a setting or isn't a rule we know. Please check every field."
 

@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/wearegravitylabs/silo/api/app"
+	"github.com/wearegravitylabs/silo/api/app/confirm"
 	siloErrors "github.com/wearegravitylabs/silo/api/errors"
 	"github.com/wearegravitylabs/silo/api/model"
 	"github.com/wearegravitylabs/silo/api/pkg/currency"
@@ -27,7 +28,7 @@ type Portfolio interface {
 	// Update applies changes to a portfolio. The store query is scoped to callerID.
 	Update(ctx context.Context, id, callerID uuid.UUID, req model.UpdatePortfolioRequest) (model.Portfolio, error)
 	// Delete soft-deletes a portfolio. The store query is scoped to callerID.
-	Delete(ctx context.Context, id, callerID uuid.UUID) error
+	Delete(ctx context.Context, id, callerID uuid.UUID, code string) error
 	// AddMember adds a user (by email) to the portfolio. callerID is stored as InvitedBy.
 	AddMember(ctx context.Context, portfolioID, callerID uuid.UUID, req model.InviteMemberRequest) error
 	// RemoveMember removes a member. Enforces the last-owner guard.
@@ -183,13 +184,16 @@ func (s *service) Update(ctx context.Context, id, callerID uuid.UUID, req model.
 }
 
 // Delete soft-deletes a portfolio, scoped to the caller.
-func (s *service) Delete(ctx context.Context, id, callerID uuid.UUID) error {
+func (s *service) Delete(ctx context.Context, id, callerID uuid.UUID, code string) error {
 	log := siloLogger.FromCtx(ctx).With().
 		Str(siloLogger.LogStrKeyMethod, "portfolio.Delete").
 		Logger()
 
 	// Verify caller is a member before deleting (store-level check).
 	if _, err := s.dp.PortfolioStore.GetPortfolioByID(ctx, id, callerID); err != nil {
+		return err
+	}
+	if err := confirm.Check(ctx, s.dp, callerID, model.PurposeDeletePortfolio, &id, code); err != nil {
 		return err
 	}
 	if err := s.dp.PortfolioStore.SoftDeletePortfolio(ctx, id); err != nil {

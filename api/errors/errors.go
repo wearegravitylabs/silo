@@ -74,6 +74,18 @@ var (
 	ErrInvalidPeriod = &TranslatableError{Code: "INVALID_PERIOD", Key: "ERR_INVALID_PERIOD",
 		Message: messages.ErrInvalidPeriod, Public: true}
 
+	// ErrInvalidCode is shown for a wrong, expired or missing emailed code.
+	ErrInvalidCode = &TranslatableError{Code: "INVALID_CODE", Key: "ERR_INVALID_CODE",
+		Message: messages.ErrInvalidCode, Public: true}
+
+	// ErrInvalidLink is shown for an expired or already-used email link.
+	ErrInvalidLink = &TranslatableError{Code: "INVALID_LINK", Key: "ERR_INVALID_LINK",
+		Message: messages.ErrInvalidLink, Public: true}
+
+	// ErrInvalidSettings is shown for an unknown setting or a bad value.
+	ErrInvalidSettings = &TranslatableError{Code: "INVALID_SETTINGS", Key: "ERR_INVALID_SETTINGS",
+		Message: messages.ErrInvalidSettings, Public: true}
+
 	// ErrInvalidRuleConfig is shown when a projection rule's type is unknown or
 	// its config is missing what the rule needs.
 	ErrInvalidRuleConfig = &TranslatableError{Code: "INVALID_RULE_CONFIG", Key: "ERR_INVALID_RULE_CONFIG",

@@ -154,7 +154,13 @@ func (h *handler) delete(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Delete(c.Request.Context(), portfolioID, callerID); err != nil {
+	// The emailed code from POST /users/me/confirmation-code (purpose delete_portfolio).
+	var req model.CodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		apiModel.HandleErrorResponse(c, serviceName, siloErrors.ErrInvalidCode)
+		return
+	}
+	if err := h.svc.Delete(c.Request.Context(), portfolioID, callerID, req.Code); err != nil {
 		apiModel.HandleErrorResponse(c, serviceName, err)
 		return
 	}
