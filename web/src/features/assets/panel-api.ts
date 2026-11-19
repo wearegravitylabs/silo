@@ -488,7 +488,7 @@ export const updateAsset = async (
 
 export const listAssetRules = async (portfolioId: string, assetId: string) => {
   if (isMockedAsset(portfolioId, assetId)) return mockRules(assetId)
-  return (await listRules(portfolioId, 'asset', assetId)).map(toRule)
+  return (await listRules(portfolioId, assetId)).map(toRule)
 }
 
 /** Adds a rule, or updates one (`ruleId`: remade, since the API can't edit one). A new rule starts active. */

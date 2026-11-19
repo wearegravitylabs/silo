@@ -8,7 +8,6 @@ import type { ProjectionPoint, ProjectionRule, ProjectionState, Scenario } from 
 
 // A real portfolio's scenarios, rules and projections are the API's: it does the maths, and the page shows its answer
 // as it is. The demo portfolios stay in memory, projected by the mock engine (engine.ts).
-// TODO: "intro seen" is kept in localStorage; the API keeps it in the user's settings now.
 const later = mockDelay(400)
 
 const store = new Map<string, ProjectionState>()
@@ -179,19 +178,14 @@ const rulePath = (portfolioId: string, ruleId: string) => `${rulesPath(portfolio
 
 const fetchScenarios = async (portfolioId: string) => (await api<ApiScenario[] | null>(scenariosPath(portfolioId))) ?? []
 
-const INTRO_SEEN_KEY = 'silo:projections-intro-seen'
-const introSeen = () => {
-  try {
-    return localStorage.getItem(INTRO_SEEN_KEY) === '1'
-  } catch {
-    return false
-  }
-}
+/** Whether the user has closed the projections intro: kept in their settings, so every device knows. */
+const INTRO_SEEN = 'projections_intro_seen'
+const introSeen = async () => (await api<{ settings?: Record<string, unknown> | null }>('/users/me')).settings?.[INTRO_SEEN] === true
 
 export async function getProjections(portfolioId: string, currency: string): Promise<ProjectionState> {
   if (isDemoPortfolio(portfolioId)) return later(structuredClone(stateOf(portfolioId, currency)))
   // The API gives every portfolio Scenario A, and the last scenario can't be deleted, so there's always one.
-  const list = await fetchScenarios(portfolioId)
+  const [list, seen] = await Promise.all([fetchScenarios(portfolioId), introSeen()])
   const rules = list.flatMap((s) => s.rules ?? []).flatMap((r) => toRule(r) ?? [])
   loaded.clear()
   for (const r of rules) loaded.set(r.id, r)
@@ -199,7 +193,7 @@ export async function getProjections(portfolioId: string, currency: string): Pro
     currency,
     scenarios: list.map(toScenario),
     rules,
-    intro_seen: introSeen(),
+    intro_seen: seen,
   }
 }
 
@@ -299,10 +293,6 @@ export const saves: { [K in keyof Edits]: (portfolioId: string, vars: EditVars<K
   },
   seenIntro: async (portfolioId, vars) => {
     if (isDemoPortfolio(portfolioId)) return applyEdit(portfolioId, edits.seenIntro, vars)
-    try {
-      localStorage.setItem(INTRO_SEEN_KEY, '1')
-    } catch {
-      // Private window or blocked storage: the intro shows again next time.
-    }
+    await api('/users/me', { method: 'PATCH', body: { settings: { [INTRO_SEEN]: true } } })
   },
 }

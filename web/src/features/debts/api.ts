@@ -81,9 +81,8 @@ export const getDebtsOverview = async (portfolioId: string, currency: string): P
 export const listDebts = async (portfolioId: string, folderId?: string): Promise<Debt[]> => {
   const all = !folderId || folderId === defaultFolderId('debt')
   if (!isDemoPortfolio(portfolioId)) {
-    // Filtered here: the API rejects ?folder_id= on debts (its query binder can't parse the UUID). TODO: backend fix.
-    const list = ((await api<ApiDebt[] | null>(debtsPath(portfolioId))) ?? []).map(toDebt)
-    return all ? list : list.filter((d) => d.folder_id === folderId)
+    const list = await api<ApiDebt[] | null>(debtsPath(portfolioId), { params: { folder_id: all ? undefined : folderId } })
+    return (list ?? []).map(toDebt)
   }
   const debts = debtsOf(portfolioId)
   return later(all ? [...debts] : debts.filter((d) => d.folder_id === folderId))
@@ -335,7 +334,7 @@ export const adjustDebtBalance = async (portfolioId: string, debtId: string, { a
 }
 
 export const listDebtRules = async (portfolioId: string, debtId: string): Promise<DebtRule[]> => {
-  if (!isDemoPortfolio(portfolioId)) return newest((await listRules(portfolioId, 'debt', debtId)).map(toRule))
+  if (!isDemoPortfolio(portfolioId)) return newest((await listRules(portfolioId, debtId)).map(toRule))
   return later(newest(rules.filter((r) => r.debt_id === debtId)))
 }
 

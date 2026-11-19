@@ -138,10 +138,8 @@ export async function deleteFolder(portfolioId: string, folderId: string, moveTo
   if (isDemoPortfolio(portfolioId)) return mockDelete(portfolioId, folderId)
   if (moveTo) {
     const items = `/portfolios/${portfolioId}/${type === 'asset' ? 'assets' : 'debts'}`
-    // Every item, filtered here: the API rejects ?folder_id= on debts. TODO: backend fix.
-    const all = (await api<Array<{ id: string; folder_id?: string | null }> | null>(items)) ?? []
-    for (const { id } of all.filter((i) => i.folder_id === folderId))
-      await api(`${items}/${id}`, { method: 'PATCH', body: { folder_id: moveTo } })
+    const inFolder = (await api<Array<{ id: string }> | null>(items, { params: { folder_id: folderId } })) ?? []
+    for (const { id } of inFolder) await api(`${items}/${id}`, { method: 'PATCH', body: { folder_id: moveTo } })
   }
   await api(`/portfolios/${portfolioId}/folders/${folderId}`, { method: 'DELETE' })
   return null

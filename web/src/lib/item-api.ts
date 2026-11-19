@@ -1,6 +1,6 @@
 // Shared by the assets and debts features (which can't import each other): Auto-Pilot rules, notes and documents
 // work the same way on an asset and on a debt.
-// TODO: the API can't edit a rule (callers remake it) or list one target's rules (filtered here).
+// TODO: rules are edited by remaking them (callers create the new one, then delete the old); the API can edit one now.
 import { api } from './api-client'
 import type { Frequency } from './schedule'
 
@@ -23,8 +23,8 @@ const rulesPath = (portfolioId: string) => `/portfolios/${portfolioId}/autopilot
 const rfc3339 = (day: string | null) => (day ? `${day}T00:00:00Z` : null)
 
 /** One asset's or debt's rules. */
-export const listRules = async (portfolioId: string, targetType: ApiRule['target_type'], targetId: string) =>
-  ((await api<ApiRule[] | null>(rulesPath(portfolioId))) ?? []).filter((r) => r.target_type === targetType && r.target_id === targetId)
+export const listRules = async (portfolioId: string, targetId: string) =>
+  (await api<ApiRule[] | null>(rulesPath(portfolioId), { params: { target_id: targetId } })) ?? []
 
 export const getRule = (portfolioId: string, ruleId: string) => api<ApiRule>(`${rulesPath(portfolioId)}/${ruleId}`)
 
