@@ -54,7 +54,7 @@ export type MoverWindow = (typeof MOVER_WINDOWS)[number]
 export interface DashboardDebt {
   debt_id: string
   name: string
-  /** student_loan | mortgage | auto_loan | personal | … — picks the row icon. */
+  /** student_loan | mortgage | car_loan | personal | … — picks the row icon. */
   debt_type: string
   /** Scheduled debts have a repayment plan (monthly payment, interest); unscheduled ones (e.g. a loan from a friend) don't. */
   scheduled: boolean

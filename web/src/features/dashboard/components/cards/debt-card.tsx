@@ -14,7 +14,7 @@ import { PlaceholderRow } from '../shared/placeholder-row'
 const DEBT_ICON: Record<string, typeof HouseIcon> = {
   student_loan: GraduationCapIcon,
   mortgage: HouseIcon,
-  auto_loan: CarIcon,
+  car_loan: CarIcon,
 }
 
 /** Total debt, split into scheduled (has a repayment plan) and unscheduled columns. */

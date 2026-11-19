@@ -184,7 +184,7 @@ const DEBT_ITEMS: DashboardDebt[] = [
   {
     debt_id: 'd3',
     name: 'Car Loan',
-    debt_type: 'auto_loan',
+    debt_type: 'car_loan',
     scheduled: true,
     balance: 50_000,
     currency: CURRENCY,
