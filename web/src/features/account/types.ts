@@ -23,7 +23,7 @@ export interface OnboardInput {
 }
 
 /** Only the fields given are changed. */
-export type UpdateProfileInput = Partial<OnboardInput> & { avatar_url?: string }
+export type UpdateProfileInput = Partial<OnboardInput> & { avatar_url?: string | null }
 
 export function getUserInitials(user: Pick<User, 'first_name' | 'last_name'> | null | undefined) {
   if (!user) return '?'

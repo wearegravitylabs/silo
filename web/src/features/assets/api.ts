@@ -46,6 +46,12 @@ export interface ApiAsset {
   metadata?: { detail?: string; status?: string; color?: string; pictures?: string[] } | null
   owned_value_converted: number
   converted_currency: string
+  /** Change over the last 30 days, in %; null for an asset added in that time */
+  change_pct_1m?: number | null
+  /** What the owned share cost, and the gain on it, in `converted_currency`; null when no purchase has a price */
+  invested?: number | null
+  gain?: number | null
+  gain_pct?: number | null
   created_at: string
   updated_at: string
 }
@@ -67,7 +73,7 @@ export const toAssetItem = (a: ApiAsset): AssetItem => ({
   owned_value_converted: a.owned_value_converted,
   converted_currency: a.converted_currency,
   total_quantity: HELD_IN_UNITS.includes(a.asset_type) ? a.quantity : null,
-  change_pct_1m: null,
+  change_pct_1m: a.change_pct_1m ?? null,
   needs_attention: false,
   detail: a.metadata?.detail ?? (a.ticker || null),
   status: a.metadata?.status ?? null,

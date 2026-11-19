@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { currencySymbol, formatDay, formatMoney } from '@/lib/format'
 import type { ChartPeriod } from '@/lib/periods'
+import { cn } from '@/lib/utils'
 import { useAssetChart, useAssetHistory, useAssetStats } from '../../panel-queries'
 import type { AssetHistoryEntry, AssetItem } from '../../types'
 import { AddHistoryDialog } from './add-history-dialog'
@@ -135,10 +136,11 @@ function HistoryCard({ entry, currency, ticker }: { entry: AssetHistoryEntry; cu
 }
 
 /**
- * A price change: the new price and the one before ("Prev $ 0" for the first). TODO: the move between them (green up,
- * red down) once the API gives it; it isn't worked out here.
+ * A price change: the new price, the move from the one before (green up, red down; "$ -" when there's none) and the one
+ * before ("Prev $ 0" for the first). The move is the API's.
  */
 function PriceCard({ entry, currency }: { entry: AssetHistoryEntry; currency: string }) {
+  const change = entry.change ?? null
   return (
     <EntryCard label={formatDay(entry.date)}>
       <div className="flex items-center justify-between gap-4">
@@ -146,7 +148,11 @@ function PriceCard({ entry, currency }: { entry: AssetHistoryEntry; currency: st
         <span className="text-foreground">{money(entry.amount, currency)}</span>
       </div>
       <div className="flex items-center justify-between gap-4 text-xs leading-5">
-        <span className="text-subtle">{`${currencySymbol(currency)} -`}</span>
+        <span className={cn(!change ? 'text-subtle' : change > 0 ? 'text-success' : 'text-destructive')}>
+          {change === null
+            ? `${currencySymbol(currency)} -`
+            : `${change > 0 ? '+' : change < 0 ? '-' : ''}${formatMoney(Math.abs(change), currency, { spaced: false })}`}
+        </span>
         <span className="text-subtle">
           Prev {entry.previous ? formatMoney(entry.previous, currency) : formatMoney(0, currency, { decimals: 0 })}
         </span>

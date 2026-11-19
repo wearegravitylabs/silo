@@ -1,8 +1,7 @@
 import type { Frequency } from '@/lib/schedule'
 
-// TODO: the API's asset list (GET /portfolios/:id/assets) lacks change_pct_1m and needs_attention: they're null/false
-// until the backend adds them. detail, status, color and pictures are kept in the asset's metadata. Other fields keep
-// the API's names.
+// TODO: the API's asset list (GET /portfolios/:id/assets) lacks needs_attention: it's false until the backend adds it.
+// detail, status, color and pictures are kept in the asset's metadata. Other fields keep the API's names.
 
 export type Investability = 'investable' | 'non_investable'
 
@@ -150,6 +149,8 @@ export interface AssetHistoryEntry {
   price: number | null
   /** The price before (price changes after the first) */
   previous: number | null
+  /** The move from `previous`, as the API works it out; null or absent when it gives none */
+  change?: number | null
   /** What the amounts are in, when not the asset's portfolio currency (the API's history is in the asset's own) */
   currency?: string
   created_at: string

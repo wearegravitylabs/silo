@@ -1,7 +1,7 @@
 import { api } from '@/lib/api-client'
 import type { NotificationChannels, OnboardInput, UpdateProfileInput, User, ViewerInviteAccess } from './types'
 
-// The API ignores a null avatar_url, so a removed photo is saved as "" (read back here as none).
+// Photos removed before the API took null were saved as "": read back here as none.
 const toUser = (u: User): User => ({ ...u, avatar_url: u.avatar_url || null })
 
 export const getMe = async () => toUser(await api<User>('/users/me'))
@@ -29,8 +29,7 @@ export const uploadAvatar = async (file: File) => {
   return updateProfile({ avatar_url: url })
 }
 
-// The file stays in storage: the API has no way to delete an upload yet.
-export const removeAvatar = () => updateProfile({ avatar_url: '' })
+export const removeAvatar = () => updateProfile({ avatar_url: null })
 
 /** Mock accounts that already exist, so Change Email can hit both outcomes. */
 const EXISTING_EMAILS = new Set(['osonuga.daniel@gmail.com', 'taiwo.odetola@gmail.com', 'jane.doe@gmail.com'])

@@ -322,9 +322,9 @@ const mockDeleteDocument = (docId: string) => {
 }
 
 // ─── API ──────────────────────────────────────────────────────────────────────
-// The panel shows money in the portfolio's currency, owned share only, like the table. The API keeps an asset's
-// prices in its own currency for the whole asset, so values are converted on the way in and out.
-// TODO: the API can't yet remove units or date a price change. (Rules, notes and documents: see lib/item-api.)
+// The panel shows money in the portfolio's currency, owned share only, like the table; the API gives each figure that
+// way (its *_converted fields). Prices it saves are still the whole asset's, in its own currency, so a typed value is
+// converted on the way out. (Rules, notes and documents: see lib/item-api.)
 
 interface ApiLot {
   quantity: number
@@ -343,8 +343,12 @@ interface ApiAssetDetail extends ApiAsset {
 
 interface ApiValuePoint {
   id: string
-  value: number
   recorded_at: string
+  /** The owned share then, in `converted_currency` */
+  owned_value_converted: number
+  converted_currency: string
+  /** The move from the record before; null for the first */
+  change_amount: number | null
 }
 
 const base = (portfolioId: string, assetId: string) => `/portfolios/${portfolioId}/assets/${assetId}`
@@ -352,15 +356,15 @@ const getDetail = (portfolioId: string, assetId: string) => api<ApiAssetDetail>(
 
 const heldInUnits = (a: ApiAssetDetail) => toAssetItem(a).total_quantity != null
 
-/** The API's value records since `from`, oldest first, as it gives them (the asset's own currency, whole asset). */
+/** The API's value records since `from`, oldest first. */
 const valueHistory = async (portfolioId: string, assetId: string, from: Date) =>
   [
     ...((await api<ApiValuePoint[] | null>(`${base(portfolioId, assetId)}/value-history`, { params: { from: from.toISOString() } })) ?? []),
   ].sort((x, y) => x.recorded_at.localeCompare(y.recorded_at))
 
 /**
- * What the API records, as it gives it: each purchase (ticker assets: units and the price paid) or each recorded
- * value (the rest). Oldest first, in the asset's own currency.
+ * What the API records, as it gives it: each purchase (ticker assets: units and the price paid, in the asset's own
+ * currency) or each recorded value (the rest: the owned share, in the portfolio's currency). Oldest first.
  */
 async function apiHistory(portfolioId: string, assetId: string): Promise<AssetHistoryEntry[]> {
   const a = await getDetail(portfolioId, assetId)
@@ -382,7 +386,14 @@ async function apiHistory(portfolioId: string, assetId: string): Promise<AssetHi
       .sort((x, y) => x.acquisition_date.localeCompare(y.acquisition_date))
       .map((l) => entry(l.id, l.acquisition_date, l.created_at, { kind: 'add', quantity: l.quantity, price: l.acquisition_price }))
   const points = await valueHistory(portfolioId, assetId, new Date(0))
-  return points.map((p, i) => entry(p.id, p.recorded_at, p.recorded_at, { amount: p.value, previous: i ? points[i - 1].value : null }))
+  return points.map((p, i) =>
+    entry(p.id, p.recorded_at, p.recorded_at, {
+      amount: p.owned_value_converted,
+      previous: i ? points[i - 1].owned_value_converted : null,
+      change: p.change_amount,
+      currency: p.converted_currency,
+    }),
+  )
 }
 
 /** Sets the whole asset's unit price so its owned value becomes `value` (in the portfolio's currency). */
@@ -432,10 +443,11 @@ export const listAssetHistory = async (portfolioId: string, assetId: string) => 
   return (await apiHistory(portfolioId, assetId)).reverse()
 }
 
-/** What's invested and the gain; null for a real asset, since the API doesn't work them out yet. TODO: backend. */
+/** What's invested and the gain, in the portfolio's currency; null when the API has none (no purchase has a price). */
 export const getAssetStats = async (portfolioId: string, assetId: string): Promise<AssetStats | null> => {
   if (isMockedAsset(portfolioId, assetId)) return mockStats(portfolioId, assetId)
-  return null
+  const { invested, gain, gain_pct } = await getDetail(portfolioId, assetId)
+  return invested == null || gain == null || gain_pct == null ? null : { invested, gain, gain_pct }
 }
 
 /**
@@ -471,9 +483,9 @@ export const updateAssetPrice = async (portfolioId: string, assetId: string, inp
 
 export const getAssetChart = async (portfolioId: string, assetId: string, period: ChartPeriod) => {
   if (isMockedAsset(portfolioId, assetId)) return mockChart(portfolioId, assetId, period)
-  const a = await getDetail(portfolioId, assetId)
   const points = await valueHistory(portfolioId, assetId, new Date(Date.now() - periodDays(period) * 86_400_000))
-  return { currency: a.currency, points: points.map((p) => ({ date: p.recorded_at, value: p.value })) }
+  const currency = points[0]?.converted_currency ?? toAssetItem(await getDetail(portfolioId, assetId)).converted_currency
+  return { currency, points: points.map((p) => ({ date: p.recorded_at, value: p.owned_value_converted })) }
 }
 
 /** Investable or not, and the share you own (the value scales with it). */
