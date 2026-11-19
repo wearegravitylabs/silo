@@ -10,7 +10,7 @@ type FolderType = 'asset' | 'debt'
  */
 export const defaultFolderId = (type: FolderType) => (type === 'asset' ? 'all-assets' : 'all-debts')
 
-/** A folder as the API returns it (no colour field yet: the folders feature keeps it in `icon`). */
+/** A folder as the API returns it. */
 export interface ApiFolder {
   id: string
   portfolio_id: string
@@ -18,6 +18,8 @@ export interface ApiFolder {
   name: string
   icon: string | null
   image_url: string | null
+  /** Any CSS colour; null picks one by position */
+  color?: string | null
   position: number
   created_at: string
   updated_at: string

@@ -4,10 +4,10 @@ import { mockDelay } from '@/lib/mock'
 import { MOCK_VAULT_DOCUMENTS } from './mock-data'
 import type { VaultDocument, VaultStatus } from './types'
 
-// A real portfolio's documents are the API's (each member sees only their own). The vault password is still mocked:
-// the API has no password endpoints, so any portfolio but the demo starts with none, and it locks again on reload.
-// TODO: the API expects files encrypted in the browser (it stores ciphertext), with a key from the vault password; that
-// isn't built yet, so files are uploaded as they are.
+// A real portfolio's documents are the API's, shared by everyone in the portfolio. The vault password is still mocked,
+// so any portfolio but the demo starts with none, and it locks again on reload.
+// TODO: use the API's vault password (status, set, unlock, change) and encrypt files in the browser with a key from it;
+// until then files are uploaded as they are (the API accepts plain files).
 // Mock: the demo portfolio has a password set (any password unlocks it) and the design's four documents.
 const DELAY = 600
 const later = mockDelay(DELAY)

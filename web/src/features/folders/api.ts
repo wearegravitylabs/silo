@@ -6,7 +6,6 @@ import type { Folder, FolderType } from './types'
 
 // A real portfolio's folders are the API's, as they are: every asset and debt is in one, so there's no "All Assets"
 // or "All Debts". The demo portfolios stay in memory, with the design's folders and a default folder per type.
-// TODO: API folders have no colour field yet, so the colour is kept in `icon` as "color:folder-N" (see fromApi).
 const later = mockDelay(300)
 const CREATED = '2026-01-01T00:00:00Z'
 
@@ -94,18 +93,18 @@ const mockReorder = (portfolioId: string, folders: Array<{ id: string; position:
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
-// Prefixed, so it can't pass for an emoji icon and is easy to move once folders get a colour field.
+// Folders coloured before the API had a colour field kept it in `icon` as "color:folder-N"; they're read from there
+// until they're recoloured.
 const ICON_PREFIX = 'color:folder-'
-/** The `icon` that stores a FOLDER_COLORS colour; undefined (left as it is) for any other. */
-const colorIcon = (color?: string | null) => {
-  const i = FOLDER_COLORS.findIndex((c) => c === color)
-  return i === -1 ? undefined : `${ICON_PREFIX}${i + 1}`
-}
-/** The colour stored in `icon`; null (picked by position) when it holds none. */
 const iconColor = (icon: string | null) =>
   icon?.startsWith(ICON_PREFIX) ? (FOLDER_COLORS[Number(icon.slice(ICON_PREFIX.length)) - 1] ?? null) : null
 
-const fromApi = (f: ApiFolder, position: number): Folder => ({ ...f, icon: null, color: iconColor(f.icon), position })
+const fromApi = (f: ApiFolder, position: number): Folder => ({
+  ...f,
+  icon: null,
+  color: f.color || iconColor(f.icon),
+  position,
+})
 
 export async function listFolders(portfolioId: string, type: FolderType) {
   if (isDemoPortfolio(portfolioId)) return mockList(portfolioId, type)
@@ -116,7 +115,7 @@ export async function createFolder(portfolioId: string, data: { name: string; fo
   if (isDemoPortfolio(portfolioId)) return mockCreate(portfolioId, data)
   const created = await api<ApiFolder>(`/portfolios/${portfolioId}/folders`, {
     method: 'POST',
-    body: { name: data.name, folder_type: data.folder_type, icon: colorIcon(data.color) },
+    body: { name: data.name, folder_type: data.folder_type, color: data.color ?? undefined },
   })
   return fromApi(created, created.position)
 }
@@ -125,7 +124,7 @@ export async function updateFolder(portfolioId: string, folderId: string, data: 
   if (isDemoPortfolio(portfolioId)) return mockUpdate(portfolioId, folderId, data)
   const updated = await api<ApiFolder>(`/portfolios/${portfolioId}/folders/${folderId}`, {
     method: 'PATCH',
-    body: { name: data.name, icon: colorIcon(data.color) },
+    body: { name: data.name, color: data.color ?? undefined },
   })
   return fromApi(updated, updated.position)
 }
