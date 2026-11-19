@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { resolveColor } from '@/lib/colors'
 import { formatCompactMoney, formatDay, formatMoney } from '@/lib/format'
 import { RULE_TEMPLATES, type OptionSource, type Part, type Slot } from './templates'
-import type { Category, ProjectionMetric, ProjectionRule } from './types'
+import type { Category, ProjectionChange, ProjectionMetric, ProjectionRule } from './types'
 
 export interface RuleOption {
   value: string
@@ -156,9 +156,8 @@ export function projectionMoney(value: number, currency: string, decimals = 2) {
     : formatMoney(value, currency, { decimals })
 }
 
-/** Change from today: "$ 1.20M" and "999%" (capped; one decimal at most). */
-export function projectionChange(value: number, start: number, currency: string) {
-  const delta = value - start
-  const pct = start ? Math.min(Math.abs((delta / start) * 100), 999) : 0
-  return { delta, amount: projectionMoney(Math.abs(delta), currency), pct: `${Number(pct.toFixed(1))}%` }
+/** A change from today as TrendLine shows it: "$ 1.20M" and "999%" (capped; one decimal at most). */
+export function projectionChange({ amount, pct }: ProjectionChange, currency: string) {
+  const shown = Math.min(Math.abs(pct ?? 0), 999)
+  return { delta: amount, amount: projectionMoney(Math.abs(amount), currency), pct: `${Number(shown.toFixed(1))}%` }
 }

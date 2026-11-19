@@ -3,27 +3,19 @@ import { CardHead } from '@/components/card-head'
 import { NetWorthIcon } from '@/components/icons'
 import { formatMoney } from '@/lib/format'
 import { projectionChange, TIMESTAMPS } from '../constants'
-import type { ProjectionPoint } from '../types'
+import type { MilestonePoint } from '../api'
 
 /**
- * Six snapshots of the active scenario (1 month … 20 years): net worth, change from today, assets and debts. `at` holds
- * them by months from now; a card it lacks (or every card, with no `start`: the projection didn't load) shows dashes.
+ * Six snapshots of the active scenario (1 month … 20 years): net worth, the API's change from today, assets and debts.
+ * `at` holds them by months from now; a card it lacks (every card, when the projection didn't load) shows dashes.
  */
-export function TimestampGrid({
-  start,
-  at = {},
-  currency,
-}: {
-  start?: ProjectionPoint | null
-  at?: Record<number, ProjectionPoint>
-  currency: string
-}) {
+export function TimestampGrid({ at = {}, currency }: { at?: Record<number, MilestonePoint>; currency: string }) {
   const money = (value: number | undefined) => (value == null ? '—' : formatMoney(value, currency))
   return (
     <div className="grid gap-x-4 gap-y-5 @xl:grid-cols-2 @4xl:grid-cols-3">
       {TIMESTAMPS.map(({ months, label }) => {
         const p = at[months]
-        const change = p && start ? projectionChange(p.value, start.value, currency) : null
+        const change = p?.change ? projectionChange(p.change, currency) : null
         return (
           <section key={months} className="flex min-w-0 flex-col gap-1.5" aria-label={label}>
             <h2 className="text-eyebrow">{label}</h2>

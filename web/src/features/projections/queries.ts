@@ -1,12 +1,13 @@
 import { queryOptions, useMutation, useQueries, useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query'
 import { edits, getProjectionChart, getProjectionMilestones, getProjections, saves } from './api'
-import type { ProjectionState } from './types'
+import type { ProjectionMetric, ProjectionState } from './types'
 
 export const projectionKeys = {
   all: (portfolioId: string) => ['projections', portfolioId] as const,
-  chart: (portfolioId: string, scenarioId: string, years: number) =>
-    [...projectionKeys.all(portfolioId), 'chart', scenarioId, years] as const,
-  milestones: (portfolioId: string, scenarioId: string) => [...projectionKeys.all(portfolioId), 'milestones', scenarioId] as const,
+  chart: (portfolioId: string, scenarioId: string, years: number, metric: ProjectionMetric) =>
+    [...projectionKeys.all(portfolioId), 'chart', scenarioId, years, metric] as const,
+  milestones: (portfolioId: string, scenarioId: string, metric: ProjectionMetric) =>
+    [...projectionKeys.all(portfolioId), 'milestones', scenarioId, metric] as const,
 }
 
 export const projectionsQuery = (portfolioId: string, currency: string) =>
@@ -15,21 +16,21 @@ export const projectionsQuery = (portfolioId: string, currency: string) =>
 /** Scenarios and rules. Suspends — preload with `projectionsQuery` in the route loader. */
 export const useProjections = (portfolioId: string, currency: string) => useSuspenseQuery(projectionsQuery(portfolioId, currency)).data
 
-/** Each scenario's projection to `years` ahead (keeps the last one while a new horizon loads). */
-export const useProjectionCharts = (portfolioId: string, scenarioIds: string[], years: number) =>
+/** Each scenario's projection to `years` ahead, valued as `metric` asks (keeps the last one while the next loads). */
+export const useProjectionCharts = (portfolioId: string, scenarioIds: string[], years: number, metric: ProjectionMetric) =>
   useQueries({
     queries: scenarioIds.map((id) => ({
-      queryKey: projectionKeys.chart(portfolioId, id, years),
-      queryFn: () => getProjectionChart(portfolioId, id, years),
+      queryKey: projectionKeys.chart(portfolioId, id, years, metric),
+      queryFn: () => getProjectionChart(portfolioId, id, years, metric),
       placeholderData: (previous: Awaited<ReturnType<typeof getProjectionChart>> | undefined) => previous,
     })),
   })
 
 /** The scenario at the Time Stamp milestones; fetched only while `enabled` (the Time Stamp view). */
-export const useProjectionMilestones = (portfolioId: string, scenarioId: string, enabled: boolean) =>
+export const useProjectionMilestones = (portfolioId: string, scenarioId: string, metric: ProjectionMetric, enabled: boolean) =>
   useQuery({
-    queryKey: projectionKeys.milestones(portfolioId, scenarioId),
-    queryFn: () => getProjectionMilestones(portfolioId, scenarioId),
+    queryKey: projectionKeys.milestones(portfolioId, scenarioId, metric),
+    queryFn: () => getProjectionMilestones(portfolioId, scenarioId, metric),
     enabled,
   })
 

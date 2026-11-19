@@ -99,17 +99,17 @@ function ProjectionsPage() {
   const horizon = search.to ?? THIS_YEAR + DEFAULT_HORIZON
   const active = state.scenarios.find((s) => s.id === search.scenario) ?? state.scenarios[0]
 
-  // The API's projection of each scenario to the horizon, shown as it comes. TODO: "Net Worth + Cash" (the API has
-  // no cash figure yet, so both metrics show net worth).
+  // The API's projection of each scenario to the horizon, valued as the metric asks, shown as it comes.
   const charts = useProjectionCharts(
     portfolioId,
     state.scenarios.map((s) => s.id),
     horizon - THIS_YEAR,
+    metric,
   )
-  const pointsOf = Object.fromEntries(state.scenarios.map((s, k) => [s.id, charts[k]?.data]))
+  const chartOf = Object.fromEntries(state.scenarios.map((s, k) => [s.id, charts[k]?.data]))
   const activeChart = charts[state.scenarios.indexOf(active)]
-  const activePoints = pointsOf[active.id]
-  const milestones = useProjectionMilestones(portfolioId, active.id, search.view === 'timestamp')
+  const activePoints = chartOf[active.id]?.points
+  const milestones = useProjectionMilestones(portfolioId, active.id, metric, search.view === 'timestamp')
   const visible = state.scenarios.filter((s) => (shown ?? state.scenarios.map((x) => x.id)).includes(s.id))
 
   return (
@@ -118,7 +118,7 @@ function ProjectionsPage() {
       <div className="flex min-h-full flex-col">
         <ProjectionsHeader
           value={activePoints?.at(-1)?.value ?? null}
-          start={activePoints?.[0]?.value ?? null}
+          change={chartOf[active.id]?.change ?? null}
           currency={currency}
           horizon={horizon}
           onHorizonChange={(to) => setSearch({ to })}
@@ -130,14 +130,14 @@ function ProjectionsPage() {
           {search.view === 'timestamp' ? (
             milestones.data || milestones.isError ? (
               // A failed load leaves the cards with dashes.
-              <TimestampGrid start={milestones.data?.start} at={milestones.data?.at} currency={currency} />
+              <TimestampGrid at={milestones.data?.at} currency={currency} />
             ) : (
               <Skeleton className="h-77.5 rounded-2xl" />
             )
           ) : activePoints || activeChart?.isError ? (
             // A scenario whose projection didn't load has no line, just its outline and a dash.
             <ProjectionChart
-              series={(visible.length ? visible : [active]).map((s) => ({ scenario: s, points: pointsOf[s.id] ?? [] }))}
+              series={(visible.length ? visible : [active]).map((s) => ({ scenario: s, points: chartOf[s.id]?.points ?? [] }))}
               scenarios={state.scenarios}
               visible={visible.map((s) => s.id)}
               onVisibleChange={setShown}
@@ -154,7 +154,7 @@ function ProjectionsPage() {
           scenarios={state.scenarios}
           values={Object.fromEntries(
             state.scenarios.map((s) => {
-              const last = pointsOf[s.id]?.at(-1)
+              const last = chartOf[s.id]?.points.at(-1)
               return [s.id, last ? projectionMoney(last.value, currency, 0) : '—']
             }),
           )}

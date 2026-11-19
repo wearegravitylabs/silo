@@ -4,7 +4,15 @@ import { mockDelay } from '@/lib/mock'
 import { project } from './engine'
 import { defaultScenario, demoScenarioB, MOCK_BASELINE } from './mock-data'
 import { slotsOf, type RuleTemplateId, type SlotEditor } from './templates'
-import type { ProjectionPoint, ProjectionRule, ProjectionState, Scenario } from './types'
+import type {
+  ProjectionChange,
+  ProjectionChart,
+  ProjectionMetric,
+  ProjectionPoint,
+  ProjectionRule,
+  ProjectionState,
+  Scenario,
+} from './types'
 
 // A real portfolio's scenarios, rules and projections are the API's: it does the maths, and the page shows its answer
 // as it is. The demo portfolios stay in memory, projected by the mock engine (engine.ts).
@@ -203,15 +211,26 @@ export async function getProjections(portfolioId: string, currency: string): Pro
 interface ApiPoint {
   month: number
   net_worth: number
+  /** Net worth plus the cash income and spending have added up to since today */
+  net_worth_with_cash: number
   assets: number
   debts: number
 }
 
-/** The point `month` months from now. */
-const pointAt = (month: number, p: Omit<ApiPoint, 'month'>): ProjectionPoint => {
+/** The point `month` months from now, valued as the metric asks. */
+const pointAt = (month: number, p: Omit<ApiPoint, 'month'>, metric: ProjectionMetric): ProjectionPoint => {
   const now = new Date()
   const date = new Date(now.getFullYear(), now.getMonth() + month, 1)
-  return { date: date.toISOString().slice(0, 10), value: p.net_worth, assets: p.assets, debts: p.debts }
+  const value = metric === 'net_worth_cash' ? p.net_worth_with_cash : p.net_worth
+  return { date: date.toISOString().slice(0, 10), value, assets: p.assets, debts: p.debts }
+}
+
+/** The demo's change from today (the mock engine's points; a real projection's change is the API's). */
+const mockChange = (points: ProjectionPoint[], months: number): ProjectionChange | null => {
+  const start = points[0]?.value
+  const end = points[months]?.value
+  if (start == null || end == null) return null
+  return { amount: end - start, pct: start ? ((end - start) / Math.abs(start)) * 100 : null }
 }
 
 /** The demo scenario's months 0 … `months`, from the mock engine. */
@@ -222,39 +241,72 @@ const mockProjection = (portfolioId: string, scenarioId: string, months: number)
     months,
   )
 
-/**
- * A scenario's net worth, assets and debts from today to `years` ahead, evenly spaced: the API gives monthly points up
- * to 2 years, yearly beyond.
- */
-export async function getProjectionChart(portfolioId: string, scenarioId: string, years: number): Promise<ProjectionPoint[]> {
-  if (isDemoPortfolio(portfolioId)) return later(mockProjection(portfolioId, scenarioId, years * 12))
-  const chart = await api<{ points: ApiPoint[] | null }>(`${scenariosPath(portfolioId)}/${scenarioId}/chart`, {
-    method: 'POST',
-    body: { years_ahead: years },
-  })
-  return (chart.points ?? []).map((p) => pointAt(p.month, p))
+/** A scenario's monthly projection from today to `years` ahead, valued as `metric` asks, and the API's change to its end. */
+export async function getProjectionChart(
+  portfolioId: string,
+  scenarioId: string,
+  years: number,
+  metric: ProjectionMetric,
+): Promise<ProjectionChart> {
+  if (isDemoPortfolio(portfolioId)) {
+    const points = mockProjection(portfolioId, scenarioId, years * 12)
+    return later({ points, change: mockChange(points, years * 12) })
+  }
+  const chart = await api<{
+    points: ApiPoint[] | null
+    change_amount: number
+    change_pct: number | null
+    change_amount_with_cash: number
+    change_pct_with_cash: number | null
+  }>(`${scenariosPath(portfolioId)}/${scenarioId}/chart`, { method: 'POST', body: { years_ahead: years } })
+  const cash = metric === 'net_worth_cash'
+  return {
+    points: (chart.points ?? []).map((p) => pointAt(p.month, p, metric)),
+    change: cash
+      ? { amount: chart.change_amount_with_cash, pct: chart.change_pct_with_cash }
+      : { amount: chart.change_amount, pct: chart.change_pct },
+  }
 }
+
+/** A point at a milestone, with its change from today (none for net worth + cash: the API gives it for net worth). */
+export type MilestonePoint = ProjectionPoint & { change: ProjectionChange | null }
 
 /** A scenario today and at the API's milestones (1, 6, 12, 60, 120, 240 … months), by months from now. */
 export interface ProjectionMilestones {
   start: ProjectionPoint
-  at: Record<number, ProjectionPoint>
+  at: Record<number, MilestonePoint>
 }
 
-export async function getProjectionMilestones(portfolioId: string, scenarioId: string): Promise<ProjectionMilestones> {
+export async function getProjectionMilestones(
+  portfolioId: string,
+  scenarioId: string,
+  metric: ProjectionMetric,
+): Promise<ProjectionMilestones> {
   if (isDemoPortfolio(portfolioId)) {
     const points = mockProjection(portfolioId, scenarioId, 240)
-    return later({ start: points[0], at: Object.fromEntries(points.map((p, months) => [months, p])) })
+    return later({
+      start: points[0],
+      at: Object.fromEntries(points.map((p, months) => [months, { ...p, change: mockChange(points, months) }])),
+    })
   }
   const result = await api<{
     starting_net_worth: number
     starting_assets: number
     starting_debts: number
-    milestones: Array<ApiPoint & { months: number }> | null
+    milestones: Array<ApiPoint & { months: number; change_amount: number; change_pct: number }> | null
   }>(`${scenariosPath(portfolioId)}/${scenarioId}/compute`, { method: 'POST' })
+  const start = { net_worth: result.starting_net_worth, net_worth_with_cash: result.starting_net_worth }
   return {
-    start: pointAt(0, { net_worth: result.starting_net_worth, assets: result.starting_assets, debts: result.starting_debts }),
-    at: Object.fromEntries((result.milestones ?? []).map((m) => [m.months, pointAt(m.months, m)])),
+    start: pointAt(0, { ...start, assets: result.starting_assets, debts: result.starting_debts }, metric),
+    at: Object.fromEntries(
+      (result.milestones ?? []).map((m) => [
+        m.months,
+        {
+          ...pointAt(m.months, m, metric),
+          change: metric === 'net_worth' ? { amount: m.change_amount, pct: m.change_pct } : null,
+        },
+      ]),
+    ),
   }
 }
 

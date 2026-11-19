@@ -35,10 +35,22 @@ export interface ProjectionState {
 export type ProjectionMetric = 'net_worth' | 'net_worth_cash'
 export type ProjectionView = 'chart' | 'timestamp'
 
-/** One month of a projection. */
+/** One month of a projection. `value` is net worth, or net worth + cash, as the metric asked. */
 export interface ProjectionPoint {
   date: string
   value: number
   assets: number
   debts: number
+}
+
+/** Change from today: an amount and a % (null when there's nothing to compare with). */
+export interface ProjectionChange {
+  amount: number
+  pct: number | null
+}
+
+/** A scenario's projection: its points, and the change from today to the last one. */
+export interface ProjectionChart {
+  points: ProjectionPoint[]
+  change: ProjectionChange | null
 }

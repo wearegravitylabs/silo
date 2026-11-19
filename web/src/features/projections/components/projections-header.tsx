@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { SegmentedTabs, SegmentedTabsList, SegmentedTabsTrigger } from '@/components/ui/segmented-tabs'
 import { formatMoney } from '@/lib/format'
 import { HORIZON_YEARS, projectionChange } from '../constants'
-import type { ProjectionView } from '../types'
+import type { ProjectionChange, ProjectionView } from '../types'
 
 const MONTH = new Date().toLocaleDateString('en-US', { month: 'short' })
 const FIRST_YEAR = new Date().getFullYear() + 1
@@ -15,7 +15,7 @@ const FIRST_YEAR = new Date().getFullYear() + 1
  */
 export function ProjectionsHeader({
   value,
-  start,
+  change: rawChange,
   currency,
   horizon,
   onHorizonChange,
@@ -23,14 +23,15 @@ export function ProjectionsHeader({
   onViewChange,
 }: {
   value: number | null
-  start: number | null
+  /** The API's change from today to the horizon */
+  change: ProjectionChange | null
   currency: string
   horizon: number
   onHorizonChange: (year: number) => void
   view: ProjectionView
   onViewChange: (view: ProjectionView) => void
 }) {
-  const change = value != null && start != null ? projectionChange(value, start, currency) : null
+  const change = rawChange ? projectionChange(rawChange, currency) : null
 
   return (
     <PageHeader
