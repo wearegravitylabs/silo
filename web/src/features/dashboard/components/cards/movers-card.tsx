@@ -7,16 +7,33 @@ import { Card } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { formatMoney } from '@/lib/format'
 import { cn } from '@/lib/utils'
-import { MOVER_WINDOWS, type DashboardMover, type MoverWindow } from '../../types'
+import { useDashboardMovers } from '../../queries'
+import { MOVER_WINDOWS, type DashboardMock, type DashboardMover, type DashboardPeriod, type MoverWindow } from '../../types'
 import { MoversIcon } from '../shared/icons'
 import { PlaceholderRow } from '../shared/placeholder-row'
 
 const ROWS = 3
 
-/** Top gainers or losers, with a time-window picker. Empty: three grey placeholder rows. */
-export function MoversCard({ kind, movers }: { kind: 'gainers' | 'losers'; movers: DashboardMover[] }) {
-  // TODO: the window is UI-only until the dashboard API accepts it.
+/**
+ * Top gainers or losers, with a time-window picker. `movers` are Today's (the dashboard's own); another window loads
+ * its own. Empty: three grey placeholder rows.
+ */
+export function MoversCard({
+  kind,
+  movers: today,
+  portfolioId,
+  period,
+  mock,
+}: {
+  kind: 'gainers' | 'losers'
+  movers: DashboardMover[]
+  portfolioId: string
+  period: DashboardPeriod
+  mock?: DashboardMock
+}) {
   const [moverWindow, setMoverWindow] = useState<MoverWindow>('Today')
+  const other = useDashboardMovers(portfolioId, period, mock, moverWindow, moverWindow !== 'Today')
+  const movers = moverWindow === 'Today' ? today : (other.data?.top_movers[kind] ?? [])
 
   return (
     <Card className="min-w-0 flex-1">

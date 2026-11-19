@@ -63,8 +63,8 @@ export function DashboardOverview({
         </div>
         <AllocationCard portfolioId={portfolioId} allocation={dashboard.allocation} />
         <div className="flex flex-col gap-4 @2xl:flex-row">
-          <MoversCard kind="gainers" movers={dashboard.top_movers.gainers} />
-          <MoversCard kind="losers" movers={dashboard.top_movers.losers} />
+          <MoversCard kind="gainers" movers={dashboard.top_movers.gainers} portfolioId={portfolioId} period={period} mock={mock} />
+          <MoversCard kind="losers" movers={dashboard.top_movers.losers} portfolioId={portfolioId} period={period} mock={mock} />
         </div>
         <DebtCard portfolioId={portfolioId} debts={dashboard.debts} />
       </div>

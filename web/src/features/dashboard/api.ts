@@ -1,12 +1,12 @@
 import { api } from '@/lib/api-client'
 import { isDemoPortfolio } from '@/lib/demo'
-import type { DashboardDataStatus, DashboardMock, DashboardPeriod, DashboardResponse } from './types'
+import type { DashboardDataStatus, DashboardMock, DashboardPeriod, DashboardResponse, MoverWindow } from './types'
 import { emptyDashboard, mockDashboard } from './mock-data'
 
 // A real portfolio's dashboard is the API's (GET /portfolios/:id/dashboard), shown as it comes: the figures are
 // worked out there, not here. A few plain fields it leaves out come from the asset, debt and asset-class lists.
 // TODO: the API has no assets-by-currency breakdown, allocation by currency or folder, debt summary (scheduled and
-// unscheduled totals, monthly payments, interest paid, debt-free date), mover windows or insights, so those stay empty.
+// unscheduled totals, monthly payments, interest paid, debt-free date) or insights, so those stay empty.
 // Mock: the demo portfolio has data; `mock` forces the busy or empty mock (the dev gallery).
 
 interface ApiDashboard {
@@ -37,8 +37,9 @@ interface ApiMover {
   change_pct: number | null
 }
 
-/** The periods the API charts (it has no 1D, YTD or All). */
-const API_PERIODS: Partial<Record<DashboardPeriod, string>> = { '1M': '1M', '3M': '3M', '1Y': '1Y' }
+/** The chart periods and mover windows as the API names them. */
+const API_PERIOD: Record<DashboardPeriod, string> = { '1D': '1D', '1M': '1M', '3M': '3M', YTD: 'YTD', '1Y': '1Y', All: 'ALL' }
+const API_MOVERS: Record<MoverWindow, string> = { Today: 'today', 'This Week': 'week', 'This Month': 'month' }
 
 const toMovers = (list: ApiMover[] | null, currencyOf: Map<string, string>, fallback: string) =>
   (list ?? []).map((m) => ({
@@ -53,12 +54,10 @@ const toMovers = (list: ApiMover[] | null, currencyOf: Map<string, string>, fall
     change_pct: m.change_pct,
   }))
 
-async function apiDashboard(portfolioId: string, period: DashboardPeriod): Promise<DashboardResponse> {
-  const apiPeriod = API_PERIODS[period]
+async function apiDashboard(portfolioId: string, period: DashboardPeriod, movers: MoverWindow): Promise<DashboardResponse> {
   const p = `/portfolios/${portfolioId}`
-  // A period the API doesn't chart still loads the rest (the API falls back to 1M); its chart and change stay empty.
   const [d, assets, debts, classes] = await Promise.all([
-    api<ApiDashboard>(`${p}/dashboard`, { params: { period: apiPeriod ?? '1M' } }),
+    api<ApiDashboard>(`${p}/dashboard`, { params: { period: API_PERIOD[period], movers: API_MOVERS[movers] } }),
     api<Array<{ id: string; currency: string }> | null>(`${p}/assets`),
     api<Array<{ id: string; interest_rate: number; payment_amount: number; frequency: string | null }> | null>(`${p}/debts`),
     api<Array<{ code: string; name: string }> | null>('/asset-classes'),
@@ -75,11 +74,11 @@ async function apiDashboard(portfolioId: string, period: DashboardPeriod): Promi
       assets: nw.assets,
       debts: nw.debts,
       currency: nw.currency,
-      change_amount: apiPeriod ? nw.change_amount : null,
-      change_pct: apiPeriod ? nw.change_pct : null,
+      change_amount: nw.change_amount,
+      change_pct: nw.change_pct,
       by_currency: [],
     },
-    chart: { period, points: apiPeriod ? (d.chart.points ?? []) : [] },
+    chart: { period, points: d.chart.points ?? [] },
     allocation: {
       by_type: (d.allocation.assets ?? []).map((a) => ({
         key: a.label,
@@ -124,8 +123,9 @@ async function apiDashboard(portfolioId: string, period: DashboardPeriod): Promi
   }
 }
 
-export const getDashboard = (portfolioId: string, period: DashboardPeriod, mock?: DashboardMock) => {
-  if (!mock && !isDemoPortfolio(portfolioId)) return apiDashboard(portfolioId, period)
+/** The dashboard for a chart period, its top movers over `movers` (the mocks have one set of movers). */
+export const getDashboard = (portfolioId: string, period: DashboardPeriod, mock?: DashboardMock, movers: MoverWindow = 'Today') => {
+  if (!mock && !isDemoPortfolio(portfolioId)) return apiDashboard(portfolioId, period, movers)
   return new Promise<DashboardResponse>((resolve) =>
     setTimeout(() => {
       const busy = mock ? mock === 'busy' : portfolioId === 'demo'
