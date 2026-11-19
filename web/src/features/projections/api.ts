@@ -1,4 +1,4 @@
-import { api, ApiError } from '@/lib/api-client'
+import { api } from '@/lib/api-client'
 import { isDemoPortfolio } from '@/lib/demo'
 import { mockDelay } from '@/lib/mock'
 import { project } from './engine'
@@ -8,7 +8,7 @@ import type { ProjectionPoint, ProjectionRule, ProjectionState, Scenario } from 
 
 // A real portfolio's scenarios, rules and projections are the API's: it does the maths, and the page shows its answer
 // as it is. The demo portfolios stay in memory, projected by the mock engine (engine.ts).
-// TODO: the API has no scenario colour (kept in `description`, see toScenario) or "intro seen" (kept in localStorage).
+// TODO: "intro seen" is kept in localStorage; the API keeps it in the user's settings now.
 const later = mockDelay(400)
 
 const store = new Map<string, ProjectionState>()
@@ -83,7 +83,7 @@ interface ApiScenario {
   id: string
   portfolio_id: string
   name: string
-  description: string
+  color: string
   rules?: ApiRule[] | null
 }
 
@@ -152,39 +152,21 @@ function toRule(r: ApiRule): ProjectionRule | null {
   return { id: r.id, scenario_id: r.scenario_id, template, values, enabled: r.is_active }
 }
 
-// Prefixed, so it's easy to move once scenarios get a colour field.
-const COLOR_PREFIX = 'color:'
+/** Colours for scenarios saved without one, by position. */
 const SCENARIO_COLORS = ['var(--color-primary-dark)', 'var(--color-highlight)']
-const colorDescription = (color: string) => `${COLOR_PREFIX}${color}`
 
 const toScenario = (s: ApiScenario, index: number): Scenario => ({
   id: s.id,
   portfolio_id: s.portfolio_id,
   name: s.name,
-  color: s.description.startsWith(COLOR_PREFIX)
-    ? s.description.slice(COLOR_PREFIX.length)
-    : SCENARIO_COLORS[index % SCENARIO_COLORS.length],
+  color: s.color || SCENARIO_COLORS[index % SCENARIO_COLORS.length],
 })
 
-/**
- * A rule write. TODO: backend fix. The API saves the rule, then re-runs the projection and answers 404
- * PORTFOLIO_NOT_FOUND (its re-run looks the portfolio up with no caller); the reload after each edit shows what's saved.
- */
-const ruleWrite = (call: Promise<unknown>) =>
-  call.then(
-    () => undefined,
-    (error) => {
-      if (!(error instanceof ApiError && error.code === 'PORTFOLIO_NOT_FOUND')) throw error
-    },
-  )
-
 const postRule = (portfolioId: string, scenarioId: string, template: RuleTemplateId, values: Record<string, string>) =>
-  ruleWrite(
-    api(rulesPath(portfolioId, scenarioId), {
-      method: 'POST',
-      body: { rule_type: API_RULES[template].type, config: toConfig(template, values) },
-    }),
-  )
+  api(rulesPath(portfolioId, scenarioId), {
+    method: 'POST',
+    body: { rule_type: API_RULES[template].type, config: toConfig(template, values) },
+  })
 
 /** The scenario and template of each rule last loaded: the rule routes need the scenario, and a config its template. */
 const loaded = new Map<string, Pick<ProjectionRule, 'scenario_id' | 'template'>>()
@@ -197,26 +179,6 @@ const rulePath = (portfolioId: string, ruleId: string) => `${rulesPath(portfolio
 
 const fetchScenarios = async (portfolioId: string) => (await api<ApiScenario[] | null>(scenariosPath(portfolioId))) ?? []
 
-/** Gives a portfolio without scenarios the default Scenario A (there's no Create Scenario yet). One at a time. */
-const seeding = new Map<string, Promise<void>>()
-function seedDefault(portfolioId: string) {
-  if (!seeding.has(portfolioId)) {
-    const run = async () => {
-      const { scenario, rules } = defaultScenario(portfolioId)
-      const created = await api<ApiScenario>(scenariosPath(portfolioId), {
-        method: 'POST',
-        body: { name: scenario.name, description: colorDescription(scenario.color) },
-      })
-      for (const r of rules) await postRule(portfolioId, created.id, r.template, r.values)
-    }
-    seeding.set(
-      portfolioId,
-      run().finally(() => seeding.delete(portfolioId)),
-    )
-  }
-  return seeding.get(portfolioId)!
-}
-
 const INTRO_SEEN_KEY = 'silo:projections-intro-seen'
 const introSeen = () => {
   try {
@@ -228,11 +190,8 @@ const introSeen = () => {
 
 export async function getProjections(portfolioId: string, currency: string): Promise<ProjectionState> {
   if (isDemoPortfolio(portfolioId)) return later(structuredClone(stateOf(portfolioId, currency)))
-  let list = await fetchScenarios(portfolioId)
-  if (!list.length) {
-    await seedDefault(portfolioId)
-    list = await fetchScenarios(portfolioId)
-  }
+  // The API gives every portfolio Scenario A, and the last scenario can't be deleted, so there's always one.
+  const list = await fetchScenarios(portfolioId)
   const rules = list.flatMap((s) => s.rules ?? []).flatMap((r) => toRule(r) ?? [])
   loaded.clear()
   for (const r of rules) loaded.set(r.id, r)
@@ -312,9 +271,7 @@ export async function getProjectionMilestones(portfolioId: string, scenarioId: s
 export const saves: { [K in keyof Edits]: (portfolioId: string, vars: EditVars<K>) => Promise<ProjectionState | void> } = {
   toggle: async (portfolioId, vars) => {
     if (isDemoPortfolio(portfolioId)) return applyEdit(portfolioId, edits.toggle, vars)
-    await Promise.all(
-      vars.ids.map((id) => ruleWrite(api(rulePath(portfolioId, id), { method: 'PATCH', body: { is_active: vars.enabled } }))),
-    )
+    await Promise.all(vars.ids.map((id) => api(rulePath(portfolioId, id), { method: 'PATCH', body: { is_active: vars.enabled } })))
   },
   addRule: async (portfolioId, rule) => {
     if (isDemoPortfolio(portfolioId)) return applyEdit(portfolioId, edits.addRule, rule)
@@ -323,17 +280,17 @@ export const saves: { [K in keyof Edits]: (portfolioId: string, vars: EditVars<K
   updateRule: async (portfolioId, vars) => {
     if (isDemoPortfolio(portfolioId)) return applyEdit(portfolioId, edits.updateRule, vars)
     const config = toConfig(ruleOf(vars.id).template, vars.values)
-    await ruleWrite(api(rulePath(portfolioId, vars.id), { method: 'PATCH', body: { config } }))
+    await api(rulePath(portfolioId, vars.id), { method: 'PATCH', body: { config } })
   },
   removeRule: async (portfolioId, id) => {
     if (isDemoPortfolio(portfolioId)) return applyEdit(portfolioId, edits.removeRule, id)
-    await ruleWrite(api(rulePath(portfolioId, id), { method: 'DELETE' }))
+    await api(rulePath(portfolioId, id), { method: 'DELETE' })
   },
   updateScenario: async (portfolioId, vars) => {
     if (isDemoPortfolio(portfolioId)) return applyEdit(portfolioId, edits.updateScenario, vars)
     await api(`${scenariosPath(portfolioId)}/${vars.id}`, {
       method: 'PATCH',
-      body: { name: vars.name, description: colorDescription(vars.color) },
+      body: { name: vars.name, color: vars.color },
     })
   },
   removeScenario: async (portfolioId, id) => {
