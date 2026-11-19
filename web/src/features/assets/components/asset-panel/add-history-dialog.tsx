@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogBody, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { getErrorMessage } from '@/lib/api-client'
 import { formatMoney } from '@/lib/format'
-import { canRemoveUnits } from '../../panel-api'
 import { useAddAssetHistory } from '../../panel-queries'
 import type { AssetItem } from '../../types'
 import { AddRemoveToggle, AssetAmountInput, countsUnits } from './amount-fields'
@@ -72,11 +71,7 @@ function HistoryForm({ asset, portfolioId, onDone }: { asset: AssetItem; portfol
         <DialogTitle className="font-sans">Add History</DialogTitle>
       </DialogHeader>
       <DialogBody className="flex flex-col gap-4">
-        <AddRemoveToggle
-          value={kind}
-          onChange={setKind}
-          removeDisabled={ticker && !canRemoveUnits(portfolioId, asset.id) ? 'Removing units isn’t available yet' : undefined}
-        />
+        <AddRemoveToggle value={kind} onChange={setKind} />
         <FormField label="Amount" htmlFor="history-amount" required error={fieldError}>
           <AssetAmountInput id="history-amount" asset={asset} value={text} onChange={setText} invalid={!!fieldError} />
         </FormField>

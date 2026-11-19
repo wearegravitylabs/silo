@@ -323,8 +323,8 @@ const mockDeleteDocument = (docId: string) => {
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 // The panel shows money in the portfolio's currency, owned share only, like the table; the API gives each figure that
-// way (its *_converted fields). Prices it saves are still the whole asset's, in its own currency, so a typed value is
-// converted on the way out. (Rules, notes and documents: see lib/item-api.)
+// way (its *_converted fields) and takes a typed value that way too (owned_value). (Rules, notes and documents: see
+// lib/item-api.)
 
 interface ApiLot {
   quantity: number
@@ -396,12 +396,9 @@ async function apiHistory(portfolioId: string, assetId: string): Promise<AssetHi
   )
 }
 
-/** Sets the whole asset's unit price so its owned value becomes `value` (in the portfolio's currency). */
-const setOwnedValue = (portfolioId: string, a: ApiAssetDetail, value: number) =>
-  api<ApiAsset>(base(portfolioId, a.id), {
-    method: 'PATCH',
-    body: { current_price: value / ((a.exchange_rate || 1) * (a.ownership_pct / 100) * (a.quantity || 1)) },
-  })
+/** Sets the owned share's value (in the portfolio's currency) as of `date` (YYYY-MM-DD); the API works out the price. */
+const setOwnedValue = (portfolioId: string, assetId: string, value: number, date: string) =>
+  api<ApiAsset>(base(portfolioId, assetId), { method: 'PATCH', body: { owned_value: value, price_date: date } })
 
 const toRule = (r: ApiRule): AssetRule => ({
   id: r.id,
@@ -434,9 +431,6 @@ const toDocument = ({ id, asset_id, file_name, file_size, uploaded_at }: ApiDocu
 
 // ─── Exports: the API for real assets, the mocks for the rest ─────────────────
 
-/** Whether units can be taken off a ticker asset: only mocked ones, until the API can remove units. */
-export const canRemoveUnits = (portfolioId: string, assetId: string) => isMockedAsset(portfolioId, assetId)
-
 /** Newest first, as the History tab lists them. */
 export const listAssetHistory = async (portfolioId: string, assetId: string) => {
   if (isMockedAsset(portfolioId, assetId)) return mockHistory(portfolioId, assetId)
@@ -451,8 +445,8 @@ export const getAssetStats = async (portfolioId: string, assetId: string): Promi
 }
 
 /**
- * Adds units (ticker assets, as a purchase on that date) or adds/removes an amount of money (the rest, as a new
- * price). Removing units isn't in the API yet.
+ * Adds or removes units (ticker assets: a purchase, or a sale, on that date) or adds/removes an amount of money (the
+ * rest: a new value on that date).
  */
 export const addAssetHistory = async (portfolioId: string, assetId: string, input: AddAssetHistoryInput) => {
   if (isMockedAsset(portfolioId, assetId)) return mockAddHistory(portfolioId, assetId, input)
@@ -460,9 +454,13 @@ export const addAssetHistory = async (portfolioId: string, assetId: string, inpu
   if (!heldInUnits(a)) {
     const value = toAssetItem(a).owned_value_converted
     if (input.kind === 'remove' && input.value > value) throw new Error('You can’t remove more than you hold')
-    return setOwnedValue(portfolioId, a, value + (input.kind === 'add' ? input.value : -input.value))
+    return setOwnedValue(portfolioId, assetId, value + (input.kind === 'add' ? input.value : -input.value), input.date)
   }
-  if (input.kind === 'remove') throw new Error('Removing units isn’t available yet. Add a purchase or update the price instead.')
+  if (input.kind === 'remove') {
+    // A listed stock sells at that day's market price; anything else at its current price.
+    const price = a.asset_type === 'stock_ticker' ? undefined : a.current_price
+    return api(`${base(portfolioId, assetId)}/sell`, { method: 'POST', body: { quantity: input.value, date: input.date, price } })
+  }
   // A listed stock is priced on the date by the API; otherwise (or if it can't) at today's price.
   const lot = (price?: number) => ({ quantity: input.value, acquisition_date: input.date, acquisition_price: price })
   const add = (price?: number) => api(`${base(portfolioId, assetId)}/lots`, { method: 'POST', body: lot(price) })
@@ -475,10 +473,10 @@ export const addAssetHistory = async (portfolioId: string, assetId: string, inpu
   }
 }
 
-/** Sets the value of an asset priced in money (real estate, a domain, …). The API records it as of today. */
+/** Sets the value of an asset priced in money (real estate, a domain, …) as of the date given. */
 export const updateAssetPrice = async (portfolioId: string, assetId: string, input: UpdateAssetPriceInput) => {
   if (isMockedAsset(portfolioId, assetId)) return mockUpdatePrice(portfolioId, assetId, input)
-  return setOwnedValue(portfolioId, await getDetail(portfolioId, assetId), input.value)
+  return setOwnedValue(portfolioId, assetId, input.value, input.date)
 }
 
 export const getAssetChart = async (portfolioId: string, assetId: string, period: ChartPeriod) => {

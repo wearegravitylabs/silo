@@ -25,14 +25,14 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
   // Mode outlives `open` so the dialog keeps its title while it animates closed.
   const [dialog, setDialog] = useState<{ mode: 'repayment' | 'adjust'; open: boolean }>({ mode: 'repayment', open: false })
   const { data: entries, isPending } = useDebtHistory(portfolioId, debt.id)
-  const { data: points = [] } = useDebtChart(portfolioId, debt.id, period)
-  const initial = entries?.find((e) => e.kind === 'initial')?.balance ?? debt.principal
+  const { data: chart } = useDebtChart(portfolioId, debt.id, period)
+  const opening = entries?.find((e) => e.kind === 'initial')
 
   return (
     <div className="flex flex-1 flex-col">
       <TabBody className="overflow-y-visible">
         <StatList>
-          <Stat label="Initial Balance">{formatMoney(initial, debt.currency)}</Stat>
+          <Stat label="Initial Balance">{formatMoney(opening?.balance ?? debt.principal, opening?.currency ?? debt.currency)}</Stat>
           <Stat label="Current Value">{formatMoney(debt.owned_balance, debt.currency)}</Stat>
           {debt.interest_rate > 0 && (
             <Stat label="Interest Rate" className="text-destructive">
@@ -42,8 +42,8 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
         </StatList>
 
         <LineChart
-          points={points}
-          currency={debt.currency}
+          points={chart?.points ?? []}
+          currency={chart?.currency ?? debt.currency}
           tone="danger"
           fill="area"
           guides="x"
@@ -58,7 +58,7 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
           {isPending ? (
             <TabListSkeleton rows={1} className="h-20" />
           ) : (
-            entries?.map((entry) => <HistoryCard key={entry.id} entry={entry} currency={debt.currency} />)
+            entries?.map((entry) => <HistoryCard key={entry.id} entry={entry} currency={entry.currency ?? debt.currency} />)
           )}
         </div>
       </TabBody>
@@ -88,9 +88,10 @@ export function HistoryTab({ debt, portfolioId }: { debt: Debt; portfolioId: str
 /** "$ 500" for whole amounts, "$ 10,500.25" otherwise. */
 const money = (value: number, currency: string) => formatMoney(value, currency, { decimals: Number.isInteger(value) ? 0 : 2 })
 
-/** One balance change: what happened and the new balance; how much it moved and the balance before. */
+/** One balance change: what happened and the new balance; how much it moved (the API's move) and the balance before. */
 function HistoryCard({ entry, currency }: { entry: DebtHistoryEntry; currency: string }) {
-  const delta = entry.previous === null ? null : entry.balance - entry.previous
+  // The demo's mock entries carry no move, so it's taken from the two balances there.
+  const delta = entry.change !== undefined ? entry.change : entry.previous === null ? null : entry.balance - entry.previous
 
   return (
     <EntryCard label={formatDay(entry.date)}>

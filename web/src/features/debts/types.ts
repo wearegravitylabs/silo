@@ -71,6 +71,10 @@ export interface DebtHistoryEntry {
   balance: number
   /** Balance before it; null for the initial entry */
   previous: number | null
+  /** The move from `previous`, as the API works it out (the mock's entries leave it out) */
+  change?: number | null
+  /** What the balances are in, when not the debt's own currency (the API's history is in the portfolio's) */
+  currency?: string
   created_at: string
 }
 

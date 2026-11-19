@@ -30,8 +30,7 @@ import type {
 } from './types'
 
 // Real portfolios use the API; the demo portfolios (see lib/demo) stay in memory, starting with the design's debts.
-// TODO: the API's debts lack change_pct_1m, needs_attention and an icon (null/false here: the type's icon shows), and
-// there's no debts overview, so a real portfolio's total shows as a dash.
+// TODO: the API's debts lack needs_attention (false here), and their icon isn't used yet (the type's icon shows).
 const later = mockDelay(600)
 
 const store = new Map<string, Debt[]>()
@@ -46,6 +45,7 @@ const added = new Map<string, number>()
 
 type ApiDebt = Omit<Debt, 'folder_id' | 'change_pct_1m' | 'needs_attention' | 'icon' | 'start_date' | 'payoff_date'> & {
   folder_id?: string | null
+  change_pct_1m?: number | null
   start_date?: string | null
   payoff_date?: string | null
 }
@@ -56,7 +56,7 @@ const toDebt = (d: ApiDebt): Debt => ({
   frequency: d.frequency ?? '',
   start_date: d.start_date ?? null,
   payoff_date: d.payoff_date ?? null,
-  change_pct_1m: null,
+  change_pct_1m: d.change_pct_1m ?? null,
   needs_attention: false,
   icon: null,
 })
@@ -65,12 +65,15 @@ const debtsPath = (portfolioId: string) => `/portfolios/${portfolioId}/debts`
 
 // ─── Debts page ───────────────────────────────────────────────────────────────
 
-/**
- * The portfolio's debt total (owned share) in its base currency, and the 1M change. A real portfolio has neither yet:
- * the API has no debts overview, and totals aren't worked out here. TODO: backend.
- */
+/** The portfolio's debt total (owned share) in its base currency, and its change over the last month. */
 export const getDebtsOverview = async (portfolioId: string, currency: string): Promise<DebtsOverview> => {
-  if (!isDemoPortfolio(portfolioId)) return { currency, total: null, change: null }
+  if (!isDemoPortfolio(portfolioId)) {
+    const o = await api<{ currency: string; total: number; change_amount_1m: number | null; change_pct_1m: number | null }>(
+      `${debtsPath(portfolioId)}/overview`,
+    )
+    const change = o.change_amount_1m != null && o.change_pct_1m != null ? { amount: o.change_amount_1m, pct: o.change_pct_1m } : null
+    return { currency: o.currency, total: o.total, change }
+  }
   const extra = added.get(portfolioId) ?? 0
   if (portfolioId === 'demo') return later({ ...MOCK_OVERVIEW, total: MOCK_OVERVIEW.total + extra })
   // A new portfolio's debt all arrived this month: the change is the whole total (+100%).
@@ -258,17 +261,54 @@ const mockDeleteDocument = (docId: string) => {
 }
 
 // ─── Detail panel: API ────────────────────────────────────────────────────────
-// The panel shows the debt's own currency, owned share, like the table; the API keeps the whole debt's balance.
-// TODO: the API has no balance history, so the History tab and chart stay empty. A repayment or adjustment just sets
-// the balance, as of now (the date is dropped).
+// The panel shows the debt's own currency, owned share, like the table; its balance history is the API's, in the
+// portfolio's currency. A typed balance is the owned share in the debt's currency, so it's saved as the whole balance.
 
 const debtPath = (portfolioId: string, debtId: string) => `${debtsPath(portfolioId)}/${debtId}`
 const getDebt = async (portfolioId: string, debtId: string) => toDebt(await api<ApiDebt>(debtPath(portfolioId, debtId)))
 const ownedShare = (d: Debt) => d.ownership_pct / 100
 
-/** Sets the whole debt's balance so the owned share comes to `owned`. */
-const setOwnedBalance = (portfolioId: string, d: Debt, owned: number) =>
-  api(debtPath(portfolioId, d.id), { method: 'PATCH', body: { balance: owned / (ownedShare(d) || 1) } })
+/** Sets the whole debt's balance so the owned share comes to `owned`, as of `date`; `note` labels it in the history. */
+const setOwnedBalance = (portfolioId: string, d: Debt, owned: number, date: string, note: 'Repayment' | 'Adjustment') =>
+  api(debtPath(portfolioId, d.id), {
+    method: 'PATCH',
+    body: { balance: owned / (ownedShare(d) || 1), balance_date: date, balance_note: note },
+  })
+
+interface ApiBalance {
+  id: string
+  debt_id: string
+  /** create: the opening balance, written when the debt was added; manual: one the user entered */
+  source: string
+  note?: string
+  recorded_at: string
+  /** The owned share then, in `converted_currency` */
+  owned_balance_converted: number
+  converted_currency: string
+  /** The move from the entry before; null for the first */
+  change_amount: number | null
+}
+
+/** The API's balance entries since `from`, oldest first. */
+const balanceHistory = async (portfolioId: string, debtId: string, from: Date) =>
+  [
+    ...((await api<ApiBalance[] | null>(`${debtPath(portfolioId, debtId)}/balance-history`, {
+      params: { from: from.toISOString() },
+    })) ?? []),
+  ].sort((x, y) => x.recorded_at.localeCompare(y.recorded_at))
+
+/** An entry as the History tab shows it: the opening balance, a repayment (saved as one), or an adjustment. */
+const toEntry = (b: ApiBalance, i: number, all: ApiBalance[]): DebtHistoryEntry => ({
+  id: b.id,
+  debt_id: b.debt_id,
+  kind: b.source === 'create' ? 'initial' : b.note === 'Repayment' ? 'repayment' : 'adjustment',
+  date: b.recorded_at.slice(0, 10),
+  balance: b.owned_balance_converted,
+  previous: i ? all[i - 1].owned_balance_converted : null,
+  change: b.change_amount,
+  currency: b.converted_currency,
+  created_at: b.recorded_at,
+})
 
 // Auto-Pilot pays a debt down ("remove" from its balance) or adds to it.
 const toRule = (r: ApiRule): DebtRule => ({
@@ -302,23 +342,28 @@ const toDocument = ({ id, debt_id, file_name, file_size, uploaded_at }: ApiDocum
 // ─── Detail panel: exports (the API for real portfolios, the mocks for the demo) ─
 
 /** Newest first, as the History tab lists them. */
-// A real debt has no history or chart yet: the API keeps no balance history, and it isn't worked out here.
-// TODO: backend.
 export const listDebtHistory = async (portfolioId: string, debtId: string): Promise<DebtHistoryEntry[]> => {
-  if (!isDemoPortfolio(portfolioId)) return []
+  if (!isDemoPortfolio(portfolioId)) return (await balanceHistory(portfolioId, debtId, new Date(0))).map(toEntry).reverse()
   return later([...mockEntries(debtId)].reverse())
 }
 
+/** The balance over the period (the API's entries in it, in the portfolio's currency; the mock's in the debt's). */
 export const getDebtChart = async (portfolioId: string, debtId: string, period: ChartPeriod) => {
-  if (!isDemoPortfolio(portfolioId)) return []
-  return later(chartOf(mockEntries(debtId), period))
+  if (!isDemoPortfolio(portfolioId)) {
+    const entries = await balanceHistory(portfolioId, debtId, new Date(Date.now() - periodDays(period) * 86_400_000))
+    return {
+      currency: entries[0]?.converted_currency ?? null,
+      points: entries.map((b) => ({ date: b.recorded_at, value: b.owned_balance_converted })),
+    }
+  }
+  return later({ currency: null, points: chartOf(mockEntries(debtId), period) })
 }
 
 /** A repayment lowers the balance by `amount` (not below zero). */
 export const addDebtRepayment = async (portfolioId: string, debtId: string, { amount, date }: { amount: number; date: string }) => {
   if (!isDemoPortfolio(portfolioId)) {
     const d = await getDebt(portfolioId, debtId)
-    await setOwnedBalance(portfolioId, d, Math.max(0, d.owned_balance - amount))
+    await setOwnedBalance(portfolioId, d, Math.max(0, d.owned_balance - amount), date, 'Repayment')
     return null
   }
   return mockRecordBalance(debtId, 'repayment', Math.max(0, (findDebt(debtId)?.owned_balance ?? 0) - amount), date)
@@ -327,7 +372,7 @@ export const addDebtRepayment = async (portfolioId: string, debtId: string, { am
 /** Sets the balance to `amount`. */
 export const adjustDebtBalance = async (portfolioId: string, debtId: string, { amount, date }: { amount: number; date: string }) => {
   if (!isDemoPortfolio(portfolioId)) {
-    await setOwnedBalance(portfolioId, await getDebt(portfolioId, debtId), amount)
+    await setOwnedBalance(portfolioId, await getDebt(portfolioId, debtId), amount, date, 'Adjustment')
     return null
   }
   return mockRecordBalance(debtId, 'adjustment', amount, date)
