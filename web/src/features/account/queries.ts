@@ -8,6 +8,7 @@ import {
   getViewerInviteAccess,
   onboard,
   removeAvatar,
+  requestDeletionCode,
   requestEmailChange,
   updateNotificationChannels,
   updateProfile,
@@ -41,6 +42,7 @@ export const useRemoveAvatar = () => useUserMutation(removeAvatar)
 
 export const useCheckEmail = () => useMutation({ mutationFn: checkEmail })
 export const useRequestEmailChange = () => useMutation({ mutationFn: requestEmailChange })
+export const useRequestDeletionCode = () => useMutation({ mutationFn: requestDeletionCode })
 
 /** Deletes the account and signs out, dropping every cached query: nothing of it should outlive the account. */
 export const useDeleteAccount = () => useMutation({ mutationFn: deleteAccount, onSuccess: signOut })

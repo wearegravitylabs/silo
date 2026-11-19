@@ -53,19 +53,23 @@ export const updatePortfolio = async (id: string, data: UpdatePortfolioInput): P
   return { ...portfolio }
 }
 
-// Delete and leave are mocked, so they only work on the demo portfolios; a real one fails with the usual error toast.
+// Leave is mocked, so it only works on the demo portfolios; a real one fails with the usual error toast.
 const removeMockPortfolio = (id: string) => {
   DEMO_PORTFOLIOS.splice(DEMO_PORTFOLIOS.indexOf(findPortfolio(id)), 1)
 }
 
 /** Emails the owner the code that confirms deleting a portfolio. */
-// TODO: mocked until the backend has deletion codes. Real call: api(`/portfolios/${id}/deletion-code`, { method: 'POST' })
-export const requestPortfolioDeletionCode = async (_id: string) => {
-  await delay(400)
+export const requestPortfolioDeletionCode = async (id: string) => {
+  if (isDemoPortfolio(id)) return delay(400)
+  await api('/users/me/confirmation-code', { method: 'POST', body: { purpose: 'delete_portfolio', portfolio_id: id } })
 }
 
-// TODO: mocked. Real call: api(`/portfolios/${id}`, { method: 'DELETE', body: { code } })
-export const deletePortfolio = async ({ id }: { id: string; code: string }) => {
+/** Deletes the portfolio; `code` is the one emailed by requestPortfolioDeletionCode. */
+export const deletePortfolio = async ({ id, code }: { id: string; code: string }) => {
+  if (!isDemoPortfolio(id)) {
+    await api(`/portfolios/${id}`, { method: 'DELETE', body: { code } })
+    return
+  }
   await delay(800)
   removeMockPortfolio(id)
 }

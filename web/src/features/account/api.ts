@@ -48,8 +48,11 @@ export const requestEmailChange = async (_email: string): Promise<void> => {
   await delay()
 }
 
-// TODO: the design confirms with a code emailed to the user; the API has no code step yet, so it deletes straight away.
-export const deleteAccount = () => api('/users/me', { method: 'DELETE' })
+/** Emails a one-time code that confirms account deletion. */
+export const requestDeletionCode = () => api('/users/me/confirmation-code', { method: 'POST', body: { purpose: 'delete_account' } })
+
+/** Deletes the account; `code` is the one emailed by requestDeletionCode. */
+export const deleteAccount = (code: string) => api('/users/me', { method: 'DELETE', body: { code } })
 
 const MOCK_CHANNELS: NotificationChannels = { email: true, in_app: true }
 
