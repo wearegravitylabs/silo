@@ -1,7 +1,6 @@
 // Shared by the assets and debts features (which can't import each other): Auto-Pilot rules, notes and documents
 // work the same way on an asset and on a debt.
-// TODO: the API can't edit a rule (callers remake it) or list one target's rules (filtered here), and keeps note tags
-// as an object ({ list: [...] }).
+// TODO: the API can't edit a rule (callers remake it) or list one target's rules (filtered here).
 import { api } from './api-client'
 import type { Frequency } from './schedule'
 
@@ -59,18 +58,14 @@ export interface ApiNote {
   id: string
   title: string
   content: string
-  tags?: { list?: string[] } | null
+  tags?: string[] | null
   created_at: string
 }
 
-export const noteTags = (n: ApiNote) => (Array.isArray(n.tags?.list) ? n.tags.list : [])
+export const noteTags = (n: ApiNote) => n.tags ?? []
 
 /** A note as the API takes it. */
-export const noteBody = ({ title, content, tags }: { title: string; content: string; tags: string[] }) => ({
-  title,
-  content,
-  tags: { list: tags },
-})
+export const noteBody = ({ title, content, tags }: { title: string; content: string; tags: string[] }) => ({ title, content, tags })
 
 export interface ApiDocument {
   id: string
